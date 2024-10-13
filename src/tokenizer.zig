@@ -1,4 +1,6 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
 
 pub const Token = struct {
     tag: Tag,
@@ -27,19 +29,19 @@ pub const Token = struct {
 
     pub fn toString(self: *const Token) []const u8 {
         return switch (self.tag) {
-            .identifier => "identifier",
-            .at_identifier => "at_identifier",
-            .string_literal => "string_literal",
-            .integer_literal => "integer_literal",
-            .float_literal => "float_literal",
-            .l_parenthesis => "l_parenthesis",
-            .r_parenthesis => "r_parenthesis",
-            .l_brace => "l_brace",
-            .r_brace => "r_brace",
-            .l_bracket => "l_bracket",
-            .r_bracket => "r_bracket",
-            .colon => "colon",
-            .eof => "eof",
+            Tag.identifier => "identifier",
+            Tag.at_identifier => "@ identifier",
+            Tag.string_literal => "string literal",
+            Tag.integer_literal => "integer literal",
+            Tag.float_literal => "float literal",
+            Tag.l_parenthesis => "left parenthesis",
+            Tag.r_parenthesis => "right parenthesis",
+            Tag.l_brace => "left brace",
+            Tag.r_brace => "right brace",
+            Tag.l_bracket => "left bracket",
+            Tag.r_bracket => "right bracket",
+            Tag.colon => "colon",
+            Tag.eof => "<eof>",
         };
     }
 };
@@ -49,18 +51,20 @@ pub const Tokenizer = struct {
     index: usize,
 
     const State = enum {
-        start,
-        identifier,
-        at_identifier,
-        string_literal,
-        number_literal,
+        starting,
+        reading_identifier,
+        reading_at_identifier,
+        reading_string_literal,
+        reading_number_literal,
     };
 
-    pub fn init(buffer: [:0]const u8) Tokenizer {
-        // Skip the UTF-8 BOM if present.
-        return .{
+    pub fn init(
+        buffer: [:0]const u8,
+    ) Tokenizer {
+        return Tokenizer{
             .buffer = buffer,
-            .index = 0,
+            // Skip the UTF-8 BOM if present
+            .index = if (std.mem.startsWith(u8, buffer, "\xEF\xBB\xBF")) 3 else 0,
         };
     }
 
@@ -73,28 +77,28 @@ pub const Tokenizer = struct {
             },
         };
 
-        state: switch (State.start) {
-            .start => {
+        state: switch (State.starting) {
+            State.starting => {
                 switch (self.buffer[self.index]) {
                     'a'...'z', 'A'...'Z' => {
                         token.loc.start = self.index;
                         self.index += 1;
-                        continue :state .identifier;
+                        continue :state State.reading_identifier;
                     },
                     '@' => {
                         token.loc.start = self.index;
                         self.index += 1;
-                        continue :state .at_identifier;
+                        continue :state State.reading_at_identifier;
                     },
                     '"' => {
                         token.loc.start = self.index;
                         self.index += 1;
-                        continue :state .string_literal;
+                        continue :state State.reading_string_literal;
                     },
                     '0'...'9' => {
                         token.loc.start = self.index;
                         self.index += 1;
-                        continue :state .number_literal;
+                        continue :state State.reading_number_literal;
                     },
                     0 => {
                         token.loc.start = self.index;
@@ -104,7 +108,7 @@ pub const Tokenizer = struct {
                     },
                     ' ', '\t', '\n', '\r' => {
                         self.index += 1;
-                        continue :state .start;
+                        continue :state State.starting;
                     },
                     '(', ')', '{', '}', '[', ']', ':' => |rune| {
                         token.loc.start = self.index;
@@ -128,7 +132,7 @@ pub const Tokenizer = struct {
                     },
                 }
             },
-            .identifier, .at_identifier => |id| {
+            State.reading_identifier, State.reading_at_identifier => |id| {
                 while (self.buffer[self.index] >= 'a' and self.buffer[self.index] <= 'z' or
                     self.buffer[self.index] >= 'A' and self.buffer[self.index] <= 'Z' or
                     self.buffer[self.index] >= '0' and self.buffer[self.index] <= '9' or
@@ -137,14 +141,14 @@ pub const Tokenizer = struct {
                     self.index += 1;
                 }
                 token.tag = switch (id) {
-                    .identifier => Token.Tag.identifier,
-                    .at_identifier => Token.Tag.at_identifier,
+                    State.reading_identifier => Token.Tag.identifier,
+                    State.reading_at_identifier => Token.Tag.at_identifier,
                     else => unreachable,
                 };
                 token.loc.end = self.index;
                 return token;
             },
-            .string_literal => {
+            State.reading_string_literal => {
                 var isBlockString = false;
                 var isEscapingNextChar = false;
                 if (self.buffer[self.index] == '"') {
@@ -165,7 +169,7 @@ pub const Tokenizer = struct {
                 token.loc.end = self.index;
                 return token;
             },
-            .number_literal => {
+            State.reading_number_literal => {
                 var isFloat = false;
                 while (self.buffer[self.index] >= '0' and self.buffer[self.index] <= '9' or self.buffer[self.index] == '.') {
                     if (self.buffer[self.index] == '.') {
@@ -183,12 +187,24 @@ pub const Tokenizer = struct {
             },
         }
     }
+
+    pub fn getAllTokens(self: *Tokenizer, allocator: Allocator) ![]Token {
+        var tokensList = ArrayList(Token).init(allocator);
+        defer tokensList.deinit();
+
+        var currentToken = self.getNextToken();
+        while (currentToken.tag != Token.Tag.eof) : (currentToken = self.getNextToken()) {
+            try tokensList.append(currentToken);
+        }
+
+        return tokensList.toOwnedSlice();
+    }
 };
 
 test "identifier" {
     const source = "schema";
     const expected_token_tags = [_]Token.Tag{
-        .identifier,
+        Token.Tag.identifier,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -196,7 +212,7 @@ test "identifier" {
 test "at identifier" {
     const source = "@something";
     const expected_token_tags = [_]Token.Tag{
-        .at_identifier,
+        Token.Tag.at_identifier,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -204,7 +220,7 @@ test "at identifier" {
 test "string literal" {
     const source = "\"some \\\"string\\\"\"";
     const expected_token_tags = [_]Token.Tag{
-        .string_literal,
+        Token.Tag.string_literal,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -212,7 +228,7 @@ test "string literal" {
 test "left parenthesis" {
     const source = "(";
     const expected_token_tags = [_]Token.Tag{
-        .l_parenthesis,
+        Token.Tag.l_parenthesis,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -220,7 +236,7 @@ test "left parenthesis" {
 test "right parenthesis" {
     const source = ")";
     const expected_token_tags = [_]Token.Tag{
-        .r_parenthesis,
+        Token.Tag.r_parenthesis,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -228,7 +244,7 @@ test "right parenthesis" {
 test "left brace" {
     const source = "{";
     const expected_token_tags = [_]Token.Tag{
-        .l_brace,
+        Token.Tag.l_brace,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -236,7 +252,7 @@ test "left brace" {
 test "right brace" {
     const source = "}";
     const expected_token_tags = [_]Token.Tag{
-        .r_brace,
+        Token.Tag.r_brace,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -244,7 +260,7 @@ test "right brace" {
 test "left bracket" {
     const source = "[";
     const expected_token_tags = [_]Token.Tag{
-        .l_bracket,
+        Token.Tag.l_bracket,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -252,7 +268,7 @@ test "left bracket" {
 test "right bracket" {
     const source = "]";
     const expected_token_tags = [_]Token.Tag{
-        .r_bracket,
+        Token.Tag.r_bracket,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -260,7 +276,7 @@ test "right bracket" {
 test "integer" {
     const source = "12";
     const expected_token_tags = [_]Token.Tag{
-        .integer_literal,
+        Token.Tag.integer_literal,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -268,7 +284,7 @@ test "integer" {
 test "float" {
     const source = "12.34";
     const expected_token_tags = [_]Token.Tag{
-        .float_literal,
+        Token.Tag.float_literal,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -276,29 +292,52 @@ test "float" {
 test "kitchen sink tokens" {
     const source = " [oui] {\"some \\\"string\\\"\" (12 12.543) }";
     const expected_token_tags = [_]Token.Tag{
-        .l_bracket,
-        .identifier,
-        .r_bracket,
-        .l_brace,
-        .string_literal,
-        .l_parenthesis,
-        .integer_literal,
-        .float_literal,
-        .r_parenthesis,
-        .r_brace,
+        Token.Tag.l_bracket,
+        Token.Tag.identifier,
+        Token.Tag.r_bracket,
+        Token.Tag.l_brace,
+        Token.Tag.string_literal,
+        Token.Tag.l_parenthesis,
+        Token.Tag.integer_literal,
+        Token.Tag.float_literal,
+        Token.Tag.r_parenthesis,
+        Token.Tag.r_brace,
     };
     try testTokenize(source, &expected_token_tags);
 }
 
+test "get all tokens" {
+    const content = "schema { query(search:\"param\" quantity:12): Query }";
+    var tokenizer = Tokenizer.init(content);
+    const tokens = try tokenizer.getAllTokens(std.testing.allocator);
+    defer std.testing.allocator.free(tokens);
+
+    try std.testing.expectEqual(14, tokens.len);
+    printTokens(tokens, content);
+}
+
 fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !void {
-    var tokenizer = Tokenizer.init(source);
+    var tokenizer = Tokenizer.init(
+        source,
+    );
+    std.debug.print("Tokens: ", .{});
     for (expected_token_tags) |expected_token_tag| {
         const token = tokenizer.getNextToken();
         try std.testing.expectEqual(expected_token_tag, token.tag);
-        std.debug.print("Token: {s} \n", .{source[token.loc.start..token.loc.end]});
+        std.debug.print("{s} ", .{source[token.loc.start..token.loc.end]});
     }
+    std.debug.print("\n", .{});
     const last_token = tokenizer.getNextToken();
     try std.testing.expectEqual(Token.Tag.eof, last_token.tag);
     try std.testing.expectEqual(source.len, last_token.loc.start);
     try std.testing.expectEqual(source.len, last_token.loc.end);
+}
+
+pub fn printTokens(tokens: []Token, content: [:0]const u8) void {
+    for (tokens) |t| {
+        std.debug.print("Token: {s} \t ({s})\n", .{
+            t.toString(),
+            content[t.loc.start..t.loc.end],
+        });
+    }
 }
