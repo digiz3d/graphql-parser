@@ -135,4 +135,5 @@ test "initialize root node properly" {
 
     const rootNode = try parser.parse(content);
     std.debug.print("rootNode: {}\n", .{rootNode});
+    try testing.expect(ASTNodeType.Document == rootNode.nodeType);
 }
