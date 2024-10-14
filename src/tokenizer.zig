@@ -5,6 +5,7 @@ const Allocator = std.mem.Allocator;
 pub const Token = struct {
     tag: Tag,
     loc: Location,
+    buffer: [:0]const u8,
 
     pub const Tag = enum {
         identifier,
@@ -19,6 +20,7 @@ pub const Token = struct {
         l_bracket,
         r_bracket,
         colon,
+        exclamation_mark,
         comment,
         eof,
     };
@@ -42,15 +44,22 @@ pub const Token = struct {
             Tag.l_bracket => "left bracket",
             Tag.r_bracket => "right bracket",
             Tag.colon => "colon",
+            Tag.exclamation_mark => "exclamation mark",
             Tag.comment => "comment",
             Tag.eof => "<eof>",
         };
     }
+
+    pub fn getValue(self: *const Token) []const u8 {
+        return self.buffer[self.loc.start..self.loc.end];
+    }
 };
 
 pub const Tokenizer = struct {
+    allocator: Allocator,
     buffer: [:0]const u8,
     index: usize,
+    tokensList: ArrayList(Token),
 
     const State = enum {
         starting,
@@ -62,17 +71,25 @@ pub const Tokenizer = struct {
     };
 
     pub fn init(
+        allocator: Allocator,
         buffer: [:0]const u8,
     ) Tokenizer {
         return Tokenizer{
+            .allocator = allocator,
             .buffer = buffer,
             // Skip the UTF-8 BOM if present
             .index = if (std.mem.startsWith(u8, buffer, "\xEF\xBB\xBF")) 3 else 0,
+            .tokensList = ArrayList(Token).init(std.heap.page_allocator),
         };
+    }
+
+    pub fn deinit(self: *Tokenizer) void {
+        self.tokensList.deinit();
     }
 
     pub fn getNextToken(self: *Tokenizer) Token {
         var token = Token{
+            .buffer = self.buffer,
             .tag = undefined,
             .loc = .{
                 .start = self.index,
@@ -118,7 +135,7 @@ pub const Tokenizer = struct {
                         self.index += 1;
                         continue :state State.starting;
                     },
-                    '(', ')', '{', '}', '[', ']', ':' => |rune| {
+                    '(', ')', '{', '}', '[', ']', ':', '!' => |rune| {
                         token.loc.start = self.index;
                         token.tag = switch (rune) {
                             '(' => Token.Tag.l_parenthesis,
@@ -128,6 +145,7 @@ pub const Tokenizer = struct {
                             '[' => Token.Tag.l_bracket,
                             ']' => Token.Tag.r_bracket,
                             ':' => Token.Tag.colon,
+                            '!' => Token.Tag.exclamation_mark,
                             else => unreachable,
                         };
                         self.index += 1;
@@ -205,16 +223,13 @@ pub const Tokenizer = struct {
         }
     }
 
-    pub fn getAllTokens(self: *Tokenizer, allocator: Allocator) ![]Token {
-        var tokensList = ArrayList(Token).init(allocator);
-        defer tokensList.deinit();
-
+    pub fn getAllTokens(self: *Tokenizer) ![]Token {
         var currentToken = self.getNextToken();
         while (currentToken.tag != Token.Tag.eof) : (currentToken = self.getNextToken()) {
-            try tokensList.append(currentToken);
+            try self.tokensList.append(currentToken);
         }
 
-        return tokensList.toOwnedSlice();
+        return self.tokensList.toOwnedSlice();
     }
 };
 
@@ -334,35 +349,36 @@ test "float" {
     try testTokenize(source, &expected_token_tags);
 }
 
-// test "kitchen sink tokens" {
-//     const source = " [oui] {\"some \\\"string\\\"\" (12 12.543) }";
-//     const expected_token_tags = [_]Token.Tag{
-//         Token.Tag.l_bracket,
-//         Token.Tag.identifier,
-//         Token.Tag.r_bracket,
-//         Token.Tag.l_brace,
-//         Token.Tag.string_literal,
-//         Token.Tag.l_parenthesis,
-//         Token.Tag.integer_literal,
-//         Token.Tag.float_literal,
-//         Token.Tag.r_parenthesis,
-//         Token.Tag.r_brace,
-//     };
-//     try testTokenize(source, &expected_token_tags);
-// }
+test "kitchen sink tokens" {
+    const source = " [oui] {\"some \\\"string\\\"\" (12 12.543) }";
+    const expected_token_tags = [_]Token.Tag{
+        Token.Tag.l_bracket,
+        Token.Tag.identifier,
+        Token.Tag.r_bracket,
+        Token.Tag.l_brace,
+        Token.Tag.string_literal,
+        Token.Tag.l_parenthesis,
+        Token.Tag.integer_literal,
+        Token.Tag.float_literal,
+        Token.Tag.r_parenthesis,
+        Token.Tag.r_brace,
+    };
+    try testTokenize(source, &expected_token_tags);
+}
 
-// test "get all tokens" {
-//     const content = "schema { query(search:\"param\" quantity:12): Query }";
-//     var tokenizer = Tokenizer.init(content);
-//     const tokens = try tokenizer.getAllTokens(std.testing.allocator);
-//     defer std.testing.allocator.free(tokens);
+test "get all tokens" {
+    const content = "schema { query(search:\"param\" quantity:12): Query }";
+    var tokenizer = Tokenizer.init(std.testing.allocator, content);
+    defer tokenizer.deinit();
+    const tokens = try tokenizer.getAllTokens();
 
-//     try std.testing.expectEqual(14, tokens.len);
-//     // printTokens(tokens, content);
-// }
+    try std.testing.expectEqual(14, tokens.len);
+    // printTokens(tokens, content);
+}
 
 fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !void {
     var tokenizer = Tokenizer.init(
+        std.testing.allocator,
         source,
     );
     // std.debug.print("Tokens: ", .{});
