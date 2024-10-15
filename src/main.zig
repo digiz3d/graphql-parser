@@ -26,7 +26,7 @@ fn getFileContentWithSentinel(filePath: []const u8, allocator: Allocator) ![:0]c
     defer allocator.free(rawContent);
 
     const content: [:0]u8 = try allocator.allocSentinel(u8, rawContent.len, 0);
-    std.mem.copyForwards(u8, content, rawContent);
+    @memcpy(content, rawContent);
 
     return content;
 }
