@@ -19,14 +19,18 @@ pub const ASTNode = struct {
     token: ?*Token,
     nodeType: ASTNodeType,
     children: ArrayList(ASTNode),
-    parent: ?*ASTNode = null,
 
-    pub fn init(allocator: Allocator, nodeType: ASTNodeType, parent: ?*ASTNode) ASTNode {
+    // optional props
+    parent: ?*ASTNode = null,
+    name: ?[]const u8 = null,
+
+    pub fn init(allocator: Allocator, nodeType: ASTNodeType, parent: ?*ASTNode, name: ?[]const u8) ASTNode {
         return ASTNode{
             .token = null,
             .nodeType = nodeType,
             .children = ArrayList(ASTNode).init(allocator),
             .parent = parent,
+            .name = name,
         };
     }
 
@@ -44,6 +48,7 @@ const ParseError = error{
     EmptyTokenList,
     NotImplemented,
     InvalidOperationType,
+    UnExpectedIdientifierToken,
 };
 
 pub const Parser = struct {
@@ -66,9 +71,9 @@ pub const Parser = struct {
         self.rootNode.deinit();
     }
 
-    pub fn parse(self: *Parser, buffer: [:0]const u8) !ASTNode {
+    pub fn parse(self: *Parser, buffer: [:0]const u8) ParseError!ASTNode {
         var tokenizer = Tokenizer.init(self.allocator, buffer);
-        const tokens = try tokenizer.getAllTokens();
+        const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
 
         // TODO: make sense of the tokens
         // printTokens(tokens, buffer);
@@ -79,6 +84,7 @@ pub const Parser = struct {
         self.rootNode = ASTNode.init(
             self.allocator,
             ASTNodeType.Document,
+            null,
             null,
         );
         self.currentNode = &self.rootNode;
@@ -94,11 +100,11 @@ pub const Parser = struct {
                         const str = token.getValue();
 
                         if (std.mem.eql(u8, str, "query")) {
-                            //
+                            // TODO: implement
                         } else if (std.mem.eql(u8, str, "mutation")) {
-                            //
+                            // TODO: implement
                         } else if (std.mem.eql(u8, str, "subscription")) {
-                            //
+                            // TODO: implement
                         } else if (std.mem.eql(u8, str, "fragment")) {
                             continue :state State.reading_fragment_definition;
                         } else {
@@ -109,23 +115,46 @@ pub const Parser = struct {
                 }
             },
             State.reading_fragment_definition => {
-                const newNode = ASTNode.init(self.allocator, ASTNodeType.FragmentDefinition, self.currentNode);
                 if (self.currentNode != &self.rootNode) {
                     return ParseError.WrongParentNode;
                 }
+
+                const fragmentNameToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                const fragmentName = fragmentNameToken.getValue();
+                if (fragmentNameToken.tag != Token.Tag.identifier or std.mem.eql(u8, fragmentName, "on")) {
+                    return ParseError.UnExpectedIdientifierToken;
+                }
+
+                const onToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                if (onToken.tag != Token.Tag.identifier or !std.mem.eql(u8, onToken.getValue(), "on")) {
+                    return ParseError.UnExpectedIdientifierToken;
+                }
+
+                const typeConditionToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                if (typeConditionToken.tag != Token.Tag.identifier) {
+                    return ParseError.UnExpectedIdientifierToken;
+                }
+
+                const newNode = ASTNode.init(self.allocator, ASTNodeType.FragmentDefinition, self.currentNode, fragmentName);
                 self.currentNode.children.append(newNode) catch |err| switch (err) {
-                    error.OutOfMemory => {
-                        return ParseError.UnexpectedMemoryError;
-                    },
+                    error.OutOfMemory => return ParseError.UnexpectedMemoryError,
                 };
             },
         }
 
         return self.rootNode;
     }
+
+    fn getNextToken(self: *Parser, tokens: []Token) ?Token {
+        if (self.index + 1 < tokens.len) {
+            self.index += 1;
+            return tokens[self.index];
+        }
+        return null;
+    }
 };
 
-test "initialize root node properly" {
+test "initialize document " {
     const allocator = testing.allocator;
     var parser = Parser.init(allocator);
     defer parser.deinit();
@@ -134,6 +163,30 @@ test "initialize root node properly" {
     const content = buffer[0..];
 
     const rootNode = try parser.parse(content);
-    std.debug.print("rootNode: {}\n", .{rootNode});
+    try testing.expect(ASTNodeType.Document == rootNode.nodeType);
+}
+
+test "initialize invalid fragment" {
+    const allocator = testing.allocator;
+    var parser = Parser.init(allocator);
+    defer parser.deinit();
+
+    const buffer = "fragment { hello }";
+    const content = buffer[0..];
+
+    const rootNode = parser.parse(content);
+    try testing.expectError(ParseError.UnExpectedIdientifierToken, rootNode);
+}
+
+test "initialize fragment in document 1" {
+    const allocator = testing.allocator;
+    var parser = Parser.init(allocator);
+    defer parser.deinit();
+
+    const buffer = "fragment Oki on User { hello }";
+    const content = buffer[0..];
+
+    const rootNode = try parser.parse(content);
+    try testing.expect(std.mem.eql(u8, rootNode.children.items[0].name.?, "Oki"));
     try testing.expect(ASTNodeType.Document == rootNode.nodeType);
 }
