@@ -393,7 +393,7 @@ test "get all tokens" {
     defer tokenizer.deinit();
     const tokens = try tokenizer.getAllTokens();
     defer std.testing.allocator.free(tokens);
-    // try std.testing.expectEqual(16, tokens.len);
+    try std.testing.expectEqual(22, tokens.len);
     printTokens(tokens, content);
 }
 
