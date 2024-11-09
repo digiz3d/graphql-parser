@@ -74,7 +74,7 @@ pub const Parser = struct {
     pub fn parse(self: *Parser, buffer: [:0]const u8) ParseError!ASTNode {
         var tokenizer = Tokenizer.init(self.allocator, buffer);
         const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
-
+        defer std.testing.allocator.free(tokens);
         // TODO: make sense of the tokens
         // printTokens(tokens, buffer);
         return try self.processTokens(tokens);

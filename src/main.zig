@@ -10,14 +10,14 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const content = try getFileContentWithSentinel(filePath, allocator);
+    const content = try getFileContent(filePath, allocator);
     defer allocator.free(content);
 
     var parser = Parser.init(allocator);
-    try parser.parse(content);
+    _ = try parser.parse(content);
 }
 
-fn getFileContentWithSentinel(filePath: []const u8, allocator: Allocator) ![:0]const u8 {
+fn getFileContent(filePath: []const u8, allocator: Allocator) ![:0]const u8 {
     var file = try std.fs.cwd().openFile(filePath, .{});
     defer file.close();
 
