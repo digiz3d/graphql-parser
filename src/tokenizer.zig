@@ -394,7 +394,7 @@ test "get all tokens" {
     const tokens = try tokenizer.getAllTokens();
     defer std.testing.allocator.free(tokens);
     try std.testing.expectEqual(22, tokens.len);
-    printTokens(tokens, content);
+    // printTokens(tokens, content);
 }
 
 fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !void {

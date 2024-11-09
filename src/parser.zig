@@ -48,7 +48,10 @@ const ParseError = error{
     EmptyTokenList,
     NotImplemented,
     InvalidOperationType,
-    UnExpectedIdientifierToken,
+    UnExpectedIdentifierToken,
+    ExpectedName,
+    ExpectedNameNotOn,
+    ExpectedOn,
 };
 
 pub const Parser = struct {
@@ -121,18 +124,21 @@ pub const Parser = struct {
 
                 const fragmentNameToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 const fragmentName = fragmentNameToken.getValue();
-                if (fragmentNameToken.tag != Token.Tag.identifier or std.mem.eql(u8, fragmentName, "on")) {
-                    return ParseError.UnExpectedIdientifierToken;
+                if (fragmentNameToken.tag != Token.Tag.identifier) {
+                    return ParseError.ExpectedName;
+                }
+                if (std.mem.eql(u8, fragmentName, "on")) {
+                    return ParseError.ExpectedNameNotOn;
                 }
 
                 const onToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 if (onToken.tag != Token.Tag.identifier or !std.mem.eql(u8, onToken.getValue(), "on")) {
-                    return ParseError.UnExpectedIdientifierToken;
+                    return ParseError.ExpectedOn;
                 }
 
                 const typeConditionToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 if (typeConditionToken.tag != Token.Tag.identifier) {
-                    return ParseError.UnExpectedIdientifierToken;
+                    return ParseError.ExpectedName;
                 }
 
                 const newNode = ASTNode.init(self.allocator, ASTNodeType.FragmentDefinition, self.currentNode, fragmentName);
@@ -160,22 +166,42 @@ test "initialize document " {
     defer parser.deinit();
 
     const buffer = "query { hello }";
-    const content = buffer[0..];
 
-    const rootNode = try parser.parse(content);
+    const rootNode = try parser.parse(buffer);
     try testing.expect(ASTNodeType.Document == rootNode.nodeType);
 }
 
-test "initialize invalid fragment" {
+test "initialize invalid fragment no name" {
     const allocator = testing.allocator;
     var parser = Parser.init(allocator);
     defer parser.deinit();
 
     const buffer = "fragment { hello }";
-    const content = buffer[0..];
 
-    const rootNode = parser.parse(content);
-    try testing.expectError(ParseError.UnExpectedIdientifierToken, rootNode);
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedName, rootNode);
+}
+
+test "initialize invalid fragment name is on" {
+    const allocator = testing.allocator;
+    var parser = Parser.init(allocator);
+    defer parser.deinit();
+
+    const buffer = "fragment on on User { hello }";
+
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
+}
+
+test "initialize invalid fragment name after on" {
+    const allocator = testing.allocator;
+    var parser = Parser.init(allocator);
+    defer parser.deinit();
+
+    const buffer = "fragment X on { hello }";
+
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedName, rootNode);
 }
 
 test "initialize fragment in document 1" {
@@ -184,9 +210,8 @@ test "initialize fragment in document 1" {
     defer parser.deinit();
 
     const buffer = "fragment Oki on User { hello }";
-    const content = buffer[0..];
 
-    const rootNode = try parser.parse(content);
+    const rootNode = try parser.parse(buffer);
     try testing.expect(std.mem.eql(u8, rootNode.children.items[0].name.?, "Oki"));
     try testing.expect(ASTNodeType.Document == rootNode.nodeType);
 }
