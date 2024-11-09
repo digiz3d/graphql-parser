@@ -5,22 +5,30 @@ const Allocator = std.mem.Allocator;
 pub const Token = struct {
     tag: Tag,
     loc: Location,
+    buffer: [:0]const u8,
 
     pub const Tag = enum {
         identifier,
-        at_identifier,
         string_literal,
         integer_literal,
         float_literal,
-        l_parenthesis,
-        r_parenthesis,
-        l_brace,
-        r_brace,
-        l_bracket,
-        r_bracket,
-        colon,
         comment,
         eof,
+
+        punct_excl,
+        punct_dollar,
+        punct_ampersand,
+        punct_paren_left,
+        punct_paren_right,
+        punct_spread,
+        punct_colon,
+        punct_equal,
+        punct_at,
+        punct_bracket_left,
+        punct_bracket_right,
+        punct_brace_left,
+        punct_pipe,
+        punct_brace_right,
     };
 
     const Location = struct {
@@ -31,48 +39,69 @@ pub const Token = struct {
     pub fn toString(self: *const Token) []const u8 {
         return switch (self.tag) {
             Tag.identifier => "identifier",
-            Tag.at_identifier => "@ identifier",
             Tag.string_literal => "string literal",
             Tag.integer_literal => "integer literal",
             Tag.float_literal => "float literal",
-            Tag.l_parenthesis => "left parenthesis",
-            Tag.r_parenthesis => "right parenthesis",
-            Tag.l_brace => "left brace",
-            Tag.r_brace => "right brace",
-            Tag.l_bracket => "left bracket",
-            Tag.r_bracket => "right bracket",
-            Tag.colon => "colon",
             Tag.comment => "comment",
             Tag.eof => "<eof>",
+
+            Tag.punct_excl => "exclamation mark",
+            Tag.punct_dollar => "dollar",
+            Tag.punct_ampersand => "ampersand",
+            Tag.punct_paren_left => "left parenthesis",
+            Tag.punct_paren_right => "right parenthesis",
+            Tag.punct_spread => "spread",
+            Tag.punct_colon => "colon",
+            Tag.punct_equal => "equal",
+            Tag.punct_at => "@",
+            Tag.punct_bracket_left => "left bracket",
+            Tag.punct_bracket_right => "right bracket",
+            Tag.punct_brace_left => "left brace",
+            Tag.punct_pipe => "pipe",
+            Tag.punct_brace_right => "right brace",
         };
     }
+
+    pub fn getValue(self: *const Token) []const u8 {
+        return self.buffer[self.loc.start..self.loc.end];
+    }
 };
+
+const TokenizerError = error{UnexpectedRuneError};
 
 pub const Tokenizer = struct {
     buffer: [:0]const u8,
     index: usize,
+    tokensList: ArrayList(Token),
 
     const State = enum {
         starting,
         reading_identifier,
-        reading_at_identifier,
         reading_comment,
         reading_string_literal,
         reading_number_literal,
+        reading_punct_spread,
     };
 
     pub fn init(
+        allocator: Allocator,
         buffer: [:0]const u8,
     ) Tokenizer {
         return Tokenizer{
             .buffer = buffer,
             // Skip the UTF-8 BOM if present
             .index = if (std.mem.startsWith(u8, buffer, "\xEF\xBB\xBF")) 3 else 0,
+            .tokensList = ArrayList(Token).init(allocator),
         };
     }
 
-    pub fn getNextToken(self: *Tokenizer) Token {
+    pub fn deinit(self: *Tokenizer) void {
+        self.tokensList.deinit();
+    }
+
+    pub fn getNextToken(self: *Tokenizer) TokenizerError!Token {
         var token = Token{
+            .buffer = self.buffer,
             .tag = undefined,
             .loc = .{
                 .start = self.index,
@@ -87,11 +116,6 @@ pub const Tokenizer = struct {
                         token.loc.start = self.index;
                         self.index += 1;
                         continue :state State.reading_identifier;
-                    },
-                    '@' => {
-                        token.loc.start = self.index;
-                        self.index += 1;
-                        continue :state State.reading_at_identifier;
                     },
                     '#' => {
                         token.loc.start = self.index;
@@ -114,20 +138,30 @@ pub const Tokenizer = struct {
                         token.loc.end = self.index;
                         return token;
                     },
-                    ' ', '\t', '\n', '\r' => {
+                    ' ', '\t', '\n', '\r', ',' => {
                         self.index += 1;
                         continue :state State.starting;
                     },
-                    '(', ')', '{', '}', '[', ']', ':' => |rune| {
+                    '!', '$', '&', '(', ')', '.', ':', '=', '@', '[', ']', '{', '|', '}' => |rune| {
                         token.loc.start = self.index;
+                        // if (rune == '.') {
+                        //     continue :state State.reading_punct_spread;
+                        // }
                         token.tag = switch (rune) {
-                            '(' => Token.Tag.l_parenthesis,
-                            ')' => Token.Tag.r_parenthesis,
-                            '{' => Token.Tag.l_brace,
-                            '}' => Token.Tag.r_brace,
-                            '[' => Token.Tag.l_bracket,
-                            ']' => Token.Tag.r_bracket,
-                            ':' => Token.Tag.colon,
+                            '!' => Token.Tag.punct_excl,
+                            '$' => Token.Tag.punct_dollar,
+                            '&' => Token.Tag.punct_ampersand,
+                            '(' => Token.Tag.punct_paren_left,
+                            ')' => Token.Tag.punct_paren_right,
+                            '.' => continue :state State.reading_punct_spread,
+                            ':' => Token.Tag.punct_colon,
+                            '=' => Token.Tag.punct_equal,
+                            '@' => Token.Tag.punct_at,
+                            '[' => Token.Tag.punct_bracket_left,
+                            ']' => Token.Tag.punct_bracket_right,
+                            '{' => Token.Tag.punct_brace_left,
+                            '|' => Token.Tag.punct_pipe,
+                            '}' => Token.Tag.punct_brace_right,
                             else => unreachable,
                         };
                         self.index += 1;
@@ -136,11 +170,22 @@ pub const Tokenizer = struct {
                     },
                     else => {
                         std.debug.print("Unexpected rune: {c}\n", .{self.buffer[self.index]});
-                        unreachable;
+                        return TokenizerError.UnexpectedRuneError;
                     },
                 }
             },
-            State.reading_identifier, State.reading_at_identifier => |id| {
+            State.reading_punct_spread => {
+                if (self.buffer[self.index] == '.' and self.buffer[self.index + 1] == '.' and self.buffer[self.index + 2] == '.') {
+                    self.index += 3;
+                    token.tag = Token.Tag.punct_spread;
+                    token.loc.end = self.index;
+                    return token;
+                } else {
+                    std.debug.print("Unexpected rune: {c}\n", .{self.buffer[self.index]});
+                    return TokenizerError.UnexpectedRuneError;
+                }
+            },
+            State.reading_identifier => {
                 while (self.buffer[self.index] >= 'a' and self.buffer[self.index] <= 'z' or
                     self.buffer[self.index] >= 'A' and self.buffer[self.index] <= 'Z' or
                     self.buffer[self.index] >= '0' and self.buffer[self.index] <= '9' or
@@ -148,11 +193,7 @@ pub const Tokenizer = struct {
                 {
                     self.index += 1;
                 }
-                token.tag = switch (id) {
-                    State.reading_identifier => Token.Tag.identifier,
-                    State.reading_at_identifier => Token.Tag.at_identifier,
-                    else => unreachable,
-                };
+                token.tag = Token.Tag.identifier;
                 token.loc.end = self.index;
                 return token;
             },
@@ -205,16 +246,13 @@ pub const Tokenizer = struct {
         }
     }
 
-    pub fn getAllTokens(self: *Tokenizer, allocator: Allocator) ![]Token {
-        var tokensList = ArrayList(Token).init(allocator);
-        defer tokensList.deinit();
-
-        var currentToken = self.getNextToken();
-        while (currentToken.tag != Token.Tag.eof) : (currentToken = self.getNextToken()) {
-            try tokensList.append(currentToken);
+    pub fn getAllTokens(self: *Tokenizer) ![]Token {
+        var currentToken = try self.getNextToken();
+        while (currentToken.tag != Token.Tag.eof) : (currentToken = try self.getNextToken()) {
+            try self.tokensList.append(currentToken);
         }
 
-        return tokensList.toOwnedSlice();
+        return self.tokensList.toOwnedSlice();
     }
 };
 
@@ -226,11 +264,9 @@ test "identifier" {
     try testTokenize(source, &expected_token_tags);
 }
 
-test "at identifier" {
+test "at and identifier" {
     const source = "@something";
-    const expected_token_tags = [_]Token.Tag{
-        Token.Tag.at_identifier,
-    };
+    const expected_token_tags = [_]Token.Tag{ Token.Tag.punct_at, Token.Tag.identifier };
     try testTokenize(source, &expected_token_tags);
 }
 
@@ -273,7 +309,7 @@ test "block string literal multiline" {
 test "left parenthesis" {
     const source = "(";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.l_parenthesis,
+        Token.Tag.punct_paren_left,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -281,7 +317,7 @@ test "left parenthesis" {
 test "right parenthesis" {
     const source = ")";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.r_parenthesis,
+        Token.Tag.punct_paren_right,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -289,7 +325,7 @@ test "right parenthesis" {
 test "left brace" {
     const source = "{";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.l_brace,
+        Token.Tag.punct_brace_left,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -297,7 +333,7 @@ test "left brace" {
 test "right brace" {
     const source = "}";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.r_brace,
+        Token.Tag.punct_brace_right,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -305,7 +341,7 @@ test "right brace" {
 test "left bracket" {
     const source = "[";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.l_bracket,
+        Token.Tag.punct_bracket_left,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -313,7 +349,7 @@ test "left bracket" {
 test "right bracket" {
     const source = "]";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.r_bracket,
+        Token.Tag.punct_bracket_right,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -334,45 +370,47 @@ test "float" {
     try testTokenize(source, &expected_token_tags);
 }
 
-// test "kitchen sink tokens" {
-//     const source = " [oui] {\"some \\\"string\\\"\" (12 12.543) }";
-//     const expected_token_tags = [_]Token.Tag{
-//         Token.Tag.l_bracket,
-//         Token.Tag.identifier,
-//         Token.Tag.r_bracket,
-//         Token.Tag.l_brace,
-//         Token.Tag.string_literal,
-//         Token.Tag.l_parenthesis,
-//         Token.Tag.integer_literal,
-//         Token.Tag.float_literal,
-//         Token.Tag.r_parenthesis,
-//         Token.Tag.r_brace,
-//     };
-//     try testTokenize(source, &expected_token_tags);
-// }
+test "kitchen sink tokens" {
+    const source = " [oui] {\"some \\\"string\\\"\" (12 12.543) }";
+    const expected_token_tags = [_]Token.Tag{
+        Token.Tag.punct_bracket_left,
+        Token.Tag.identifier,
+        Token.Tag.punct_bracket_right,
+        Token.Tag.punct_brace_left,
+        Token.Tag.string_literal,
+        Token.Tag.punct_paren_left,
+        Token.Tag.integer_literal,
+        Token.Tag.float_literal,
+        Token.Tag.punct_paren_right,
+        Token.Tag.punct_brace_right,
+    };
+    try testTokenize(source, &expected_token_tags);
+}
 
-// test "get all tokens" {
-//     const content = "schema { query(search:\"param\" quantity:12): Query }";
-//     var tokenizer = Tokenizer.init(content);
-//     const tokens = try tokenizer.getAllTokens(std.testing.allocator);
-//     defer std.testing.allocator.free(tokens);
-
-//     try std.testing.expectEqual(14, tokens.len);
-//     // printTokens(tokens, content);
-// }
+test "get all tokens" {
+    const content = "query Test { search(terms:\"param\", quantity:12) { result {id ... on Entity }}}";
+    var tokenizer = Tokenizer.init(std.testing.allocator, content);
+    defer tokenizer.deinit();
+    const tokens = try tokenizer.getAllTokens();
+    defer std.testing.allocator.free(tokens);
+    try std.testing.expectEqual(22, tokens.len);
+    // printTokens(tokens, content);
+}
 
 fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !void {
     var tokenizer = Tokenizer.init(
+        std.testing.allocator,
         source,
     );
+    defer tokenizer.deinit();
     // std.debug.print("Tokens: ", .{});
     for (expected_token_tags) |expected_token_tag| {
-        const token = tokenizer.getNextToken();
+        const token = try tokenizer.getNextToken();
         // std.debug.print("{s} ", .{source[token.loc.start..token.loc.end]});
         try std.testing.expectEqual(expected_token_tag, token.tag);
     }
     // std.debug.print("\n", .{});
-    const last_token = tokenizer.getNextToken();
+    const last_token = try tokenizer.getNextToken();
     try std.testing.expectEqual(Token.Tag.eof, last_token.tag);
     try std.testing.expectEqual(source.len, last_token.loc.start);
     try std.testing.expectEqual(source.len, last_token.loc.end);
