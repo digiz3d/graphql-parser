@@ -7,6 +7,10 @@ const Token = @import("tokenizer.zig").Token;
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const printTokens = @import("tokenizer.zig").printTokens;
 
+inline fn strEq(a: []const u8, b: []const u8) bool {
+    return std.mem.eql(u8, a, b);
+}
+
 const ASTNodeType = enum {
     Document,
     // ExecutableDefinition,
@@ -43,15 +47,16 @@ pub const ASTNode = struct {
 };
 
 const ParseError = error{
-    UnexpectedMemoryError,
-    WrongParentNode,
     EmptyTokenList,
-    NotImplemented,
-    InvalidOperationType,
-    UnExpectedIdentifierToken,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
+    InvalidOperationType,
+    MissingExpectedBrace,
+    NotImplemented,
+    UnexpectedEOF,
+    UnexpectedMemoryError,
+    WrongParentNode,
 };
 
 pub const Parser = struct {
@@ -60,10 +65,11 @@ pub const Parser = struct {
     rootNode: ASTNode = undefined,
     currentNode: *ASTNode = undefined,
 
-    const State = enum {
-        reading_root,
-        // reading_operation_definition,
-        reading_fragment_definition,
+    const Reading = enum {
+        root,
+        // operation_definition,
+        fragment_definition,
+        selection_set,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -77,7 +83,7 @@ pub const Parser = struct {
     pub fn parse(self: *Parser, buffer: [:0]const u8) ParseError!ASTNode {
         var tokenizer = Tokenizer.init(self.allocator, buffer);
         const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
-        defer std.testing.allocator.free(tokens);
+        defer self.allocator.free(tokens);
         // TODO: make sense of the tokens
         // printTokens(tokens, buffer);
         return try self.processTokens(tokens);
@@ -92,52 +98,58 @@ pub const Parser = struct {
         );
         self.currentNode = &self.rootNode;
 
-        state: switch (State.reading_root) {
-            State.reading_root => {
+        state: switch (Reading.root) {
+            Reading.root => {
                 if (tokens.len == 0) {
-                    return self.rootNode;
+                    break :state;
                 }
-                const token = tokens[self.index];
-                switch (token.tag) {
-                    Token.Tag.identifier => {
-                        const str = token.getValue();
+                const token = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                if (token.tag == Token.Tag.eof) {
+                    break :state;
+                }
+                if (token.tag != Token.Tag.identifier) {
+                    return ParseError.ExpectedName;
+                }
 
-                        if (std.mem.eql(u8, str, "query")) {
-                            // TODO: implement
-                        } else if (std.mem.eql(u8, str, "mutation")) {
-                            // TODO: implement
-                        } else if (std.mem.eql(u8, str, "subscription")) {
-                            // TODO: implement
-                        } else if (std.mem.eql(u8, str, "fragment")) {
-                            continue :state State.reading_fragment_definition;
-                        } else {
-                            return ParseError.InvalidOperationType;
-                        }
-                    },
-                    else => return ParseError.NotImplemented,
+                const str = token.getValue();
+                if (strEq(str, "query")) {
+                    // TODO: implement
+                    return ParseError.NotImplemented;
+                } else if (strEq(str, "mutation")) {
+                    // TODO: implement
+                    return ParseError.NotImplemented;
+                } else if (strEq(str, "subscription")) {
+                    // TODO: implement
+                    return ParseError.NotImplemented;
+                } else if (strEq(str, "fragment")) {
+                    continue :state Reading.fragment_definition;
                 }
+                std.debug.print("unexpected name: {s}\n", .{str});
+                return ParseError.InvalidOperationType;
             },
-            State.reading_fragment_definition => {
+            Reading.fragment_definition => {
                 if (self.currentNode != &self.rootNode) {
                     return ParseError.WrongParentNode;
                 }
 
-                const fragmentNameToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+
+                const fragmentNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 const fragmentName = fragmentNameToken.getValue();
                 if (fragmentNameToken.tag != Token.Tag.identifier) {
                     return ParseError.ExpectedName;
                 }
-                if (std.mem.eql(u8, fragmentName, "on")) {
+                if (strEq(fragmentName, "on")) {
                     return ParseError.ExpectedNameNotOn;
                 }
 
-                const onToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                if (onToken.tag != Token.Tag.identifier or !std.mem.eql(u8, onToken.getValue(), "on")) {
+                const onToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                if (onToken.tag != Token.Tag.identifier or !strEq(onToken.getValue(), "on")) {
                     return ParseError.ExpectedOn;
                 }
 
-                const typeConditionToken = self.getNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                if (typeConditionToken.tag != Token.Tag.identifier) {
+                const namedTypeToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                if (namedTypeToken.tag != Token.Tag.identifier) {
                     return ParseError.ExpectedName;
                 }
 
@@ -145,30 +157,68 @@ pub const Parser = struct {
                 self.currentNode.children.append(newNode) catch |err| switch (err) {
                     error.OutOfMemory => return ParseError.UnexpectedMemoryError,
                 };
+
+                // TODO: implement optional directives, see https://spec.graphql.org/draft/#FragmentDefinition
+                var nextToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                while (nextToken.tag == Token.Tag.punct_at) : (nextToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList) {
+                    _ = self.consumeNextToken(tokens); // at
+                    _ = self.consumeNextToken(tokens); // name
+                }
+
+                continue :state Reading.selection_set;
+            },
+            Reading.selection_set => {
+                const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
+                if (openBraceToken.tag != Token.Tag.punct_brace_left) {
+                    return ParseError.MissingExpectedBrace;
+                }
+                var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+                while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
+                    if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
+                    // TODO: implement https://spec.graphql.org/draft/#sec-Selection-Sets
+                }
             },
         }
 
         return self.rootNode;
     }
 
-    fn getNextToken(self: *Parser, tokens: []Token) ?Token {
-        if (self.index + 1 < tokens.len) {
-            self.index += 1;
-            return tokens[self.index];
+    fn peekNextToken(self: *Parser, tokens: []Token) ?Token {
+        if (self.index >= tokens.len) {
+            return null;
         }
-        return null;
+        return tokens[self.index];
+    }
+
+    fn consumeNextToken(self: *Parser, tokens: []Token) ?Token {
+        if (self.index >= tokens.len) {
+            return null;
+        }
+        defer self.index += 1;
+        return tokens[self.index];
     }
 };
 
-test "initialize document " {
+test "initialize invalid document " {
     const allocator = testing.allocator;
     var parser = Parser.init(allocator);
     defer parser.deinit();
 
-    const buffer = "query { hello }";
+    const buffer = "test { hello }";
 
-    const rootNode = try parser.parse(buffer);
-    try testing.expect(ASTNodeType.Document == rootNode.nodeType);
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.InvalidOperationType, rootNode);
+}
+
+test "initialize non implemented query " {
+    const allocator = testing.allocator;
+    var parser = Parser.init(allocator);
+    defer parser.deinit();
+
+    const buffer = "query Test { hello }";
+
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.NotImplemented, rootNode);
 }
 
 test "initialize invalid fragment no name" {
@@ -212,6 +262,6 @@ test "initialize fragment in document 1" {
     const buffer = "fragment Oki on User { hello }";
 
     const rootNode = try parser.parse(buffer);
-    try testing.expect(std.mem.eql(u8, rootNode.children.items[0].name.?, "Oki"));
+    try testing.expect(strEq(rootNode.children.items[0].name.?, "Oki"));
     try testing.expect(ASTNodeType.Document == rootNode.nodeType);
 }

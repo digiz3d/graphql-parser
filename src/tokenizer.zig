@@ -144,9 +144,6 @@ pub const Tokenizer = struct {
                     },
                     '!', '$', '&', '(', ')', '.', ':', '=', '@', '[', ']', '{', '|', '}' => |rune| {
                         token.loc.start = self.index;
-                        // if (rune == '.') {
-                        //     continue :state State.reading_punct_spread;
-                        // }
                         token.tag = switch (rune) {
                             '!' => Token.Tag.punct_excl,
                             '$' => Token.Tag.punct_dollar,
@@ -388,12 +385,12 @@ test "kitchen sink tokens" {
 }
 
 test "get all tokens" {
-    const content = "query Test { search(terms:\"param\", quantity:12) { result {id ... on Entity }}}";
+    const content = "query Test { search(terms:\"param\", quantity:12) { result {id ...someFragment }}}";
     var tokenizer = Tokenizer.init(std.testing.allocator, content);
     defer tokenizer.deinit();
     const tokens = try tokenizer.getAllTokens();
     defer std.testing.allocator.free(tokens);
-    try std.testing.expectEqual(22, tokens.len);
+    try std.testing.expectEqual(21, tokens.len);
     // printTokens(tokens, content);
 }
 
