@@ -65,11 +65,11 @@ pub const Parser = struct {
     rootNode: ASTNode = undefined,
     currentNode: *ASTNode = undefined,
 
-    const State = enum {
-        reading_root,
-        // reading_operation_definition,
-        reading_fragment_definition,
-        reading_selection_set,
+    const Reading = enum {
+        root,
+        // operation_definition,
+        fragment_definition,
+        selection_set,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -98,36 +98,36 @@ pub const Parser = struct {
         );
         self.currentNode = &self.rootNode;
 
-        state: switch (State.reading_root) {
-            State.reading_root => {
+        state: switch (Reading.root) {
+            Reading.root => {
                 if (tokens.len == 0) {
                     break :state;
                 }
                 const token = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
-
                 if (token.tag == Token.Tag.eof) {
                     break :state;
                 }
-                const str = token.getValue();
-                switch (token.tag) {
-                    Token.Tag.identifier => {
-                        if (strEq(str, "query")) {
-                            // TODO: implement
-                        } else if (strEq(str, "mutation")) {
-                            // TODO: implement
-                        } else if (strEq(str, "subscription")) {
-                            // TODO: implement
-                        } else if (strEq(str, "fragment")) {
-                            continue :state State.reading_fragment_definition;
-                        } else {
-                            std.debug.print("unexpected token: {s}\n", .{str});
-                            return ParseError.InvalidOperationType;
-                        }
-                    },
-                    else => return ParseError.NotImplemented,
+                if (token.tag != Token.Tag.identifier) {
+                    return ParseError.ExpectedName;
                 }
+
+                const str = token.getValue();
+                if (strEq(str, "query")) {
+                    // TODO: implement
+                    return ParseError.NotImplemented;
+                } else if (strEq(str, "mutation")) {
+                    // TODO: implement
+                    return ParseError.NotImplemented;
+                } else if (strEq(str, "subscription")) {
+                    // TODO: implement
+                    return ParseError.NotImplemented;
+                } else if (strEq(str, "fragment")) {
+                    continue :state Reading.fragment_definition;
+                }
+                std.debug.print("unexpected name: {s}\n", .{str});
+                return ParseError.InvalidOperationType;
             },
-            State.reading_fragment_definition => {
+            Reading.fragment_definition => {
                 if (self.currentNode != &self.rootNode) {
                     return ParseError.WrongParentNode;
                 }
@@ -165,12 +165,12 @@ pub const Parser = struct {
                     _ = self.consumeNextToken(tokens); // name
                 }
 
-                continue :state State.reading_selection_set;
+                continue :state Reading.selection_set;
             },
-            State.reading_selection_set => {
+            Reading.selection_set => {
                 const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
                 if (openBraceToken.tag != Token.Tag.punct_brace_left) {
-                    return ParseError.NotImplemented;
+                    return ParseError.MissingExpectedBrace;
                 }
                 var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
                 while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
@@ -199,15 +199,26 @@ pub const Parser = struct {
     }
 };
 
-test "initialize document " {
+test "initialize invalid document " {
     const allocator = testing.allocator;
     var parser = Parser.init(allocator);
     defer parser.deinit();
 
-    const buffer = "query { hello }";
+    const buffer = "test { hello }";
 
-    const rootNode = try parser.parse(buffer);
-    try testing.expect(ASTNodeType.Document == rootNode.nodeType);
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.InvalidOperationType, rootNode);
+}
+
+test "initialize non implemented query " {
+    const allocator = testing.allocator;
+    var parser = Parser.init(allocator);
+    defer parser.deinit();
+
+    const buffer = "query Test { hello }";
+
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.NotImplemented, rootNode);
 }
 
 test "initialize invalid fragment no name" {
