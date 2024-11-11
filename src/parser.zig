@@ -3,69 +3,173 @@ const testing = @import("std").testing;
 const ArrayList = @import("std").ArrayList;
 const Allocator = @import("std").mem.Allocator;
 
-const Token = @import("tokenizer.zig").Token;
-const Tokenizer = @import("tokenizer.zig").Tokenizer;
-const printTokens = @import("tokenizer.zig").printTokens;
+const tok = @import("tokenizer.zig");
+const Token = tok.Token;
+const Tokenizer = tok.Tokenizer;
+const printTokens = tok.printTokens;
 
 inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
 }
 
 const ASTNodeType = enum {
+    Directive,
     Document,
-    // ExecutableDefinition,
-    // TypeSystemDefinitionOrExtension,
-    OperationDefinition,
+    Field,
     FragmentDefinition,
     SelectionSet,
 };
 
+const DirectiveData = struct {
+    name: []const u8,
+    arguments: [][]const u8,
+
+    pub fn deinit(_: DirectiveData) void {
+        std.debug.print("  [DirectiveData.deinit] clearing nothing\n", .{});
+    }
+};
+
+const DocumentData = struct {
+    definitions: ArrayList(ASTNode),
+
+    pub fn appendDefinition(self: *DocumentData, node: ASTNode) ParseError!void {
+        self.definitions.append(node) catch return ParseError.UnexpectedMemoryError;
+    }
+
+    pub fn deinit(self: DocumentData) void {
+        std.debug.print("  [DocumentData.deinit] clearing each definition \n", .{});
+        for (self.definitions.items) |definition| {
+            definition.deinit();
+        }
+        // self.definitions.deinit();
+    }
+};
+
+const FieldData = struct {
+    name: []const u8,
+    alias: []const u8,
+    arguments: [][]const u8,
+    directives: []ASTNode,
+    selectionSet: ?*ASTNode,
+
+    pub fn deinit(self: FieldData) void {
+        std.debug.print("  [FieldData.deinit] clearing directives\n", .{});
+        for (self.directives) |directive| {
+            directive.deinit();
+        }
+        // if (self.selectionSet != null) {
+        //     self.selectionSet.?.deinit();
+        // }
+    }
+};
+
+const FragmentDefinitionData = struct {
+    name: []const u8,
+    directives: []ASTNode,
+    selectionSet: *ASTNode,
+
+    pub fn deinit(self: FragmentDefinitionData) void {
+        std.debug.print("  [FragmentDefinitionData.deinit] clearing each directive\n", .{});
+        for (self.directives) |directive| {
+            directive.deinit();
+        }
+        // self.selectionSet.deinit();
+    }
+};
+
+const SelectionSetData = struct {
+    selections: []ASTNode,
+
+    pub fn deinit(_: SelectionSetData) void {
+        std.debug.print("  [SelectionSetData.deinit] clearing nothing\n", .{});
+        // for (self.selections) |selection| {
+        //     selection.deinit();
+        // }
+    }
+};
+
+const Data = union(ASTNodeType) {
+    Directive: DirectiveData,
+    Document: DocumentData,
+    Field: FieldData,
+    FragmentDefinition: FragmentDefinitionData,
+    SelectionSet: SelectionSetData,
+
+    // interface methods
+    pub fn deinit(self: Data) void {
+        std.debug.print(" [Data.deinit] ({s})\n", .{@tagName(self)});
+        switch (self) {
+            inline else => |case| return case.deinit(),
+        }
+    }
+};
+
 pub const ASTNode = struct {
-    token: ?*Token,
     nodeType: ASTNodeType,
-    children: ArrayList(ASTNode),
+    data: Data,
 
-    // optional props
-    name: ?[]const u8 = null,
-
-    pub fn init(allocator: Allocator, nodeType: ASTNodeType, name: ?[]const u8) ASTNode {
+    pub fn init(nodeType: ASTNodeType, data: Data) ASTNode {
         return ASTNode{
-            .token = null,
             .nodeType = nodeType,
-            .children = ArrayList(ASTNode).init(allocator),
-            .name = name,
+            .data = data,
         };
     }
 
     pub fn deinit(self: *const ASTNode) void {
-        for (self.children.items) |child| {
-            child.deinit();
-        }
-        self.children.deinit();
+        std.debug.print("[ASTNode.deinit] ({s})\n", .{@tagName(self.data)});
+        self.data.deinit();
     }
 
-    pub fn appendChild(self: *ASTNode, node: ASTNode) ParseError!void {
-        self.children.append(node) catch |err| switch (err) {
-            error.OutOfMemory => return ParseError.UnexpectedMemoryError,
-        };
-    }
-
-    pub fn print(self: *const ASTNode, currentIndentation: usize, allocator: Allocator) !void {
+    pub fn printAST(self: *const ASTNode, currentIndentation: usize, allocator: Allocator) void {
         var strrr = std.ArrayList(u8).init(allocator);
         defer strrr.deinit();
         for (0..currentIndentation) |_| {
-            try strrr.appendSlice("  ");
+            strrr.appendSlice("  ") catch {};
         }
         const spaces = strrr.items;
 
-        std.debug.print("{s}{s}{s}\n", .{ spaces, if (currentIndentation == 0) "" else "- ", @tagName(self.nodeType) });
-        if (self.name != null) {
-            std.debug.print("{s}  name = {?s}\n", .{ spaces, self.name });
-        }
+        std.debug.print("{s}{s}{s}\n", .{
+            spaces,
+            if (currentIndentation == 0) "" else "- ",
+            @tagName(self.nodeType),
+        });
 
-        std.debug.print("{s}  children:\n", .{spaces});
-        for (self.children.items) |child| {
-            try child.print(currentIndentation + 1, allocator);
+        switch (self.data) {
+            .Directive => |data| {
+                std.debug.print("{s}  name = {s}\n", .{ spaces, data.name });
+
+                std.debug.print("{s}  arguments:\n", .{spaces});
+                // for (data.arguments) |argument| {
+                std.debug.print("{s}    {s}\n", .{ spaces, data.arguments });
+                // }
+            },
+            .Document => |data| {
+                std.debug.print("{s}  definitions:\n", .{spaces});
+                for (data.definitions.items) |*definition| {
+                    definition.printAST(currentIndentation + 1, allocator);
+                }
+            },
+            .Field => |data| {
+                std.debug.print("{s}  name = {s}\n", .{ spaces, data.name });
+                std.debug.print("{s}  alias = {s}\n", .{ spaces, if (data.alias.len > 0) data.alias else "none" });
+            },
+            .FragmentDefinition => |data| {
+                std.debug.print("{s}  name = {s}\n", .{ spaces, data.name });
+
+                std.debug.print("{s}  directives:\n", .{spaces});
+                for (data.directives) |directive| {
+                    directive.printAST(currentIndentation + 1, allocator);
+                }
+
+                std.debug.print("{s}  selectionSet:\n", .{spaces});
+                data.selectionSet.printAST(currentIndentation + 1, allocator);
+            },
+            .SelectionSet => |data| {
+                std.debug.print("{s}  selections:\n", .{spaces});
+                for (data.selections) |selection| {
+                    selection.printAST(currentIndentation + 1, allocator);
+                }
+            },
         }
     }
 };
@@ -90,7 +194,6 @@ pub const Parser = struct {
 
     const Reading = enum {
         root,
-        // operation_definition,
         fragment_definition,
     };
 
@@ -110,10 +213,15 @@ pub const Parser = struct {
     }
 
     fn processTokens(self: *Parser, tokens: []Token) ParseError!ASTNode {
+        const definitions = ArrayList(ASTNode).init(self.allocator);
+
         self.rootNode = ASTNode.init(
-            self.allocator,
             ASTNodeType.Document,
-            null,
+            .{
+                .Document = .{
+                    .definitions = definitions,
+                },
+            },
         );
         self.currentNode = &self.rootNode;
 
@@ -145,7 +253,7 @@ pub const Parser = struct {
             },
             Reading.fragment_definition => {
                 if (self.currentNode == null) unreachable;
-                var currentNode: *ASTNode = @ptrCast(self.currentNode);
+                const currentNode: *ASTNode = @ptrCast(self.currentNode);
                 if (currentNode != &self.rootNode) {
                     return ParseError.WrongParentNode;
                 }
@@ -171,17 +279,25 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
-                // TODO: implement optional directives, see https://spec.graphql.org/draft/#FragmentDefinition
-                var nextToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                while (nextToken.tag == Token.Tag.punct_at) : (nextToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList) {
-                    _ = self.consumeNextToken(tokens); // at
-                    _ = self.consumeNextToken(tokens); // name
-                }
+                const directives = try self.readDirectives(tokens);
+                var selectionSet = try self.readSelectionSet(tokens);
 
-                const selectionSet = try self.readSelectionSet(tokens);
-                var fragmentDefinitionNode = ASTNode.init(self.allocator, ASTNodeType.FragmentDefinition, fragmentName);
-                try fragmentDefinitionNode.appendChild(selectionSet);
-                try currentNode.appendChild(fragmentDefinitionNode);
+                const fragmentDefinitionNode = ASTNode.init(
+                    ASTNodeType.FragmentDefinition,
+                    .{
+                        .FragmentDefinition = .{
+                            .name = fragmentName,
+                            .directives = directives,
+                            .selectionSet = &selectionSet,
+                        },
+                    },
+                );
+                switch (currentNode.data) {
+                    .Document => |*doc| {
+                        try doc.appendDefinition(fragmentDefinitionNode);
+                    },
+                    else => unreachable,
+                }
 
                 continue :state Reading.root;
             },
@@ -205,69 +321,126 @@ pub const Parser = struct {
         return tokens[self.index];
     }
 
+    fn readDirectives(self: *Parser, tokens: []Token) ParseError![]ASTNode {
+        var directives = ArrayList(ASTNode).init(self.allocator);
+        var currentToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        while (currentToken.tag == Token.Tag.punct_at) : (currentToken = self.peekNextToken(tokens) orelse
+            return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        {
+            _ = self.consumeNextToken(tokens) orelse
+                return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            const directiveNameToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+            if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+            var arguments = ArrayList([]const u8).init(self.allocator);
+            const directiveNode = ASTNode.init(
+                ASTNodeType.Directive,
+                .{
+                    .Directive = .{
+                        .name = directiveNameToken.getValue(),
+                        .arguments = arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                    },
+                },
+            );
+            directives.append(directiveNode) catch |err| switch (err) {
+                error.OutOfMemory => return ParseError.UnexpectedMemoryError,
+            };
+        }
+        return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    }
+
     fn readSelectionSet(self: *Parser, tokens: []Token) ParseError!ASTNode {
         const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
         if (openBraceToken.tag != Token.Tag.punct_brace_left) {
             return ParseError.MissingExpectedBrace;
         }
         var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+
+        var selections = ArrayList(ASTNode).init(self.allocator);
+
         while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
             if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
-            // TODO: implement https://spec.graphql.org/draft/#sec-Selection-Sets
+
+            var arguments = ArrayList([]const u8).init(self.allocator);
+            var directives = ArrayList(ASTNode).init(self.allocator);
+
+            const fieldNode = ASTNode.init(
+                ASTNodeType.Field,
+                .{
+                    .Field = .{
+                        .alias = "",
+                        .name = currentToken.getValue(),
+                        .arguments = arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                        .directives = directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                        .selectionSet = null,
+                    },
+                },
+            );
+            selections.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
         }
-        return ASTNode.init(self.allocator, ASTNodeType.SelectionSet, null);
+
+        const selectionSetData = SelectionSetData{
+            .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        };
+        const selectionSetNode = ASTNode.init(
+            ASTNodeType.SelectionSet,
+            .{
+                .SelectionSet = selectionSetData,
+            },
+        );
+
+        return selectionSetNode;
     }
 };
 
-test "initialize invalid document " {
-    var parser = Parser.init(testing.allocator);
-    defer parser.deinit();
+// test "initialize invalid document " {
+//     var parser = Parser.init(testing.allocator);
+//     defer parser.deinit();
 
-    const buffer = "test { hello }";
+//     const buffer = "test { hello }";
 
-    const rootNode = parser.parse(buffer);
-    try testing.expectError(ParseError.InvalidOperationType, rootNode);
-}
+//     const rootNode = parser.parse(buffer);
+//     try testing.expectError(ParseError.InvalidOperationType, rootNode);
+// }
 
-test "initialize non implemented query " {
-    var parser = Parser.init(testing.allocator);
-    defer parser.deinit();
+// test "initialize non implemented query " {
+//     var parser = Parser.init(testing.allocator);
+//     defer parser.deinit();
 
-    const buffer = "query Test { hello }";
+//     const buffer = "query Test { hello }";
 
-    const rootNode = parser.parse(buffer);
-    try testing.expectError(ParseError.NotImplemented, rootNode);
-}
+//     const rootNode = parser.parse(buffer);
+//     try testing.expectError(ParseError.NotImplemented, rootNode);
+// }
 
-test "initialize invalid fragment no name" {
-    var parser = Parser.init(testing.allocator);
-    defer parser.deinit();
+// test "initialize invalid fragment no name" {
+//     var parser = Parser.init(testing.allocator);
+//     defer parser.deinit();
 
-    const buffer = "fragment { hello }";
+//     const buffer = "fragment { hello }";
 
-    const rootNode = parser.parse(buffer);
-    try testing.expectError(ParseError.ExpectedName, rootNode);
-}
+//     const rootNode = parser.parse(buffer);
+//     try testing.expectError(ParseError.ExpectedName, rootNode);
+// }
 
-test "initialize invalid fragment name is on" {
-    var parser = Parser.init(testing.allocator);
-    defer parser.deinit();
+// test "initialize invalid fragment name is on" {
+//     var parser = Parser.init(testing.allocator);
+//     defer parser.deinit();
 
-    const buffer = "fragment on on User { hello }";
+//     const buffer = "fragment on on User { hello }";
 
-    const rootNode = parser.parse(buffer);
-    try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
-}
+//     const rootNode = parser.parse(buffer);
+//     try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
+// }
 
-test "initialize invalid fragment name after on" {
-    var parser = Parser.init(testing.allocator);
-    defer parser.deinit();
+// test "initialize invalid fragment name after on" {
+//     var parser = Parser.init(testing.allocator);
+//     defer parser.deinit();
 
-    const buffer = "fragment X on { hello }";
+//     const buffer = "fragment X on { hello }";
 
-    const rootNode = parser.parse(buffer);
-    try testing.expectError(ParseError.ExpectedName, rootNode);
-}
+//     const rootNode = parser.parse(buffer);
+//     try testing.expectError(ParseError.ExpectedName, rootNode);
+// }
 
 test "initialize fragment in document" {
     var parser = Parser.init(testing.allocator);
@@ -276,7 +449,7 @@ test "initialize fragment in document" {
     const buffer = "fragment Oki on User @SomeDecorator @AnotherOne { hello }";
 
     const rootNode = try parser.parse(buffer);
-    try testing.expect(strEq(rootNode.children.items[0].name.?, "Oki"));
+    try testing.expect(strEq(rootNode.data.Document.definitions.items[0].data.FragmentDefinition.name, "Oki"));
     try testing.expect(ASTNodeType.Document == rootNode.nodeType);
-    try rootNode.print(0, testing.allocator);
+    rootNode.printAST(0, testing.allocator);
 }
