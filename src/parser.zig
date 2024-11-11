@@ -17,6 +17,7 @@ const ASTNodeType = enum {
     // TypeSystemDefinitionOrExtension,
     OperationDefinition,
     FragmentDefinition,
+    SelectionSet,
 };
 
 pub const ASTNode = struct {
@@ -25,15 +26,13 @@ pub const ASTNode = struct {
     children: ArrayList(ASTNode),
 
     // optional props
-    parent: ?*ASTNode = null,
     name: ?[]const u8 = null,
 
-    pub fn init(allocator: Allocator, nodeType: ASTNodeType, parent: ?*ASTNode, name: ?[]const u8) ASTNode {
+    pub fn init(allocator: Allocator, nodeType: ASTNodeType, name: ?[]const u8) ASTNode {
         return ASTNode{
             .token = null,
             .nodeType = nodeType,
             .children = ArrayList(ASTNode).init(allocator),
-            .parent = parent,
             .name = name,
         };
     }
@@ -43,6 +42,31 @@ pub const ASTNode = struct {
             child.deinit();
         }
         self.children.deinit();
+    }
+
+    pub fn appendChild(self: *ASTNode, node: ASTNode) ParseError!void {
+        self.children.append(node) catch |err| switch (err) {
+            error.OutOfMemory => return ParseError.UnexpectedMemoryError,
+        };
+    }
+
+    pub fn print(self: *const ASTNode, currentIndentation: usize, allocator: Allocator) !void {
+        var strrr = std.ArrayList(u8).init(allocator);
+        defer strrr.deinit();
+        for (0..currentIndentation) |_| {
+            try strrr.appendSlice("  ");
+        }
+        const spaces = strrr.items;
+
+        std.debug.print("{s}{s}{s}\n", .{ spaces, if (currentIndentation == 0) "" else "- ", @tagName(self.nodeType) });
+        if (self.name != null) {
+            std.debug.print("{s}  name = {?s}\n", .{ spaces, self.name });
+        }
+
+        std.debug.print("{s}  children:\n", .{spaces});
+        for (self.children.items) |child| {
+            try child.print(currentIndentation + 1, allocator);
+        }
     }
 };
 
@@ -54,7 +78,6 @@ const ParseError = error{
     InvalidOperationType,
     MissingExpectedBrace,
     NotImplemented,
-    UnexpectedEOF,
     UnexpectedMemoryError,
     WrongParentNode,
 };
@@ -63,13 +86,12 @@ pub const Parser = struct {
     allocator: Allocator,
     index: usize = 0,
     rootNode: ASTNode = undefined,
-    currentNode: *ASTNode = undefined,
+    currentNode: ?*ASTNode = null,
 
     const Reading = enum {
         root,
         // operation_definition,
         fragment_definition,
-        selection_set,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -84,8 +106,6 @@ pub const Parser = struct {
         var tokenizer = Tokenizer.init(self.allocator, buffer);
         const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
         defer self.allocator.free(tokens);
-        // TODO: make sense of the tokens
-        // printTokens(tokens, buffer);
         return try self.processTokens(tokens);
     }
 
@@ -94,16 +114,13 @@ pub const Parser = struct {
             self.allocator,
             ASTNodeType.Document,
             null,
-            null,
         );
         self.currentNode = &self.rootNode;
 
         state: switch (Reading.root) {
             Reading.root => {
-                if (tokens.len == 0) {
-                    break :state;
-                }
-                const token = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                const token = self.peekNextToken(tokens) orelse break :state;
+
                 if (token.tag == Token.Tag.eof) {
                     break :state;
                 }
@@ -124,11 +141,12 @@ pub const Parser = struct {
                 } else if (strEq(str, "fragment")) {
                     continue :state Reading.fragment_definition;
                 }
-                std.debug.print("unexpected name: {s}\n", .{str});
                 return ParseError.InvalidOperationType;
             },
             Reading.fragment_definition => {
-                if (self.currentNode != &self.rootNode) {
+                if (self.currentNode == null) unreachable;
+                var currentNode: *ASTNode = @ptrCast(self.currentNode);
+                if (currentNode != &self.rootNode) {
                     return ParseError.WrongParentNode;
                 }
 
@@ -153,11 +171,6 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
-                const newNode = ASTNode.init(self.allocator, ASTNodeType.FragmentDefinition, self.currentNode, fragmentName);
-                self.currentNode.children.append(newNode) catch |err| switch (err) {
-                    error.OutOfMemory => return ParseError.UnexpectedMemoryError,
-                };
-
                 // TODO: implement optional directives, see https://spec.graphql.org/draft/#FragmentDefinition
                 var nextToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 while (nextToken.tag == Token.Tag.punct_at) : (nextToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList) {
@@ -165,18 +178,12 @@ pub const Parser = struct {
                     _ = self.consumeNextToken(tokens); // name
                 }
 
-                continue :state Reading.selection_set;
-            },
-            Reading.selection_set => {
-                const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
-                if (openBraceToken.tag != Token.Tag.punct_brace_left) {
-                    return ParseError.MissingExpectedBrace;
-                }
-                var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-                while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
-                    if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
-                    // TODO: implement https://spec.graphql.org/draft/#sec-Selection-Sets
-                }
+                const selectionSet = try self.readSelectionSet(tokens);
+                var fragmentDefinitionNode = ASTNode.init(self.allocator, ASTNodeType.FragmentDefinition, fragmentName);
+                try fragmentDefinitionNode.appendChild(selectionSet);
+                try currentNode.appendChild(fragmentDefinitionNode);
+
+                continue :state Reading.root;
             },
         }
 
@@ -197,11 +204,23 @@ pub const Parser = struct {
         defer self.index += 1;
         return tokens[self.index];
     }
+
+    fn readSelectionSet(self: *Parser, tokens: []Token) ParseError!ASTNode {
+        const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
+        if (openBraceToken.tag != Token.Tag.punct_brace_left) {
+            return ParseError.MissingExpectedBrace;
+        }
+        var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+        while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
+            if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
+            // TODO: implement https://spec.graphql.org/draft/#sec-Selection-Sets
+        }
+        return ASTNode.init(self.allocator, ASTNodeType.SelectionSet, null);
+    }
 };
 
 test "initialize invalid document " {
-    const allocator = testing.allocator;
-    var parser = Parser.init(allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
 
     const buffer = "test { hello }";
@@ -211,8 +230,7 @@ test "initialize invalid document " {
 }
 
 test "initialize non implemented query " {
-    const allocator = testing.allocator;
-    var parser = Parser.init(allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
 
     const buffer = "query Test { hello }";
@@ -222,8 +240,7 @@ test "initialize non implemented query " {
 }
 
 test "initialize invalid fragment no name" {
-    const allocator = testing.allocator;
-    var parser = Parser.init(allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
 
     const buffer = "fragment { hello }";
@@ -233,8 +250,7 @@ test "initialize invalid fragment no name" {
 }
 
 test "initialize invalid fragment name is on" {
-    const allocator = testing.allocator;
-    var parser = Parser.init(allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
 
     const buffer = "fragment on on User { hello }";
@@ -244,8 +260,7 @@ test "initialize invalid fragment name is on" {
 }
 
 test "initialize invalid fragment name after on" {
-    const allocator = testing.allocator;
-    var parser = Parser.init(allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
 
     const buffer = "fragment X on { hello }";
@@ -254,14 +269,14 @@ test "initialize invalid fragment name after on" {
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
 
-test "initialize fragment in document 1" {
-    const allocator = testing.allocator;
-    var parser = Parser.init(allocator);
+test "initialize fragment in document" {
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
 
-    const buffer = "fragment Oki on User { hello }";
+    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne { hello }";
 
     const rootNode = try parser.parse(buffer);
     try testing.expect(strEq(rootNode.children.items[0].name.?, "Oki"));
     try testing.expect(ASTNodeType.Document == rootNode.nodeType);
+    try rootNode.print(0, testing.allocator);
 }
