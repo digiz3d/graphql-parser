@@ -60,10 +60,10 @@ pub const ASTNode = struct {
 
         std.debug.print("{s}{s}{s}\n", .{ spaces, if (currentIndentation == 0) "" else "- ", @tagName(self.nodeType) });
         if (self.name != null) {
-            std.debug.print("  {s}name = {?s}\n", .{ spaces, self.name });
+            std.debug.print("{s}  name = {?s}\n", .{ spaces, self.name });
         }
 
-        std.debug.print("  {s}children:\n", .{spaces});
+        std.debug.print("{s}  children:\n", .{spaces});
         for (self.children.items) |child| {
             try child.print(currentIndentation + 1, allocator);
         }
