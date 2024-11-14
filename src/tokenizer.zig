@@ -63,7 +63,8 @@ pub const Token = struct {
     }
 
     pub fn getValue(self: *const Token) []const u8 {
-        return self.buffer[self.loc.start..self.loc.end];
+        const loc = self.loc;
+        return self.buffer[loc.start..loc.end];
     }
 };
 
