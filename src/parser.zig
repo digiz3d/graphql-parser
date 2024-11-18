@@ -228,6 +228,8 @@ pub const Parser = struct {
 
                 const fragmentNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 const fragmentName = try self.getTokenValue(fragmentNameToken, allocator);
+                errdefer allocator.free(fragmentName);
+
                 if (fragmentNameToken.tag != Token.Tag.identifier) {
                     return ParseError.ExpectedName;
                 }
@@ -348,7 +350,7 @@ test "initialize invalid document " {
 
     const buffer = "test { hello }";
 
-    const rootNode = parser.parse(buffer, std.heap.page_allocator);
+    const rootNode = parser.parse(buffer, testing.allocator);
 
     try testing.expectError(ParseError.InvalidOperationType, rootNode);
 }
@@ -358,7 +360,7 @@ test "initialize non implemented query " {
 
     const buffer = "query Test { hello }";
 
-    const rootNode = parser.parse(buffer, std.heap.page_allocator);
+    const rootNode = parser.parse(buffer, testing.allocator);
 
     try testing.expectError(ParseError.NotImplemented, rootNode);
 }
@@ -368,7 +370,7 @@ test "initialize invalid fragment no name" {
 
     const buffer = "fragment { hello }";
 
-    const rootNode = parser.parse(buffer, std.heap.page_allocator);
+    const rootNode = parser.parse(buffer, testing.allocator);
 
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
@@ -378,7 +380,7 @@ test "initialize invalid fragment name is on" {
 
     const buffer = "fragment on on User { hello }";
 
-    const rootNode = parser.parse(buffer, std.heap.page_allocator);
+    const rootNode = parser.parse(buffer, testing.allocator);
 
     try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
 }
@@ -388,7 +390,7 @@ test "initialize invalid fragment name after on" {
 
     const buffer = "fragment X on { hello }";
 
-    const rootNode = parser.parse(buffer, std.heap.page_allocator);
+    const rootNode = parser.parse(buffer, testing.allocator);
 
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
