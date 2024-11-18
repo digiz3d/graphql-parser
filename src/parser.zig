@@ -343,55 +343,55 @@ pub const Parser = struct {
     }
 };
 
-// test "initialize invalid document " {
-//     var parser = Parser.init();
+test "initialize invalid document " {
+    var parser = Parser.init();
 
-//     const buffer = "test { hello }";
+    const buffer = "test { hello }";
 
-//     const rootNode = try parser.parse(buffer, testing.allocator);
+    const rootNode = parser.parse(buffer, std.heap.page_allocator);
 
-//     try testing.expectError(ParseError.InvalidOperationType, rootNode);
-// }
+    try testing.expectError(ParseError.InvalidOperationType, rootNode);
+}
 
-// test "initialize non implemented query " {
-//     var parser = Parser.init();
+test "initialize non implemented query " {
+    var parser = Parser.init();
 
-//     const buffer = "query Test { hello }";
+    const buffer = "query Test { hello }";
 
-//     const rootNode = try parser.parse(buffer, testing.allocator);
+    const rootNode = parser.parse(buffer, std.heap.page_allocator);
 
-//     try testing.expectError(ParseError.NotImplemented, rootNode);
-// }
+    try testing.expectError(ParseError.NotImplemented, rootNode);
+}
 
-// test "initialize invalid fragment no name" {
-//     var parser = Parser.init();
+test "initialize invalid fragment no name" {
+    var parser = Parser.init();
 
-//     const buffer = "fragment { hello }";
+    const buffer = "fragment { hello }";
 
-//     const rootNode = try parser.parse(buffer, testing.allocator);
+    const rootNode = parser.parse(buffer, std.heap.page_allocator);
 
-//     try testing.expectError(ParseError.ExpectedName, rootNode);
-// }
+    try testing.expectError(ParseError.ExpectedName, rootNode);
+}
 
-// test "initialize invalid fragment name is on" {
-//     var parser = Parser.init();
+test "initialize invalid fragment name is on" {
+    var parser = Parser.init();
 
-//     const buffer = "fragment on on User { hello }";
+    const buffer = "fragment on on User { hello }";
 
-//     const rootNode = try parser.parse(buffer, testing.allocator);
+    const rootNode = parser.parse(buffer, std.heap.page_allocator);
 
-//     try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
-// }
+    try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
+}
 
-// test "initialize invalid fragment name after on" {
-//     var parser = Parser.init();
+test "initialize invalid fragment name after on" {
+    var parser = Parser.init();
 
-//     const buffer = "fragment X on { hello }";
+    const buffer = "fragment X on { hello }";
 
-//     const rootNode = parser.parse(buffer, testing.allocator);
+    const rootNode = parser.parse(buffer, std.heap.page_allocator);
 
-//     try testing.expectError(ParseError.ExpectedName, rootNode);
-// }
+    try testing.expectError(ParseError.ExpectedName, rootNode);
+}
 
 test "initialize fragment in document" {
     var parser = Parser.init();
@@ -401,12 +401,7 @@ test "initialize fragment in document" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    // try testing.expect(strEq(rootNode.data.Document.definitions.items[0].data.FragmentDefinition.name, "Oki"));
-    // try testing.expect(strEq(
-    //     @tagName(rootNode),
-    //     "Document",
-    // ));
+    try testing.expect(strEq(rootNode.definitions.items[0].name, "Oki"));
 
     rootNode.printAST(0);
-    std.debug.print("--- NOW CLEARING ---\n", .{});
 }
