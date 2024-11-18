@@ -62,9 +62,11 @@ pub const Token = struct {
         };
     }
 
-    pub fn getValue(self: *const Token) []const u8 {
+    pub fn getStringValue(self: *const Token, allocator: Allocator) ![]const u8 {
         const loc = self.loc;
-        return self.buffer[loc.start..loc.end];
+        var value = ArrayList(u8).init(allocator);
+        try value.appendSlice(self.buffer[loc.start..loc.end]);
+        return value.toOwnedSlice();
     }
 };
 
