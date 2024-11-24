@@ -14,15 +14,35 @@ inline fn strEq(a: []const u8, b: []const u8) bool {
 
 fn makeSpaceFromNumber(indent: usize, allocator: Allocator) []const u8 {
     var spaces = std.ArrayList(u8).init(allocator);
-    for (0..indent) |_| {
+    const newIndent = indent * 2;
+    for (0..newIndent) |_| {
         spaces.append(' ') catch return "";
     }
     return spaces.toOwnedSlice() catch return "";
 }
 
+const ArgumentData = struct {
+    allocator: Allocator,
+    name: []const u8,
+    value: []const u8,
+
+    pub fn printAST(self: ArgumentData, indent: usize) void {
+        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        defer self.allocator.free(spaces);
+        std.debug.print("{s}- ArgumentData\n", .{spaces});
+        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
+        std.debug.print("{s}  value = {s}\n", .{ spaces, self.value });
+    }
+
+    pub fn deinit(self: ArgumentData) void {
+        self.allocator.free(self.name);
+        self.allocator.free(self.value);
+    }
+};
+
 const DirectiveData = struct {
     allocator: Allocator,
-    arguments: [][]const u8,
+    arguments: []ArgumentData,
     name: []const u8,
 
     pub fn printAST(self: DirectiveData, indent: usize) void {
@@ -32,14 +52,14 @@ const DirectiveData = struct {
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
         for (self.arguments) |item| {
-            std.debug.print("{s}    {s}\n", .{ spaces, item });
+            item.printAST(indent + 1);
         }
     }
 
     pub fn deinit(self: DirectiveData) void {
         self.allocator.free(self.name);
         for (self.arguments) |item| {
-            self.allocator.free(item);
+            item.deinit();
         }
         self.allocator.free(self.arguments);
     }
@@ -55,7 +75,7 @@ const DocumentData = struct {
         std.debug.print("{s}- DocumentData\n", .{spaces});
         std.debug.print("{s}  definitions: {d}\n", .{ spaces, self.definitions.items.len });
         for (self.definitions.items) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
     }
 
@@ -71,7 +91,7 @@ const FieldData = struct {
     allocator: Allocator,
     name: []const u8,
     alias: ?[]const u8,
-    arguments: [][]const u8,
+    arguments: []ArgumentData,
     directives: []DirectiveData,
 
     pub fn printAST(self: FieldData, indent: usize) void {
@@ -85,9 +105,12 @@ const FieldData = struct {
             std.debug.print("{s}  alias = null\n", .{spaces});
         }
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
+        for (self.arguments) |item| {
+            item.printAST(indent + 1);
+        }
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
     }
 
@@ -95,6 +118,9 @@ const FieldData = struct {
         self.allocator.free(self.name);
         if (self.alias != null) {
             self.allocator.free(self.alias.?);
+        }
+        for (self.arguments) |item| {
+            item.deinit();
         }
         self.allocator.free(self.arguments);
         for (self.directives) |item| {
@@ -117,7 +143,7 @@ const FragmentDefinitionData = struct {
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
         std.debug.print("{s}  selectionSet: \n", .{spaces});
         self.selectionSet.printAST(indent + 1);
@@ -143,7 +169,7 @@ const SelectionSetData = struct {
         std.debug.print("{s}- SelectionSetData\n", .{spaces});
         std.debug.print("{s}  fields:\n", .{spaces});
         for (self.fields) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
     }
 
@@ -157,6 +183,8 @@ const SelectionSetData = struct {
 
 const ParseError = error{
     EmptyTokenList,
+    ExpctedString,
+    ExpectedColon,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
@@ -294,14 +322,12 @@ pub const Parser = struct {
             const directiveNameToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
 
             if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-            var arguments = ArrayList([]const u8).init(allocator);
             const directiveName = try self.getTokenValue(directiveNameToken, allocator);
             const directiveNode = DirectiveData{
                 .allocator = allocator,
-                .arguments = arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                .arguments = try self.readArguments(tokens, allocator),
                 .name = directiveName,
             };
-            // std.debug.print("directiveName: {s}\n", .{directiveName});
             directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
         }
         return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -319,14 +345,13 @@ pub const Parser = struct {
         while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
             if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
 
-            var arguments = ArrayList([]const u8).init(allocator);
             var directives = ArrayList(DirectiveData).init(allocator);
 
             const fieldNode = FieldData{
                 .allocator = allocator,
                 .name = try self.getTokenValue(currentToken, allocator),
                 .alias = null,
-                .arguments = arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                .arguments = try self.readArguments(tokens, allocator),
                 .directives = directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
             };
             fieldsNodes.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
@@ -337,6 +362,50 @@ pub const Parser = struct {
             .fields = fieldsNodes.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         };
         return selectionSetNode;
+    }
+
+    fn readArguments(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]ArgumentData {
+        var arguments = ArrayList(ArgumentData).init(allocator);
+
+        var currentToken = self.peekNextToken(tokens) orelse
+            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        if (currentToken.tag != Token.Tag.punct_paren_left) {
+            std.debug.print("no parameter\n", .{});
+            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        }
+
+        // consume the left parenthesis
+        _ = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = self.peekNextToken(tokens) orelse
+            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        {
+            const argumentNameToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (argumentNameToken.tag != Token.Tag.identifier) return arguments.toOwnedSlice() catch return ParseError.ExpectedName;
+
+            const argumentName = try self.getTokenValue(argumentNameToken, allocator);
+            const colonToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
+
+            const argumentValueToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (argumentValueToken.tag != Token.Tag.string_literal) return ParseError.ExpctedString;
+
+            const argumentValue = try self.getTokenValue(argumentValueToken, allocator);
+            const argument = ArgumentData{
+                .allocator = allocator,
+                .name = argumentName,
+                .value = argumentValue,
+            };
+            arguments.append(argument) catch return ParseError.UnexpectedMemoryError;
+
+            currentToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        }
+
+        // consume the right parenthesis
+        _ = self.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+
+        return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
     fn getTokenValue(_: *Parser, token: Token, allocator: Allocator) ParseError![]const u8 {
@@ -398,7 +467,7 @@ test "initialize invalid fragment name after on" {
 test "initialize fragment in document" {
     var parser = Parser.init();
 
-    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne { hello oui }";
+    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(first: \"oui\", mais: \"ok\") { hello(helloParam: \"okidoki\") oui }";
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
