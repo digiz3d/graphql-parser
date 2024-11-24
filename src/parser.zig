@@ -2,11 +2,14 @@ const std = @import("std");
 const testing = std.testing;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
+const allocPrint = std.fmt.allocPrint;
 
 const tok = @import("tokenizer.zig");
 const Token = tok.Token;
 const Tokenizer = tok.Tokenizer;
 const printTokens = tok.printTokens;
+
+const input = @import("input_value.zig");
 
 inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
@@ -24,19 +27,21 @@ fn makeSpaceFromNumber(indent: usize, allocator: Allocator) []const u8 {
 const ArgumentData = struct {
     allocator: Allocator,
     name: []const u8,
-    value: []const u8,
+    value: input.InputValueData,
 
     pub fn printAST(self: ArgumentData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- ArgumentData\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  value = {s}\n", .{ spaces, self.value });
+        const value = self.value.getPrintableString(self.allocator);
+        defer self.allocator.free(value);
+        std.debug.print("{s}  value = {s}\n", .{ spaces, value });
     }
 
     pub fn deinit(self: ArgumentData) void {
         self.allocator.free(self.name);
-        self.allocator.free(self.value);
+        self.value.deinit(self.allocator);
     }
 };
 
@@ -183,11 +188,12 @@ const SelectionSetData = struct {
 
 const ParseError = error{
     EmptyTokenList,
-    ExpctedString,
     ExpectedColon,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
+    ExpectedRightParenthesis,
+    ExpectedString,
     InvalidOperationType,
     MissingExpectedBrace,
     NotImplemented,
@@ -371,7 +377,6 @@ pub const Parser = struct {
             return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
         if (currentToken.tag != Token.Tag.punct_paren_left) {
-            std.debug.print("no parameter\n", .{});
             return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         }
 
@@ -388,10 +393,8 @@ pub const Parser = struct {
             const colonToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
             if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-            const argumentValueToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (argumentValueToken.tag != Token.Tag.string_literal) return ParseError.ExpctedString;
+            const argumentValue = try self.readInputValue(tokens, allocator);
 
-            const argumentValue = try self.getTokenValue(argumentValueToken, allocator);
             const argument = ArgumentData{
                 .allocator = allocator,
                 .name = argumentName,
@@ -403,9 +406,59 @@ pub const Parser = struct {
         }
 
         // consume the right parenthesis
-        _ = self.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
 
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    }
+
+    fn readInputValue(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!input.InputValueData {
+        const token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        const str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+        defer allocator.free(str);
+        switch (token.tag) {
+            Token.Tag.integer_literal => return input.InputValueData{
+                .int_value = input.IntValue{
+                    .value = std.fmt.parseInt(i32, str, 10) catch return ParseError.UnexpectedMemoryError,
+                },
+            },
+            Token.Tag.float_literal => return input.InputValueData{
+                .float_value = input.FloatValue{
+                    .value = std.fmt.parseFloat(f64, str) catch return ParseError.UnexpectedMemoryError,
+                },
+            },
+            Token.Tag.string_literal => {
+                const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+                return input.InputValueData{
+                    .string_value = input.StringValue{
+                        .value = strCopy,
+                    },
+                };
+            },
+            Token.Tag.identifier => {
+                // TODO: check why the spec uses "true" and "false" but implementations use "True" and "False"
+                if (strEq(str, "true") or strEq(str, "True")) {
+                    return input.InputValueData{
+                        .boolean_value = input.BooleanValue{
+                            .value = true,
+                        },
+                    };
+                } else if (strEq(str, "false") or strEq(str, "False")) {
+                    return input.InputValueData{
+                        .boolean_value = input.BooleanValue{
+                            .value = false,
+                        },
+                    };
+                } else {
+                    return input.InputValueData{
+                        .enum_value = input.EnumValue{
+                            .name = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError,
+                        },
+                    };
+                }
+            },
+            else => return ParseError.NotImplemented,
+        }
+        return ParseError.NotImplemented;
     }
 
     fn getTokenValue(_: *Parser, token: Token, allocator: Allocator) ParseError![]const u8 {
@@ -467,7 +520,7 @@ test "initialize invalid fragment name after on" {
 test "initialize fragment in document" {
     var parser = Parser.init();
 
-    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(first: \"oui\", mais: \"ok\") { hello(helloParam: \"okidoki\") oui }";
+    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hello oui }";
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
