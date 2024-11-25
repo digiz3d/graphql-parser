@@ -36,7 +36,7 @@ pub const InputValueData = union(enum) {
                 return allocPrint(allocator, "{s} ({s})", .{ if (boolean_value.value) "true" else "false", typeName }) catch return "";
             },
             InputValueData.null_value => {
-                return allocPrint(allocator, "null", .{}) catch return "";
+                return allocPrint(allocator, "null ({s})", .{typeName}) catch return "";
             },
             InputValueData.enum_value => {
                 const enum_value = self.enum_value;
@@ -93,9 +93,7 @@ pub const BooleanValue = struct {
     value: bool,
 };
 
-pub const NullValue = struct {
-    null: void,
-};
+pub const NullValue = struct {};
 
 pub const EnumValue = struct {
     name: []const u8,

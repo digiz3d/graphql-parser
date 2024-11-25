@@ -412,9 +412,19 @@ pub const Parser = struct {
     }
 
     fn readInputValue(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!input.InputValueData {
-        const token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        const str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+        var token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
         defer allocator.free(str);
+
+        var isVariable = false;
+
+        if (token.tag == Token.Tag.punct_dollar) {
+            token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            allocator.free(str);
+            str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+            isVariable = true;
+        }
+
         switch (token.tag) {
             Token.Tag.integer_literal => return input.InputValueData{
                 .int_value = input.IntValue{
@@ -436,7 +446,14 @@ pub const Parser = struct {
             },
             Token.Tag.identifier => {
                 // TODO: check why the spec uses "true" and "false" but implementations use "True" and "False"
-                if (strEq(str, "true") or strEq(str, "True")) {
+                if (isVariable) {
+                    const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+                    return input.InputValueData{
+                        .variable = input.Variable{
+                            .name = strCopy,
+                        },
+                    };
+                } else if (strEq(str, "true") or strEq(str, "True")) {
                     return input.InputValueData{
                         .boolean_value = input.BooleanValue{
                             .value = true,
@@ -448,6 +465,10 @@ pub const Parser = struct {
                             .value = false,
                         },
                     };
+                } else if (strEq(str, "null")) {
+                    return input.InputValueData{
+                        .null_value = input.NullValue{},
+                    };
                 } else {
                     return input.InputValueData{
                         .enum_value = input.EnumValue{
@@ -456,6 +477,11 @@ pub const Parser = struct {
                     };
                 }
             },
+            // Token.Tag.punct_dollar => {
+            //     const actualVariableName = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            //     isVariable = true;
+            //     continue :currentTag actualVariableName.tag;
+            // },
             else => return ParseError.NotImplemented,
         }
         return ParseError.NotImplemented;
@@ -520,7 +546,7 @@ test "initialize invalid fragment name after on" {
 test "initialize fragment in document" {
     var parser = Parser.init();
 
-    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hello oui }";
+    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hello oui }";
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
