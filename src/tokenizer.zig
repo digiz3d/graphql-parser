@@ -228,14 +228,26 @@ pub const Tokenizer = struct {
                 return token;
             },
             State.reading_number_literal => {
-                var isFloat = false;
-                while (self.buffer[self.index] >= '0' and self.buffer[self.index] <= '9' or self.buffer[self.index] == '.') {
-                    if (self.buffer[self.index] == '.') {
-                        isFloat = true;
+                var alreadyHadExponent = false;
+                var alreadyHadDot = false;
+                while (self.buffer[self.index] >= '0' and self.buffer[self.index] <= '9' or (self.buffer[self.index] == '.' or self.buffer[self.index] == 'e')) {
+                    const isExponent = self.buffer[self.index] == 'e';
+                    const isDot = self.buffer[self.index] == '.';
+                    if (alreadyHadExponent) {
+                        if (isExponent or isDot) {
+                            std.debug.print("Unexpected character: {c}\n", .{self.buffer[self.index]});
+                            return TokenizerError.UnexpectedRuneError;
+                        }
+                    }
+                    if (isExponent) {
+                        alreadyHadExponent = true;
+                    }
+                    if (isDot) {
+                        alreadyHadDot = true;
                     }
                     self.index += 1;
                 }
-                if (isFloat) {
+                if (alreadyHadDot or alreadyHadExponent) {
                     token.tag = Token.Tag.float_literal;
                 } else {
                     token.tag = Token.Tag.integer_literal;
@@ -364,6 +376,14 @@ test "integer" {
 
 test "float" {
     const source = "12.34";
+    const expected_token_tags = [_]Token.Tag{
+        Token.Tag.float_literal,
+    };
+    try testTokenize(source, &expected_token_tags);
+}
+
+test "float with exponent" {
+    const source = "0.1234e3";
     const expected_token_tags = [_]Token.Tag{
         Token.Tag.float_literal,
     };

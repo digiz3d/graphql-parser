@@ -2,11 +2,14 @@ const std = @import("std");
 const testing = std.testing;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
+const allocPrint = std.fmt.allocPrint;
 
 const tok = @import("tokenizer.zig");
 const Token = tok.Token;
 const Tokenizer = tok.Tokenizer;
 const printTokens = tok.printTokens;
+
+const input = @import("input_value.zig");
 
 inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
@@ -14,15 +17,37 @@ inline fn strEq(a: []const u8, b: []const u8) bool {
 
 fn makeSpaceFromNumber(indent: usize, allocator: Allocator) []const u8 {
     var spaces = std.ArrayList(u8).init(allocator);
-    for (0..indent) |_| {
+    const newIndent = indent * 2;
+    for (0..newIndent) |_| {
         spaces.append(' ') catch return "";
     }
     return spaces.toOwnedSlice() catch return "";
 }
 
+const ArgumentData = struct {
+    allocator: Allocator,
+    name: []const u8,
+    value: input.InputValueData,
+
+    pub fn printAST(self: ArgumentData, indent: usize) void {
+        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        defer self.allocator.free(spaces);
+        std.debug.print("{s}- ArgumentData\n", .{spaces});
+        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
+        const value = self.value.getPrintableString(self.allocator);
+        defer self.allocator.free(value);
+        std.debug.print("{s}  value = {s}\n", .{ spaces, value });
+    }
+
+    pub fn deinit(self: ArgumentData) void {
+        self.allocator.free(self.name);
+        self.value.deinit(self.allocator);
+    }
+};
+
 const DirectiveData = struct {
     allocator: Allocator,
-    arguments: [][]const u8,
+    arguments: []ArgumentData,
     name: []const u8,
 
     pub fn printAST(self: DirectiveData, indent: usize) void {
@@ -32,14 +57,14 @@ const DirectiveData = struct {
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
         for (self.arguments) |item| {
-            std.debug.print("{s}    {s}\n", .{ spaces, item });
+            item.printAST(indent + 1);
         }
     }
 
     pub fn deinit(self: DirectiveData) void {
         self.allocator.free(self.name);
         for (self.arguments) |item| {
-            self.allocator.free(item);
+            item.deinit();
         }
         self.allocator.free(self.arguments);
     }
@@ -55,7 +80,7 @@ const DocumentData = struct {
         std.debug.print("{s}- DocumentData\n", .{spaces});
         std.debug.print("{s}  definitions: {d}\n", .{ spaces, self.definitions.items.len });
         for (self.definitions.items) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
     }
 
@@ -71,7 +96,7 @@ const FieldData = struct {
     allocator: Allocator,
     name: []const u8,
     alias: ?[]const u8,
-    arguments: [][]const u8,
+    arguments: []ArgumentData,
     directives: []DirectiveData,
 
     pub fn printAST(self: FieldData, indent: usize) void {
@@ -85,9 +110,12 @@ const FieldData = struct {
             std.debug.print("{s}  alias = null\n", .{spaces});
         }
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
+        for (self.arguments) |item| {
+            item.printAST(indent + 1);
+        }
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
     }
 
@@ -95,6 +123,9 @@ const FieldData = struct {
         self.allocator.free(self.name);
         if (self.alias != null) {
             self.allocator.free(self.alias.?);
+        }
+        for (self.arguments) |item| {
+            item.deinit();
         }
         self.allocator.free(self.arguments);
         for (self.directives) |item| {
@@ -117,7 +148,7 @@ const FragmentDefinitionData = struct {
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
         std.debug.print("{s}  selectionSet: \n", .{spaces});
         self.selectionSet.printAST(indent + 1);
@@ -143,7 +174,7 @@ const SelectionSetData = struct {
         std.debug.print("{s}- SelectionSetData\n", .{spaces});
         std.debug.print("{s}  fields:\n", .{spaces});
         for (self.fields) |item| {
-            item.printAST(indent + 2);
+            item.printAST(indent + 1);
         }
     }
 
@@ -157,9 +188,12 @@ const SelectionSetData = struct {
 
 const ParseError = error{
     EmptyTokenList,
+    ExpectedColon,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
+    ExpectedRightParenthesis,
+    ExpectedString,
     InvalidOperationType,
     MissingExpectedBrace,
     NotImplemented,
@@ -294,14 +328,12 @@ pub const Parser = struct {
             const directiveNameToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
 
             if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-            var arguments = ArrayList([]const u8).init(allocator);
             const directiveName = try self.getTokenValue(directiveNameToken, allocator);
             const directiveNode = DirectiveData{
                 .allocator = allocator,
-                .arguments = arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                .arguments = try self.readArguments(tokens, allocator),
                 .name = directiveName,
             };
-            // std.debug.print("directiveName: {s}\n", .{directiveName});
             directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
         }
         return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -319,14 +351,13 @@ pub const Parser = struct {
         while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
             if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
 
-            var arguments = ArrayList([]const u8).init(allocator);
             var directives = ArrayList(DirectiveData).init(allocator);
 
             const fieldNode = FieldData{
                 .allocator = allocator,
                 .name = try self.getTokenValue(currentToken, allocator),
                 .alias = null,
-                .arguments = arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                .arguments = try self.readArguments(tokens, allocator),
                 .directives = directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
             };
             fieldsNodes.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
@@ -337,6 +368,123 @@ pub const Parser = struct {
             .fields = fieldsNodes.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         };
         return selectionSetNode;
+    }
+
+    fn readArguments(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]ArgumentData {
+        var arguments = ArrayList(ArgumentData).init(allocator);
+
+        var currentToken = self.peekNextToken(tokens) orelse
+            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        if (currentToken.tag != Token.Tag.punct_paren_left) {
+            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        }
+
+        // consume the left parenthesis
+        _ = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = self.peekNextToken(tokens) orelse
+            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        {
+            const argumentNameToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (argumentNameToken.tag != Token.Tag.identifier) return arguments.toOwnedSlice() catch return ParseError.ExpectedName;
+
+            const argumentName = try self.getTokenValue(argumentNameToken, allocator);
+            const colonToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
+
+            const argumentValue = try self.readInputValue(tokens, allocator);
+
+            const argument = ArgumentData{
+                .allocator = allocator,
+                .name = argumentName,
+                .value = argumentValue,
+            };
+            arguments.append(argument) catch return ParseError.UnexpectedMemoryError;
+
+            currentToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        }
+
+        // consume the right parenthesis
+        _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
+
+        return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    }
+
+    fn readInputValue(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!input.InputValueData {
+        var token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+        defer allocator.free(str);
+
+        var isVariable = false;
+
+        if (token.tag == Token.Tag.punct_dollar) {
+            token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            allocator.free(str);
+            str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+            isVariable = true;
+        }
+
+        switch (token.tag) {
+            Token.Tag.integer_literal => return input.InputValueData{
+                .int_value = input.IntValue{
+                    .value = std.fmt.parseInt(i32, str, 10) catch return ParseError.UnexpectedMemoryError,
+                },
+            },
+            Token.Tag.float_literal => return input.InputValueData{
+                .float_value = input.FloatValue{
+                    .value = std.fmt.parseFloat(f64, str) catch return ParseError.UnexpectedMemoryError,
+                },
+            },
+            Token.Tag.string_literal => {
+                const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+                return input.InputValueData{
+                    .string_value = input.StringValue{
+                        .value = strCopy,
+                    },
+                };
+            },
+            Token.Tag.identifier => {
+                // TODO: check why the spec uses "true" and "false" but implementations use "True" and "False"
+                if (isVariable) {
+                    const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+                    return input.InputValueData{
+                        .variable = input.Variable{
+                            .name = strCopy,
+                        },
+                    };
+                } else if (strEq(str, "true") or strEq(str, "True")) {
+                    return input.InputValueData{
+                        .boolean_value = input.BooleanValue{
+                            .value = true,
+                        },
+                    };
+                } else if (strEq(str, "false") or strEq(str, "False")) {
+                    return input.InputValueData{
+                        .boolean_value = input.BooleanValue{
+                            .value = false,
+                        },
+                    };
+                } else if (strEq(str, "null")) {
+                    return input.InputValueData{
+                        .null_value = input.NullValue{},
+                    };
+                } else {
+                    return input.InputValueData{
+                        .enum_value = input.EnumValue{
+                            .name = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError,
+                        },
+                    };
+                }
+            },
+            // Token.Tag.punct_dollar => {
+            //     const actualVariableName = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            //     isVariable = true;
+            //     continue :currentTag actualVariableName.tag;
+            // },
+            else => return ParseError.NotImplemented,
+        }
+        return ParseError.NotImplemented;
     }
 
     fn getTokenValue(_: *Parser, token: Token, allocator: Allocator) ParseError![]const u8 {
@@ -398,7 +546,7 @@ test "initialize invalid fragment name after on" {
 test "initialize fragment in document" {
     var parser = Parser.init();
 
-    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne { hello oui }";
+    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hello oui }";
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
