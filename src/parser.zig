@@ -576,12 +576,12 @@ test "initialize fragment in document" {
     var parser = Parser.init();
 
     const buffer =
-        \\fragment Oki on User @SomeDecorator 
+        \\fragment Profile on User @SomeDecorator 
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
-        \\      hi: hello(id: "someid")
-        \\      oui {
-        \\          one: subfield1(id: 1)
-        \\          two: subfield2
+        \\      nickname: username
+        \\      avatar {
+        \\          thumbnail: picUrl(size: 64)
+        \\          fullsize: picUrl
         \\      }
         \\  }
     ;
@@ -589,7 +589,7 @@ test "initialize fragment in document" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].name, "Oki"));
+    try testing.expect(strEq(rootNode.definitions.items[0].name, "Profile"));
 
     rootNode.printAST(0);
 }
