@@ -98,6 +98,7 @@ const FieldData = struct {
     alias: ?[]const u8,
     arguments: []ArgumentData,
     directives: []DirectiveData,
+    selectionSet: ?SelectionSetData,
 
     pub fn printAST(self: FieldData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -117,6 +118,12 @@ const FieldData = struct {
         for (self.directives) |item| {
             item.printAST(indent + 1);
         }
+        if (self.selectionSet != null) {
+            std.debug.print("{s}  selectionSet: \n", .{spaces});
+            self.selectionSet.?.printAST(indent + 1);
+        } else {
+            std.debug.print("{s}  selectionSet: null\n", .{spaces});
+        }
     }
 
     pub fn deinit(self: FieldData) void {
@@ -132,6 +139,9 @@ const FieldData = struct {
             item.deinit();
         }
         self.allocator.free(self.directives);
+        if (self.selectionSet != null) {
+            self.selectionSet.?.deinit();
+        }
     }
 };
 
@@ -365,12 +375,19 @@ pub const Parser = struct {
             } else .{ nameOrAlias, null };
 
             const arguments = try self.readArguments(tokens, allocator);
+
+            const potentialNextLeftBrace = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+            const selectionSet = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
+                break :ok try self.readSelectionSet(tokens, allocator);
+            } else null;
+
             const fieldNode = FieldData{
                 .allocator = allocator,
                 .name = name,
                 .alias = alias,
                 .arguments = arguments,
                 .directives = directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                .selectionSet = selectionSet,
             };
             fieldsNodes.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
         }
@@ -558,12 +575,21 @@ test "initialize invalid fragment name after on" {
 test "initialize fragment in document" {
     var parser = Parser.init();
 
-    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hi: hello(id: \"one\") oui }";
+    const buffer =
+        \\fragment Profile on User @SomeDecorator 
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\      nickname: username
+        \\      avatar {
+        \\          thumbnail: picUrl(size: 64)
+        \\          fullsize: picUrl
+        \\      }
+        \\  }
+    ;
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].name, "Oki"));
+    try testing.expect(strEq(rootNode.definitions.items[0].name, "Profile"));
 
     rootNode.printAST(0);
 }
