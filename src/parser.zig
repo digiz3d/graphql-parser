@@ -284,8 +284,8 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
-                const directivesNodes = try self.readDirectivesNodes(tokens, allocator);
-                const selectionSetNode = try self.readSelectionSetNode(tokens, allocator);
+                const directivesNodes = try self.readDirectives(tokens, allocator);
+                const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
                 const fragmentDefinitionNode = FragmentDefinitionData{
                     .allocator = allocator,
@@ -319,7 +319,7 @@ pub const Parser = struct {
         return nextToken;
     }
 
-    fn readDirectivesNodes(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]DirectiveData {
+    fn readDirectives(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]DirectiveData {
         var directives = ArrayList(DirectiveData).init(allocator);
         var currentToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
         while (currentToken.tag == Token.Tag.punct_at) : (currentToken = self.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
@@ -329,9 +329,10 @@ pub const Parser = struct {
 
             if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
             const directiveName = try self.getTokenValue(directiveNameToken, allocator);
+            const arguments = try self.readArguments(tokens, allocator);
             const directiveNode = DirectiveData{
                 .allocator = allocator,
-                .arguments = try self.readArguments(tokens, allocator),
+                .arguments = arguments,
                 .name = directiveName,
             };
             directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
@@ -339,7 +340,7 @@ pub const Parser = struct {
         return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
-    fn readSelectionSetNode(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!SelectionSetData {
+    fn readSelectionSet(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!SelectionSetData {
         const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
         if (openBraceToken.tag != Token.Tag.punct_brace_left) {
             return ParseError.MissingExpectedBrace;
@@ -353,11 +354,22 @@ pub const Parser = struct {
 
             var directives = ArrayList(DirectiveData).init(allocator);
 
+            const nameOrAlias = try self.getTokenValue(currentToken, allocator);
+            const nextToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+            const name, const alias = if (nextToken.tag == Token.Tag.punct_colon) assign: {
+                // consume colon
+                _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+                const finalNameToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+                const finalName = try self.getTokenValue(finalNameToken, allocator);
+                break :assign .{ finalName, nameOrAlias };
+            } else .{ nameOrAlias, null };
+
+            const arguments = try self.readArguments(tokens, allocator);
             const fieldNode = FieldData{
                 .allocator = allocator,
-                .name = try self.getTokenValue(currentToken, allocator),
-                .alias = null,
-                .arguments = try self.readArguments(tokens, allocator),
+                .name = name,
+                .alias = alias,
+                .arguments = arguments,
                 .directives = directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
             };
             fieldsNodes.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
@@ -546,7 +558,7 @@ test "initialize invalid fragment name after on" {
 test "initialize fragment in document" {
     var parser = Parser.init();
 
-    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hello oui }";
+    const buffer = "fragment Oki on User @SomeDecorator @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: \"oui\", b: True, n: null e: SOME_ENUM) { hi: hello(id: \"one\") oui }";
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
