@@ -618,46 +618,6 @@ pub const Parser = struct {
     }
 };
 
-test "initialize invalid document " {
-    var parser = Parser.init();
-
-    const buffer = "test { hello }";
-
-    const rootNode = parser.parse(buffer, testing.allocator);
-
-    try testing.expectError(ParseError.InvalidOperationType, rootNode);
-}
-
-test "initialize invalid fragment no name" {
-    var parser = Parser.init();
-
-    const buffer = "fragment { hello }";
-
-    const rootNode = parser.parse(buffer, testing.allocator);
-
-    try testing.expectError(ParseError.ExpectedName, rootNode);
-}
-
-test "initialize invalid fragment name is on" {
-    var parser = Parser.init();
-
-    const buffer = "fragment on on User { hello }";
-
-    const rootNode = parser.parse(buffer, testing.allocator);
-
-    try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
-}
-
-test "initialize invalid fragment name after on" {
-    var parser = Parser.init();
-
-    const buffer = "fragment X on { hello }";
-
-    const rootNode = parser.parse(buffer, testing.allocator);
-
-    try testing.expectError(ParseError.ExpectedName, rootNode);
-}
-
 test "initialize fragment" {
     var parser = Parser.init();
 
@@ -698,6 +658,7 @@ test "initialize query" {
     defer rootNode.deinit();
 
     try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
+    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.query);
 
     rootNode.printAST(0);
 }
@@ -715,6 +676,7 @@ test "initialize query without name" {
     defer rootNode.deinit();
 
     try testing.expect(rootNode.definitions.items[0].operation.name == null);
+    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.query);
 
     rootNode.printAST(0);
 }
@@ -737,9 +699,11 @@ test "initialize mutation" {
     defer rootNode.deinit();
 
     try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeMutation"));
+    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.mutation);
 
     rootNode.printAST(0);
 }
+
 test "initialize subscription" {
     var parser = Parser.init();
 
@@ -758,6 +722,48 @@ test "initialize subscription" {
     defer rootNode.deinit();
 
     try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeSubscription"));
+    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.subscription);
 
     rootNode.printAST(0);
+}
+
+// error cases
+test "initialize invalid document " {
+    var parser = Parser.init();
+
+    const buffer = "test { hello }";
+
+    const rootNode = parser.parse(buffer, testing.allocator);
+
+    try testing.expectError(ParseError.InvalidOperationType, rootNode);
+}
+
+test "initialize invalid fragment no name" {
+    var parser = Parser.init();
+
+    const buffer = "fragment { hello }";
+
+    const rootNode = parser.parse(buffer, testing.allocator);
+
+    try testing.expectError(ParseError.ExpectedName, rootNode);
+}
+
+test "initialize invalid fragment name is on" {
+    var parser = Parser.init();
+
+    const buffer = "fragment on on User { hello }";
+
+    const rootNode = parser.parse(buffer, testing.allocator);
+
+    try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
+}
+
+test "initialize invalid fragment name after on" {
+    var parser = Parser.init();
+
+    const buffer = "fragment X on { hello }";
+
+    const rootNode = parser.parse(buffer, testing.allocator);
+
+    try testing.expectError(ParseError.ExpectedName, rootNode);
 }
