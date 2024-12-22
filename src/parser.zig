@@ -377,8 +377,12 @@ pub const Parser = struct {
             Reading.query_definition, Reading.mutation_definition, Reading.subscription_definition => |operationType| {
                 _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
-                const operationNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                const operationName: ?[]const u8 = self.getTokenValue(operationNameToken, allocator) catch null;
+                var operationName: ?[]const u8 = null;
+                if (self.peekNextToken(tokens).?.tag == Token.Tag.identifier) {
+                    const operationNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                    const name: ?[]const u8 = self.getTokenValue(operationNameToken, allocator) catch null;
+                    operationName = name;
+                }
 
                 const directivesNodes = try self.readDirectives(tokens, allocator);
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
@@ -660,12 +664,12 @@ test "initialize fragment" {
     const buffer =
         \\fragment Profile on User @SomeDecorator 
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
-        \\      nickname: username
-        \\      avatar {
-        \\          thumbnail: picUrl(size: 64)
-        \\          fullsize: picUrl
-        \\      }
+        \\  nickname: username
+        \\  avatar {
+        \\    thumbnail: picUrl(size: 64)
+        \\    fullsize: picUrl
         \\  }
+        \\}
     ;
 
     var rootNode = try parser.parse(buffer, testing.allocator);
@@ -682,18 +686,35 @@ test "initialize query" {
     const buffer =
         \\query SomeQuery @SomeDecorator 
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
-        \\      nickname: username
-        \\      avatar {
-        \\          thumbnail: picUrl(size: 64)
-        \\          fullsize: picUrl
-        \\      }
+        \\  nickname: username
+        \\  avatar {
+        \\    thumbnail: picUrl(size: 64)
+        \\    fullsize: picUrl
         \\  }
+        \\}
     ;
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
     try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
+
+    rootNode.printAST(0);
+}
+
+test "initialize query without name" {
+    var parser = Parser.init();
+
+    const buffer =
+        \\query { 
+        \\  nickname: username
+        \\}
+    ;
+
+    var rootNode = try parser.parse(buffer, testing.allocator);
+    defer rootNode.deinit();
+
+    try testing.expect(rootNode.definitions.items[0].operation.name == null);
 
     rootNode.printAST(0);
 }
@@ -702,20 +723,20 @@ test "initialize mutation" {
     var parser = Parser.init();
 
     const buffer =
-        \\mutation SomeQuery @SomeDecorator 
+        \\mutation SomeMutation @SomeDecorator 
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
-        \\      nickname: username
-        \\      avatar {
-        \\          thumbnail: picUrl(size: 64)
-        \\          fullsize: picUrl
-        \\      }
+        \\  nickname: username
+        \\  avatar {
+        \\    thumbnail: picUrl(size: 64)
+        \\    fullsize: picUrl
         \\  }
+        \\}
     ;
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
+    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeMutation"));
 
     rootNode.printAST(0);
 }
@@ -723,20 +744,20 @@ test "initialize subscription" {
     var parser = Parser.init();
 
     const buffer =
-        \\subscription SomeQuery @SomeDecorator 
+        \\subscription SomeSubscription @SomeDecorator 
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
-        \\      nickname: username
-        \\      avatar {
-        \\          thumbnail: picUrl(size: 64)
-        \\          fullsize: picUrl
-        \\      }
+        \\  nickname: username
+        \\  avatar {
+        \\    thumbnail: picUrl(size: 64)
+        \\    fullsize: picUrl
         \\  }
+        \\}
     ;
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
+    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeSubscription"));
 
     rootNode.printAST(0);
 }
