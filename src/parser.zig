@@ -685,8 +685,7 @@ test "initialize mutation" {
     var parser = Parser.init();
 
     const buffer =
-        \\mutation SomeMutation @SomeDecorator 
-        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\mutation SomeMutation @SomeDecorator { 
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
@@ -708,8 +707,8 @@ test "initialize subscription" {
     var parser = Parser.init();
 
     const buffer =
-        \\subscription SomeSubscription @SomeDecorator 
-        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\subscription SomeSubscription @SomeDecorator #some comment
+        \\{ 
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
