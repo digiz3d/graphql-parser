@@ -24,6 +24,12 @@ fn makeSpaceFromNumber(indent: usize, allocator: Allocator) []const u8 {
     return spaces.toOwnedSlice() catch return "";
 }
 
+const OperationType = enum {
+    query,
+    mutation,
+    subscription,
+};
+
 const ArgumentData = struct {
     allocator: Allocator,
     name: []const u8,
@@ -72,7 +78,7 @@ const DirectiveData = struct {
 
 const DocumentData = struct {
     allocator: Allocator,
-    definitions: ArrayList(FragmentDefinitionData),
+    definitions: ArrayList(DefinitionData),
 
     pub fn printAST(self: DocumentData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -145,6 +151,26 @@ const FieldData = struct {
     }
 };
 
+// either a fragment or an operation
+const DefinitionData = union(enum) {
+    fragment: FragmentDefinitionData,
+    operation: OperationDefinitionData,
+
+    pub fn printAST(self: DefinitionData, indent: usize) void {
+        switch (self) {
+            DefinitionData.fragment => self.fragment.printAST(indent),
+            DefinitionData.operation => self.operation.printAST(indent),
+        }
+    }
+
+    pub fn deinit(self: DefinitionData) void {
+        switch (self) {
+            DefinitionData.fragment => self.fragment.deinit(),
+            DefinitionData.operation => self.operation.deinit(),
+        }
+    }
+};
+
 const FragmentDefinitionData = struct {
     allocator: Allocator,
     name: []const u8,
@@ -166,6 +192,44 @@ const FragmentDefinitionData = struct {
 
     pub fn deinit(self: FragmentDefinitionData) void {
         self.allocator.free(self.name);
+        for (self.directives) |item| {
+            item.deinit();
+        }
+        self.allocator.free(self.directives);
+        self.selectionSet.deinit();
+    }
+};
+
+const OperationDefinitionData = struct {
+    allocator: Allocator,
+    name: ?[]const u8,
+    operation: OperationType,
+    directives: []DirectiveData,
+    // variableDefinitions: []VariableDefinitionData,
+    selectionSet: SelectionSetData,
+
+    pub fn printAST(self: OperationDefinitionData, indent: usize) void {
+        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        defer self.allocator.free(spaces);
+        std.debug.print("{s}- OperationDefinitionData\n", .{spaces});
+        std.debug.print("{s}  operation = {s}\n", .{ spaces, switch (self.operation) {
+            OperationType.query => "query",
+            OperationType.mutation => "mutation",
+            OperationType.subscription => "subscription",
+        } });
+        std.debug.print("{s}  name = {?s}\n", .{ spaces, self.name });
+        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
+        for (self.directives) |item| {
+            item.printAST(indent + 1);
+        }
+        std.debug.print("{s}  selectionSet: \n", .{spaces});
+        self.selectionSet.printAST(indent + 1);
+    }
+
+    pub fn deinit(self: OperationDefinitionData) void {
+        if (self.name != null) {
+            self.allocator.free(self.name.?);
+        }
         for (self.directives) |item| {
             item.deinit();
         }
@@ -217,6 +281,9 @@ pub const Parser = struct {
     const Reading = enum {
         root,
         fragment_definition,
+        query_definition,
+        mutation_definition,
+        subscription_definition,
     };
 
     pub fn init() Parser {
@@ -233,7 +300,7 @@ pub const Parser = struct {
     }
 
     fn processTokens(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!DocumentData {
-        const definitions = ArrayList(FragmentDefinitionData).init(allocator);
+        const definitions = ArrayList(DefinitionData).init(allocator);
 
         var documentNode = DocumentData{
             .allocator = allocator,
@@ -254,14 +321,11 @@ pub const Parser = struct {
                 const str = try self.getTokenValue(token, allocator);
                 defer allocator.free(str);
                 if (strEq(str, "query")) {
-                    // TODO: implement
-                    return ParseError.NotImplemented;
+                    continue :state Reading.query_definition;
                 } else if (strEq(str, "mutation")) {
-                    // TODO: implement
-                    return ParseError.NotImplemented;
+                    continue :state Reading.mutation_definition;
                 } else if (strEq(str, "subscription")) {
-                    // TODO: implement
-                    return ParseError.NotImplemented;
+                    continue :state Reading.subscription_definition;
                 } else if (strEq(str, "fragment")) {
                     continue :state Reading.fragment_definition;
                 }
@@ -297,15 +361,43 @@ pub const Parser = struct {
                 const directivesNodes = try self.readDirectives(tokens, allocator);
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
-                const fragmentDefinitionNode = FragmentDefinitionData{
-                    .allocator = allocator,
-                    .name = fragmentName,
-                    .directives = directivesNodes,
-                    .selectionSet = selectionSetNode,
+                const fragmentDefinitionNode = DefinitionData{
+                    .fragment = FragmentDefinitionData{
+                        .allocator = allocator,
+                        .name = fragmentName,
+                        .directives = directivesNodes,
+                        .selectionSet = selectionSetNode,
+                    },
                 };
 
                 documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
 
+                continue :state Reading.root;
+            },
+            Reading.query_definition, Reading.mutation_definition, Reading.subscription_definition => |operationType| {
+                _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+
+                const operationNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                const operationName: ?[]const u8 = self.getTokenValue(operationNameToken, allocator) catch null;
+
+                const directivesNodes = try self.readDirectives(tokens, allocator);
+                const selectionSetNode = try self.readSelectionSet(tokens, allocator);
+
+                const fragmentDefinitionNode = DefinitionData{
+                    .operation = OperationDefinitionData{
+                        .allocator = allocator,
+                        .operation = switch (operationType) {
+                            Reading.query_definition => OperationType.query,
+                            Reading.mutation_definition => OperationType.mutation,
+                            Reading.subscription_definition => OperationType.subscription,
+                            else => unreachable,
+                        },
+                        .name = operationName,
+                        .directives = directivesNodes,
+                        .selectionSet = selectionSetNode,
+                    },
+                };
+                documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
         }
@@ -532,16 +624,6 @@ test "initialize invalid document " {
     try testing.expectError(ParseError.InvalidOperationType, rootNode);
 }
 
-test "initialize non implemented query " {
-    var parser = Parser.init();
-
-    const buffer = "query Test { hello }";
-
-    const rootNode = parser.parse(buffer, testing.allocator);
-
-    try testing.expectError(ParseError.NotImplemented, rootNode);
-}
-
 test "initialize invalid fragment no name" {
     var parser = Parser.init();
 
@@ -572,7 +654,7 @@ test "initialize invalid fragment name after on" {
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
 
-test "initialize fragment in document" {
+test "initialize fragment" {
     var parser = Parser.init();
 
     const buffer =
@@ -589,7 +671,72 @@ test "initialize fragment in document" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].name, "Profile"));
+    try testing.expect(strEq(rootNode.definitions.items[0].fragment.name, "Profile"));
+
+    rootNode.printAST(0);
+}
+
+test "initialize query" {
+    var parser = Parser.init();
+
+    const buffer =
+        \\query SomeQuery @SomeDecorator 
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\      nickname: username
+        \\      avatar {
+        \\          thumbnail: picUrl(size: 64)
+        \\          fullsize: picUrl
+        \\      }
+        \\  }
+    ;
+
+    var rootNode = try parser.parse(buffer, testing.allocator);
+    defer rootNode.deinit();
+
+    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
+
+    rootNode.printAST(0);
+}
+
+test "initialize mutation" {
+    var parser = Parser.init();
+
+    const buffer =
+        \\mutation SomeQuery @SomeDecorator 
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\      nickname: username
+        \\      avatar {
+        \\          thumbnail: picUrl(size: 64)
+        \\          fullsize: picUrl
+        \\      }
+        \\  }
+    ;
+
+    var rootNode = try parser.parse(buffer, testing.allocator);
+    defer rootNode.deinit();
+
+    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
+
+    rootNode.printAST(0);
+}
+test "initialize subscription" {
+    var parser = Parser.init();
+
+    const buffer =
+        \\subscription SomeQuery @SomeDecorator 
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\      nickname: username
+        \\      avatar {
+        \\          thumbnail: picUrl(size: 64)
+        \\          fullsize: picUrl
+        \\      }
+        \\  }
+    ;
+
+    var rootNode = try parser.parse(buffer, testing.allocator);
+    defer rootNode.deinit();
+
+    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
 
     rootNode.printAST(0);
 }

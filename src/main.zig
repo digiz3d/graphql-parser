@@ -14,7 +14,8 @@ pub fn main() !void {
     defer allocator.free(content);
 
     var parser = Parser.init();
-    _ = try parser.parse(content, allocator);
+    var document = try parser.parse(content, allocator);
+    document.printAST(0);
 }
 
 fn getFileContent(filePath: []const u8, allocator: Allocator) ![:0]const u8 {
