@@ -151,7 +151,6 @@ const FieldData = struct {
     }
 };
 
-// either a fragment or an operation
 const DefinitionData = union(enum) {
     fragment: FragmentDefinitionData,
     operation: OperationDefinitionData,
@@ -205,7 +204,7 @@ const OperationDefinitionData = struct {
     name: ?[]const u8,
     operation: OperationType,
     directives: []DirectiveData,
-    // variableDefinitions: []VariableDefinitionData,
+    variableDefinitions: []VariableDefinitionData,
     selectionSet: SelectionSetData,
 
     pub fn printAST(self: OperationDefinitionData, indent: usize) void {
@@ -218,6 +217,10 @@ const OperationDefinitionData = struct {
             OperationType.subscription => "subscription",
         } });
         std.debug.print("{s}  name = {?s}\n", .{ spaces, self.name });
+        std.debug.print("{s}  variableDefinitions: {d}\n", .{ spaces, self.variableDefinitions.len });
+        for (self.variableDefinitions) |item| {
+            item.printAST(indent + 1);
+        }
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
             item.printAST(indent + 1);
@@ -234,6 +237,10 @@ const OperationDefinitionData = struct {
             item.deinit();
         }
         self.allocator.free(self.directives);
+        for (self.variableDefinitions) |item| {
+            item.deinit();
+        }
+        self.allocator.free(self.variableDefinitions);
         self.selectionSet.deinit();
     }
 };
@@ -260,9 +267,49 @@ const SelectionSetData = struct {
     }
 };
 
+const VariableDefinitionData = struct {
+    allocator: Allocator,
+    name: []const u8,
+    type: []const u8,
+    defaultValue: ?input.InputValueData,
+    directives: []DirectiveData,
+
+    pub fn printAST(self: VariableDefinitionData, indent: usize) void {
+        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        defer self.allocator.free(spaces);
+        std.debug.print("{s}- VariableDefinitionData\n", .{spaces});
+        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
+        std.debug.print("{s}  type: {s}\n", .{ spaces, self.type });
+        if (self.defaultValue != null) {
+            const value = self.defaultValue.?.getPrintableString(self.allocator);
+            defer self.allocator.free(value);
+            std.debug.print("{s}  defaultValue = {s}\n", .{ spaces, value });
+        } else {
+            std.debug.print("{s}  defaultValue = null\n", .{spaces});
+        }
+        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
+        for (self.directives) |item| {
+            item.printAST(indent + 1);
+        }
+    }
+
+    pub fn deinit(self: VariableDefinitionData) void {
+        self.allocator.free(self.name);
+        self.allocator.free(self.type);
+        if (self.defaultValue != null) {
+            self.defaultValue.?.deinit(self.allocator);
+        }
+        for (self.directives) |item| {
+            item.deinit();
+        }
+        self.allocator.free(self.directives);
+    }
+};
+
 const ParseError = error{
     EmptyTokenList,
     ExpectedColon,
+    ExpectedDollar,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
@@ -384,21 +431,23 @@ pub const Parser = struct {
                     operationName = name;
                 }
 
+                const variablesNodes = try self.readVariableDefinition(tokens, allocator);
                 const directivesNodes = try self.readDirectives(tokens, allocator);
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
                 const fragmentDefinitionNode = DefinitionData{
                     .operation = OperationDefinitionData{
                         .allocator = allocator,
+                        .directives = directivesNodes,
+                        .name = operationName,
                         .operation = switch (operationType) {
                             Reading.query_definition => OperationType.query,
                             Reading.mutation_definition => OperationType.mutation,
                             Reading.subscription_definition => OperationType.subscription,
                             else => unreachable,
                         },
-                        .name = operationName,
-                        .directives = directivesNodes,
                         .selectionSet = selectionSetNode,
+                        .variableDefinitions = variablesNodes,
                     },
                 };
                 documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
@@ -458,8 +507,6 @@ pub const Parser = struct {
         while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
             if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
 
-            var directives = ArrayList(DirectiveData).init(allocator);
-
             const nameOrAlias = try self.getTokenValue(currentToken, allocator);
             const nextToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
             const name, const alias = if (nextToken.tag == Token.Tag.punct_colon) assign: {
@@ -471,9 +518,10 @@ pub const Parser = struct {
             } else .{ nameOrAlias, null };
 
             const arguments = try self.readArguments(tokens, allocator);
+            const directives = try self.readDirectives(tokens, allocator);
 
             const potentialNextLeftBrace = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-            const selectionSet = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
+            const selectionSet: ?SelectionSetData = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
                 break :ok try self.readSelectionSet(tokens, allocator);
             } else null;
 
@@ -482,7 +530,7 @@ pub const Parser = struct {
                 .name = name,
                 .alias = alias,
                 .arguments = arguments,
-                .directives = directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+                .directives = directives,
                 .selectionSet = selectionSet,
             };
             fieldsNodes.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
@@ -536,6 +584,68 @@ pub const Parser = struct {
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
+    fn readVariableDefinition(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]VariableDefinitionData {
+        var variableDefinitions = ArrayList(VariableDefinitionData).init(allocator);
+
+        var currentToken = self.peekNextToken(tokens) orelse
+            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        if (currentToken.tag != Token.Tag.punct_paren_left) {
+            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        }
+
+        // consume the left parenthesis
+        _ = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = self.peekNextToken(tokens) orelse
+            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        {
+            const variableDollarToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (variableDollarToken.tag != Token.Tag.punct_dollar) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedDollar;
+
+            const variableNameToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (variableNameToken.tag != Token.Tag.identifier) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedName;
+            const variableName = try self.getTokenValue(variableNameToken, allocator);
+
+            const variableColonToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (variableColonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
+
+            // TODO: properly parse type (NonNullType, ListType, NamedType)
+            const variableTypeToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+            if (variableTypeToken.tag != Token.Tag.identifier) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedName;
+            const variableType = try self.getTokenValue(variableTypeToken, allocator);
+
+            const nextToken = self.peekNextToken(tokens) orelse
+                return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+            var defaultValue: ?input.InputValueData = null;
+
+            if (nextToken.tag == Token.Tag.punct_equal) {
+                _ = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+                // TODO: don't accept variables values there
+                defaultValue = try self.readInputValue(tokens, allocator);
+            }
+
+            const directives = try self.readDirectives(tokens, allocator);
+
+            const variableDefinition = VariableDefinitionData{
+                .allocator = allocator,
+                .name = variableName,
+                .type = variableType,
+                .defaultValue = defaultValue,
+                .directives = directives,
+            };
+            variableDefinitions.append(variableDefinition) catch return ParseError.UnexpectedMemoryError;
+
+            currentToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        }
+
+        // consume the right parenthesis
+        _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
+
+        return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    }
+
     fn readInputValue(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!input.InputValueData {
         var token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
         var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
@@ -570,7 +680,6 @@ pub const Parser = struct {
                 };
             },
             Token.Tag.identifier => {
-                // TODO: check why the spec uses "true" and "false" but implementations use "True" and "False"
                 if (isVariable) {
                     const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
                     return input.InputValueData{
@@ -578,13 +687,13 @@ pub const Parser = struct {
                             .name = strCopy,
                         },
                     };
-                } else if (strEq(str, "true") or strEq(str, "True")) {
+                } else if (strEq(str, "true")) {
                     return input.InputValueData{
                         .boolean_value = input.BooleanValue{
                             .value = true,
                         },
                     };
-                } else if (strEq(str, "false") or strEq(str, "False")) {
+                } else if (strEq(str, "false")) {
                     return input.InputValueData{
                         .boolean_value = input.BooleanValue{
                             .value = false,
@@ -622,8 +731,8 @@ test "initialize fragment" {
     var parser = Parser.init();
 
     const buffer =
-        \\fragment Profile on User @SomeDecorator 
-        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\fragment Profile on User @SomeDecorator
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
@@ -644,8 +753,8 @@ test "initialize query" {
     var parser = Parser.init();
 
     const buffer =
-        \\query SomeQuery @SomeDecorator 
-        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: True, n: null e: SOME_ENUM) { 
+        \\query SomeQuery @SomeDecorator
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
@@ -667,7 +776,7 @@ test "initialize query without name" {
     var parser = Parser.init();
 
     const buffer =
-        \\query { 
+        \\query {
         \\  nickname: username
         \\}
     ;
@@ -685,7 +794,7 @@ test "initialize mutation" {
     var parser = Parser.init();
 
     const buffer =
-        \\mutation SomeMutation @SomeDecorator { 
+        \\mutation SomeMutation($param: String = "123" @tolowercase) @SomeDecorator { 
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
@@ -708,7 +817,7 @@ test "initialize subscription" {
 
     const buffer =
         \\subscription SomeSubscription @SomeDecorator #some comment
-        \\{ 
+        \\{
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
