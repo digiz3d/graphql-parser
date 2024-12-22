@@ -261,6 +261,7 @@ pub const Tokenizer = struct {
     pub fn getAllTokens(self: *Tokenizer) ![]Token {
         var currentToken = try self.getNextToken();
         while (currentToken.tag != Token.Tag.eof) : (currentToken = try self.getNextToken()) {
+            if (currentToken.tag == Token.Tag.comment) continue;
             try self.tokensList.append(currentToken);
         }
 
