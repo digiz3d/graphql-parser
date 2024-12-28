@@ -245,25 +245,101 @@ const OperationDefinitionData = struct {
     }
 };
 
+const FragmentSpreadData = struct {
+    allocator: Allocator,
+    name: []const u8,
+    directives: []DirectiveData,
+
+    pub fn printAST(self: FragmentSpreadData, indent: usize) void {
+        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        defer self.allocator.free(spaces);
+        std.debug.print("{s}- FragmentSpreadData\n", .{spaces});
+        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
+        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
+        for (self.directives) |item| {
+            item.printAST(indent + 1);
+        }
+    }
+
+    pub fn deinit(self: FragmentSpreadData) void {
+        self.allocator.free(self.name);
+        for (self.directives) |item| {
+            item.deinit();
+        }
+        self.allocator.free(self.directives);
+    }
+};
+
+const InlineFragmentData = struct {
+    allocator: Allocator,
+    typeCondition: []const u8,
+    directives: []DirectiveData,
+    selectionSet: SelectionSetData,
+
+    pub fn printAST(self: InlineFragmentData, indent: usize) void {
+        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        defer self.allocator.free(spaces);
+        std.debug.print("{s}- InlineFragmentData\n", .{spaces});
+        std.debug.print("{s}  typeCondition = {s}\n", .{ spaces, self.typeCondition });
+        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
+        for (self.directives) |item| {
+            item.printAST(indent + 1);
+        }
+        std.debug.print("{s}  selectionSet: \n", .{spaces});
+        self.selectionSet.printAST(indent + 1);
+    }
+
+    pub fn deinit(self: InlineFragmentData) void {
+        self.allocator.free(self.typeCondition);
+        for (self.directives) |item| {
+            item.deinit();
+        }
+        self.allocator.free(self.directives);
+        self.selectionSet.deinit();
+    }
+};
+
+const SelectionSetSelectionUnion = union(enum) {
+    field: FieldData,
+    fragmentSpread: FragmentSpreadData,
+    inlineFragment: InlineFragmentData,
+
+    pub fn printAST(self: SelectionSetSelectionUnion, indent: usize) void {
+        switch (self) {
+            SelectionSetSelectionUnion.field => self.field.printAST(indent),
+            SelectionSetSelectionUnion.fragmentSpread => self.fragmentSpread.printAST(indent),
+            SelectionSetSelectionUnion.inlineFragment => self.inlineFragment.printAST(indent),
+        }
+    }
+
+    pub fn deinit(self: SelectionSetSelectionUnion) void {
+        switch (self) {
+            SelectionSetSelectionUnion.field => self.field.deinit(),
+            SelectionSetSelectionUnion.fragmentSpread => self.fragmentSpread.deinit(),
+            SelectionSetSelectionUnion.inlineFragment => self.inlineFragment.deinit(),
+        }
+    }
+};
+
 const SelectionSetData = struct {
     allocator: Allocator,
-    fields: []FieldData,
+    selections: []SelectionSetSelectionUnion,
 
     pub fn printAST(self: SelectionSetData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- SelectionSetData\n", .{spaces});
-        std.debug.print("{s}  fields:\n", .{spaces});
-        for (self.fields) |item| {
+        std.debug.print("{s}  selections:\n", .{spaces});
+        for (self.selections) |item| {
             item.printAST(indent + 1);
         }
     }
 
     pub fn deinit(self: SelectionSetData) void {
-        for (self.fields) |item| {
+        for (self.selections) |item| {
             item.deinit();
         }
-        self.allocator.free(self.fields);
+        self.allocator.free(self.selections);
     }
 };
 
@@ -502,10 +578,45 @@ pub const Parser = struct {
         }
         var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
 
-        var fieldsNodes = ArrayList(FieldData).init(allocator);
+        var selections = ArrayList(SelectionSetSelectionUnion).init(allocator);
 
         while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
             if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
+
+            if (currentToken.tag == Token.Tag.punct_spread) {
+                const onOrSpreadNameToken = self.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+                const onOrSpreadName = onOrSpreadNameToken.getStringValue(allocator) catch "";
+                defer allocator.free(onOrSpreadName);
+
+                var selectionSetSelectionUnion: SelectionSetSelectionUnion = undefined;
+                if (strEq(onOrSpreadName, "on")) {
+                    const typeConditionToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+                    if (typeConditionToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+                    const typeCondition = try self.getTokenValue(typeConditionToken, allocator);
+                    const directives = try self.readDirectives(tokens, allocator);
+                    const selectionSet = try self.readSelectionSet(tokens, allocator);
+                    selectionSetSelectionUnion = SelectionSetSelectionUnion{
+                        .inlineFragment = InlineFragmentData{
+                            .allocator = allocator,
+                            .typeCondition = typeCondition,
+                            .directives = directives,
+                            .selectionSet = selectionSet,
+                        },
+                    };
+                } else {
+                    const directives = try self.readDirectives(tokens, allocator);
+                    const spreadName = allocator.dupe(u8, onOrSpreadName) catch return ParseError.UnexpectedMemoryError;
+                    selectionSetSelectionUnion = SelectionSetSelectionUnion{
+                        .fragmentSpread = FragmentSpreadData{
+                            .allocator = allocator,
+                            .name = spreadName,
+                            .directives = directives,
+                        },
+                    };
+                }
+                selections.append(selectionSetSelectionUnion) catch return ParseError.UnexpectedMemoryError;
+                continue;
+            }
 
             const nameOrAlias = try self.getTokenValue(currentToken, allocator);
             const nextToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
@@ -525,20 +636,22 @@ pub const Parser = struct {
                 break :ok try self.readSelectionSet(tokens, allocator);
             } else null;
 
-            const fieldNode = FieldData{
-                .allocator = allocator,
-                .name = name,
-                .alias = alias,
-                .arguments = arguments,
-                .directives = directives,
-                .selectionSet = selectionSet,
+            const fieldNode = SelectionSetSelectionUnion{
+                .field = FieldData{
+                    .allocator = allocator,
+                    .name = name,
+                    .alias = alias,
+                    .arguments = arguments,
+                    .directives = directives,
+                    .selectionSet = selectionSet,
+                },
             };
-            fieldsNodes.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
+            selections.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
         }
 
         const selectionSetNode = SelectionSetData{
             .allocator = allocator,
-            .fields = fieldsNodes.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+            .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         };
         return selectionSetNode;
     }
@@ -745,8 +858,6 @@ test "initialize fragment" {
     defer rootNode.deinit();
 
     try testing.expect(strEq(rootNode.definitions.items[0].fragment.name, "Profile"));
-
-    rootNode.printAST(0);
 }
 
 test "initialize query" {
@@ -759,6 +870,11 @@ test "initialize query" {
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
         \\    fullsize: picUrl
+        \\     ... OtherAvatarProps @whynot
+        \\    ... on Avatar @hereToo {
+        \\      test
+        \\    }
+        \\    createdAt
         \\  }
         \\}
     ;
@@ -786,15 +902,13 @@ test "initialize query without name" {
 
     try testing.expect(rootNode.definitions.items[0].operation.name == null);
     try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.query);
-
-    rootNode.printAST(0);
 }
 
 test "initialize mutation" {
     var parser = Parser.init();
 
     const buffer =
-        \\mutation SomeMutation($param: String = "123" @tolowercase) @SomeDecorator { 
+        \\mutation SomeMutation($param: String = "123" @tolowercase) @SomeDecorator {
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)
@@ -808,8 +922,6 @@ test "initialize mutation" {
 
     try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeMutation"));
     try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.mutation);
-
-    rootNode.printAST(0);
 }
 
 test "initialize subscription" {
@@ -831,8 +943,6 @@ test "initialize subscription" {
 
     try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeSubscription"));
     try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.subscription);
-
-    rootNode.printAST(0);
 }
 
 // error cases
