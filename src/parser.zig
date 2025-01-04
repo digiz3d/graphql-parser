@@ -26,7 +26,7 @@ fn makeSpaceFromNumber(indent: usize, allocator: Allocator) []const u8 {
     return spaces.toOwnedSlice() catch return "";
 }
 
-const OperationType = enum {
+pub const OperationType = enum {
     query,
     mutation,
     subscription,
@@ -109,7 +109,7 @@ const FieldData = struct {
 
 const DefinitionData = union(enum) {
     fragment: FragmentDefinitionData,
-    operation: OperationDefinitionData,
+    operation: node.OperationDefinition,
 
     pub fn printAST(self: DefinitionData, indent: usize) void {
         switch (self) {
@@ -151,52 +151,6 @@ const FragmentDefinitionData = struct {
             item.deinit();
         }
         self.allocator.free(self.directives);
-        self.selectionSet.deinit();
-    }
-};
-
-const OperationDefinitionData = struct {
-    allocator: Allocator,
-    name: ?[]const u8,
-    operation: OperationType,
-    directives: []node.Directive,
-    variableDefinitions: []VariableDefinitionData,
-    selectionSet: node.SelectionSet,
-
-    pub fn printAST(self: OperationDefinitionData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- OperationDefinitionData\n", .{spaces});
-        std.debug.print("{s}  operation = {s}\n", .{ spaces, switch (self.operation) {
-            OperationType.query => "query",
-            OperationType.mutation => "mutation",
-            OperationType.subscription => "subscription",
-        } });
-        std.debug.print("{s}  name = {?s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  variableDefinitions: {d}\n", .{ spaces, self.variableDefinitions.len });
-        for (self.variableDefinitions) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  selectionSet: \n", .{spaces});
-        self.selectionSet.printAST(indent + 1);
-    }
-
-    pub fn deinit(self: OperationDefinitionData) void {
-        if (self.name != null) {
-            self.allocator.free(self.name.?);
-        }
-        for (self.directives) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.directives);
-        for (self.variableDefinitions) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.variableDefinitions);
         self.selectionSet.deinit();
     }
 };
@@ -277,7 +231,7 @@ pub const SelectionSetSelectionUnion = union(enum) {
     }
 };
 
-const VariableDefinitionData = struct {
+pub const VariableDefinitionData = struct {
     allocator: Allocator,
     name: []const u8,
     type: []const u8,
@@ -446,7 +400,7 @@ pub const Parser = struct {
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
                 const fragmentDefinitionNode = DefinitionData{
-                    .operation = OperationDefinitionData{
+                    .operation = node.OperationDefinition{
                         .allocator = allocator,
                         .directives = directivesNodes,
                         .name = operationName,
