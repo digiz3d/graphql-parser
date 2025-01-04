@@ -11,8 +11,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Build and Test
+    name: Test
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v1
       - run: zig test src/parser.zig
+        with:
+          version: 'master'
