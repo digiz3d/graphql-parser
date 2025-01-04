@@ -2,6 +2,7 @@ pub const Argument = @import("./argument.zig").Argument;
 pub const Directive = @import("./directive.zig").Directive;
 pub const Document = @import("./document.zig").Document;
 pub const ExecutableDefinition = @import("./executable_definition.zig").ExecutableDefinition;
+pub const Field = @import("./field.zig").Field;
 pub const FragmentDefinition = @import("./fragment_definition.zig").FragmentDefinition;
 pub const FragmentSpread = @import("./fragment_spread.zig").FragmentSpread;
 pub const InlineFragment = @import("./inline_fragment.zig").InlineFragment;
