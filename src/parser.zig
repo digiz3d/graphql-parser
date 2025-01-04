@@ -108,7 +108,7 @@ const FieldData = struct {
 };
 
 const DefinitionData = union(enum) {
-    fragment: FragmentDefinitionData,
+    fragment: node.FragmentDefinition,
     operation: node.OperationDefinition,
 
     pub fn printAST(self: DefinitionData, indent: usize) void {
@@ -123,35 +123,6 @@ const DefinitionData = union(enum) {
             DefinitionData.fragment => self.fragment.deinit(),
             DefinitionData.operation => self.operation.deinit(),
         }
-    }
-};
-
-const FragmentDefinitionData = struct {
-    allocator: Allocator,
-    name: []const u8,
-    directives: []node.Directive,
-    selectionSet: node.SelectionSet,
-
-    pub fn printAST(self: FragmentDefinitionData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- FragmentDefinitionData\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  selectionSet: \n", .{spaces});
-        self.selectionSet.printAST(indent + 1);
-    }
-
-    pub fn deinit(self: FragmentDefinitionData) void {
-        self.allocator.free(self.name);
-        for (self.directives) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.directives);
-        self.selectionSet.deinit();
     }
 };
 
@@ -280,7 +251,7 @@ pub const Parser = struct {
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
                 const fragmentDefinitionNode = DefinitionData{
-                    .fragment = FragmentDefinitionData{
+                    .fragment = node.FragmentDefinition{
                         .allocator = allocator,
                         .name = fragmentName,
                         .directives = directivesNodes,
