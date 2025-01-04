@@ -1,6 +1,6 @@
 const std = @import("std");
-const input = @import("../input_value.zig");
 
+const input = @import("../input_value.zig");
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
 
 pub const Argument = struct {

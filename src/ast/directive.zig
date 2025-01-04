@@ -1,7 +1,7 @@
 const std = @import("std");
-const input = @import("../input_value.zig");
 
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
+
 const node = @import("./index.zig");
 
 pub const Directive = struct {

@@ -1,5 +1,6 @@
 pub const Argument = @import("./argument.zig").Argument;
 pub const Directive = @import("./directive.zig").Directive;
+pub const FragmentSpread = @import("./fragment_spread.zig").FragmentSpread;
 pub const InlineFragment = @import("./inline_fragment.zig").InlineFragment;
 pub const OperationDefinition = @import("./operation_definition.zig").OperationDefinition;
 pub const SelectionSet = @import("./selection_set.zig").SelectionSet;

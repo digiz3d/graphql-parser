@@ -155,34 +155,9 @@ const FragmentDefinitionData = struct {
     }
 };
 
-const FragmentSpreadData = struct {
-    allocator: Allocator,
-    name: []const u8,
-    directives: []node.Directive,
-
-    pub fn printAST(self: FragmentSpreadData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- FragmentSpreadData\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
-    pub fn deinit(self: FragmentSpreadData) void {
-        self.allocator.free(self.name);
-        for (self.directives) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.directives);
-    }
-};
-
 pub const SelectionSetSelectionUnion = union(enum) {
     field: FieldData,
-    fragmentSpread: FragmentSpreadData,
+    fragmentSpread: node.FragmentSpread,
     inlineFragment: node.InlineFragment,
 
     pub fn printAST(self: SelectionSetSelectionUnion, indent: usize) void {
@@ -427,7 +402,7 @@ pub const Parser = struct {
                     const directives = try self.readDirectives(tokens, allocator);
                     const spreadName = allocator.dupe(u8, onOrSpreadName) catch return ParseError.UnexpectedMemoryError;
                     selectionSetSelectionUnion = SelectionSetSelectionUnion{
-                        .fragmentSpread = FragmentSpreadData{
+                        .fragmentSpread = node.FragmentSpread{
                             .allocator = allocator,
                             .name = spreadName,
                             .directives = directives,
