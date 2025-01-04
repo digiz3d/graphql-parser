@@ -243,7 +243,7 @@ test "initialize query" {
     defer rootNode.deinit();
 
     try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery");
-    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.query);
+    try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operation.operation);
 
     rootNode.printAST(0);
 }
@@ -260,8 +260,8 @@ test "initialize query without name" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqual(rootNode.definitions.items[0].operation.name, null);
-    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.query);
+    try testing.expectEqual(null, rootNode.definitions.items[0].operation.name);
+    try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operation.operation);
 }
 
 test "initialize mutation" {
@@ -280,8 +280,8 @@ test "initialize mutation" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeMutation");
-    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.mutation);
+    try testing.expectEqualStrings("SomeMutation", rootNode.definitions.items[0].operation.name orelse "");
+    try testing.expectEqual(OperationType.mutation, rootNode.definitions.items[0].operation.operation);
 }
 
 test "initialize subscription" {
@@ -301,8 +301,8 @@ test "initialize subscription" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeSubscription");
-    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.subscription);
+    try testing.expectEqualStrings("SomeSubscription", rootNode.definitions.items[0].operation.name orelse "");
+    try testing.expectEqual(OperationType.subscription, rootNode.definitions.items[0].operation.operation);
 }
 
 // error cases

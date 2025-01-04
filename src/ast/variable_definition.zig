@@ -1,9 +1,12 @@
 const std = @import("std");
+const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-const Token = @import("../tokenizer.zig").Token;
+const t = @import("../tokenizer.zig");
+const Token = t.Token;
+const Tokenizer = t.Tokenizer;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
@@ -116,3 +119,46 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
 
     return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }
+
+test "parsing variables definitions" {
+    var parser = Parser.init();
+    const buffer = "($name: String, $id: Int)";
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const variableDefinitions = try parseVariableDefinition(&parser, tokens, testing.allocator);
+    defer {
+        for (variableDefinitions) |variableDefinition| {
+            variableDefinition.deinit();
+        }
+        testing.allocator.free(variableDefinitions);
+    }
+
+    try testing.expectEqual(2, variableDefinitions.len);
+}
+
+// TODO: implement parsing NonNull variables definitions
+// test "parsing NonNull variables definitions" {
+//     var parser = Parser.init();
+//     const buffer = "($name: String!, $id: Int!)";
+
+//     var tokenizer = Tokenizer.init(testing.allocator, buffer);
+//     defer tokenizer.deinit();
+
+//     const tokens = try tokenizer.getAllTokens();
+//     defer testing.allocator.free(tokens);
+
+//     const variableDefinitions = try parseVariableDefinition(&parser, tokens, testing.allocator);
+//     defer {
+//         for (variableDefinitions) |variableDefinition| {
+//             variableDefinition.deinit();
+//         }
+//         testing.allocator.free(variableDefinitions);
+//     }
+
+//     try testing.expectEqual(2, variableDefinitions.len);
+// }
