@@ -32,31 +32,6 @@ const OperationType = enum {
     subscription,
 };
 
-const DirectiveData = struct {
-    allocator: Allocator,
-    arguments: []node.Argument,
-    name: []const u8,
-
-    pub fn printAST(self: DirectiveData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- DirectiveData\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
-        for (self.arguments) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
-    pub fn deinit(self: DirectiveData) void {
-        self.allocator.free(self.name);
-        for (self.arguments) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.arguments);
-    }
-};
-
 const DocumentData = struct {
     allocator: Allocator,
     definitions: ArrayList(DefinitionData),
@@ -84,7 +59,7 @@ const FieldData = struct {
     name: []const u8,
     alias: ?[]const u8,
     arguments: []node.Argument,
-    directives: []DirectiveData,
+    directives: []node.Directive,
     selectionSet: ?SelectionSetData,
 
     pub fn printAST(self: FieldData, indent: usize) void {
@@ -154,7 +129,7 @@ const DefinitionData = union(enum) {
 const FragmentDefinitionData = struct {
     allocator: Allocator,
     name: []const u8,
-    directives: []DirectiveData,
+    directives: []node.Directive,
     selectionSet: SelectionSetData,
 
     pub fn printAST(self: FragmentDefinitionData, indent: usize) void {
@@ -184,7 +159,7 @@ const OperationDefinitionData = struct {
     allocator: Allocator,
     name: ?[]const u8,
     operation: OperationType,
-    directives: []DirectiveData,
+    directives: []node.Directive,
     variableDefinitions: []VariableDefinitionData,
     selectionSet: SelectionSetData,
 
@@ -229,7 +204,7 @@ const OperationDefinitionData = struct {
 const FragmentSpreadData = struct {
     allocator: Allocator,
     name: []const u8,
-    directives: []DirectiveData,
+    directives: []node.Directive,
 
     pub fn printAST(self: FragmentSpreadData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -254,7 +229,7 @@ const FragmentSpreadData = struct {
 const InlineFragmentData = struct {
     allocator: Allocator,
     typeCondition: []const u8,
-    directives: []DirectiveData,
+    directives: []node.Directive,
     selectionSet: SelectionSetData,
 
     pub fn printAST(self: InlineFragmentData, indent: usize) void {
@@ -329,7 +304,7 @@ const VariableDefinitionData = struct {
     name: []const u8,
     type: []const u8,
     defaultValue: ?input.InputValueData,
-    directives: []DirectiveData,
+    directives: []node.Directive,
 
     pub fn printAST(self: VariableDefinitionData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -531,8 +506,8 @@ pub const Parser = struct {
         return nextToken;
     }
 
-    fn readDirectives(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]DirectiveData {
-        var directives = ArrayList(DirectiveData).init(allocator);
+    fn readDirectives(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]node.Directive {
+        var directives = ArrayList(node.Directive).init(allocator);
         var currentToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
         while (currentToken.tag == Token.Tag.punct_at) : (currentToken = self.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
             _ = self.consumeNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -542,7 +517,7 @@ pub const Parser = struct {
             if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
             const directiveName = try self.getTokenValue(directiveNameToken, allocator);
             const arguments = try self.readArguments(tokens, allocator);
-            const directiveNode = DirectiveData{
+            const directiveNode = node.Directive{
                 .allocator = allocator,
                 .arguments = arguments,
                 .name = directiveName,
