@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
+const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
 const node = @import("./index.zig");
 
@@ -9,7 +9,7 @@ pub const Document = struct {
     definitions: std.ArrayList(node.ExecutableDefinition),
 
     pub fn printAST(self: Document, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- Document\n", .{spaces});
         std.debug.print("{s}  definitions: {d}\n", .{ spaces, self.definitions.items.len });

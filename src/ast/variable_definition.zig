@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const input = @import("../input_value.zig");
-const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
+const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
 const node = @import("./index.zig");
 
@@ -13,7 +13,7 @@ pub const VariableDefinition = struct {
     directives: []node.Directive,
 
     pub fn printAST(self: VariableDefinition, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- VariableDefinition\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });

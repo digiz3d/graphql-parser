@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
+const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
 const node = @import("./index.zig");
 
@@ -11,7 +11,7 @@ pub const InlineFragment = struct {
     selectionSet: node.SelectionSet,
 
     pub fn printAST(self: InlineFragment, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
+        const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- InlineFragment\n", .{spaces});
         std.debug.print("{s}  typeCondition = {s}\n", .{ spaces, self.typeCondition });
