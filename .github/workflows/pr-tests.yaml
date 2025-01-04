@@ -15,6 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v1
-      - run: zig test src/parser.zig
         with:
           version: 'master'
+      - run: zig test src/parser.zig
