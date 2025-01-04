@@ -32,28 +32,6 @@ pub const OperationType = enum {
     subscription,
 };
 
-pub const SelectionSetSelectionUnion = union(enum) {
-    field: node.Field,
-    fragmentSpread: node.FragmentSpread,
-    inlineFragment: node.InlineFragment,
-
-    pub fn printAST(self: SelectionSetSelectionUnion, indent: usize) void {
-        switch (self) {
-            SelectionSetSelectionUnion.field => self.field.printAST(indent),
-            SelectionSetSelectionUnion.fragmentSpread => self.fragmentSpread.printAST(indent),
-            SelectionSetSelectionUnion.inlineFragment => self.inlineFragment.printAST(indent),
-        }
-    }
-
-    pub fn deinit(self: SelectionSetSelectionUnion) void {
-        switch (self) {
-            SelectionSetSelectionUnion.field => self.field.deinit(),
-            SelectionSetSelectionUnion.fragmentSpread => self.fragmentSpread.deinit(),
-            SelectionSetSelectionUnion.inlineFragment => self.inlineFragment.deinit(),
-        }
-    }
-};
-
 const ParseError = error{
     EmptyTokenList,
     ExpectedColon,
@@ -250,7 +228,7 @@ pub const Parser = struct {
         }
         var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
 
-        var selections = ArrayList(SelectionSetSelectionUnion).init(allocator);
+        var selections = ArrayList(node.Selection).init(allocator);
 
         while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
             if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
@@ -260,14 +238,14 @@ pub const Parser = struct {
                 const onOrSpreadName = onOrSpreadNameToken.getStringValue(allocator) catch "";
                 defer allocator.free(onOrSpreadName);
 
-                var selectionSetSelectionUnion: SelectionSetSelectionUnion = undefined;
+                var selection: node.Selection = undefined;
                 if (strEq(onOrSpreadName, "on")) {
                     const typeConditionToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
                     if (typeConditionToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
                     const typeCondition = try self.getTokenValue(typeConditionToken, allocator);
                     const directives = try self.readDirectives(tokens, allocator);
                     const selectionSet = try self.readSelectionSet(tokens, allocator);
-                    selectionSetSelectionUnion = SelectionSetSelectionUnion{
+                    selection = node.Selection{
                         .inlineFragment = node.InlineFragment{
                             .allocator = allocator,
                             .typeCondition = typeCondition,
@@ -278,7 +256,7 @@ pub const Parser = struct {
                 } else {
                     const directives = try self.readDirectives(tokens, allocator);
                     const spreadName = allocator.dupe(u8, onOrSpreadName) catch return ParseError.UnexpectedMemoryError;
-                    selectionSetSelectionUnion = SelectionSetSelectionUnion{
+                    selection = node.Selection{
                         .fragmentSpread = node.FragmentSpread{
                             .allocator = allocator,
                             .name = spreadName,
@@ -286,7 +264,7 @@ pub const Parser = struct {
                         },
                     };
                 }
-                selections.append(selectionSetSelectionUnion) catch return ParseError.UnexpectedMemoryError;
+                selections.append(selection) catch return ParseError.UnexpectedMemoryError;
                 continue;
             }
 
@@ -308,7 +286,7 @@ pub const Parser = struct {
                 break :ok try self.readSelectionSet(tokens, allocator);
             } else null;
 
-            const fieldNode = SelectionSetSelectionUnion{
+            const fieldNode = node.Selection{
                 .field = node.Field{
                     .allocator = allocator,
                     .name = name,

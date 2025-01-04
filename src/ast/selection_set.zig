@@ -2,11 +2,11 @@ const std = @import("std");
 
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
 
-const SelectionSetSelectionUnion = @import("../parser.zig").SelectionSetSelectionUnion;
+const node = @import("./index.zig");
 
 pub const SelectionSet = struct {
     allocator: std.mem.Allocator,
-    selections: []SelectionSetSelectionUnion,
+    selections: []node.Selection,
 
     pub fn printAST(self: SelectionSet, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);

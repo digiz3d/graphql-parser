@@ -8,4 +8,5 @@ pub const FragmentSpread = @import("./fragment_spread.zig").FragmentSpread;
 pub const InlineFragment = @import("./inline_fragment.zig").InlineFragment;
 pub const OperationDefinition = @import("./operation_definition.zig").OperationDefinition;
 pub const SelectionSet = @import("./selection_set.zig").SelectionSet;
+pub const Selection = @import("./selection_set_selection_union.zig").Selection;
 pub const VariableDefinition = @import("./variable_definition.zig").VariableDefinition;
