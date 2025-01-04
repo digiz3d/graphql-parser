@@ -3,8 +3,7 @@ const node = @import("./index.zig");
 const input = @import("../input_value.zig");
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
 
-const parser = @import("../parser.zig");
-const OperationType = parser.OperationType;
+const OperationType = @import("../parser.zig").OperationType;
 
 pub const OperationDefinition = struct {
     allocator: std.mem.Allocator,

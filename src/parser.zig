@@ -180,39 +180,10 @@ const FragmentSpreadData = struct {
     }
 };
 
-const InlineFragmentData = struct {
-    allocator: Allocator,
-    typeCondition: []const u8,
-    directives: []node.Directive,
-    selectionSet: node.SelectionSet,
-
-    pub fn printAST(self: InlineFragmentData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- InlineFragmentData\n", .{spaces});
-        std.debug.print("{s}  typeCondition = {s}\n", .{ spaces, self.typeCondition });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  selectionSet: \n", .{spaces});
-        self.selectionSet.printAST(indent + 1);
-    }
-
-    pub fn deinit(self: InlineFragmentData) void {
-        self.allocator.free(self.typeCondition);
-        for (self.directives) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.directives);
-        self.selectionSet.deinit();
-    }
-};
-
 pub const SelectionSetSelectionUnion = union(enum) {
     field: FieldData,
     fragmentSpread: FragmentSpreadData,
-    inlineFragment: InlineFragmentData,
+    inlineFragment: node.InlineFragment,
 
     pub fn printAST(self: SelectionSetSelectionUnion, indent: usize) void {
         switch (self) {
@@ -445,7 +416,7 @@ pub const Parser = struct {
                     const directives = try self.readDirectives(tokens, allocator);
                     const selectionSet = try self.readSelectionSet(tokens, allocator);
                     selectionSetSelectionUnion = SelectionSetSelectionUnion{
-                        .inlineFragment = InlineFragmentData{
+                        .inlineFragment = node.InlineFragment{
                             .allocator = allocator,
                             .typeCondition = typeCondition,
                             .directives = directives,
