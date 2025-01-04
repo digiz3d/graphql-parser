@@ -32,28 +32,6 @@ pub const OperationType = enum {
     subscription,
 };
 
-const DocumentData = struct {
-    allocator: Allocator,
-    definitions: ArrayList(DefinitionData),
-
-    pub fn printAST(self: DocumentData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- DocumentData\n", .{spaces});
-        std.debug.print("{s}  definitions: {d}\n", .{ spaces, self.definitions.items.len });
-        for (self.definitions.items) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
-    pub fn deinit(self: DocumentData) void {
-        for (self.definitions.items) |item| {
-            item.deinit();
-        }
-        self.definitions.deinit();
-    }
-};
-
 const FieldData = struct {
     allocator: Allocator,
     name: []const u8,
@@ -107,7 +85,7 @@ const FieldData = struct {
     }
 };
 
-const DefinitionData = union(enum) {
+pub const DefinitionData = union(enum) {
     fragment: node.FragmentDefinition,
     operation: node.OperationDefinition,
 
@@ -179,7 +157,7 @@ pub const Parser = struct {
         return Parser{};
     }
 
-    pub fn parse(self: *Parser, buffer: [:0]const u8, allocator: Allocator) ParseError!DocumentData {
+    pub fn parse(self: *Parser, buffer: [:0]const u8, allocator: Allocator) ParseError!node.Document {
         var tokenizer = Tokenizer.init(allocator, buffer);
         defer tokenizer.deinit();
         const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
@@ -188,10 +166,10 @@ pub const Parser = struct {
         return token;
     }
 
-    fn processTokens(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!DocumentData {
+    fn processTokens(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!node.Document {
         const definitions = ArrayList(DefinitionData).init(allocator);
 
-        var documentNode = DocumentData{
+        var documentNode = node.Document{
             .allocator = allocator,
             .definitions = definitions,
         };
