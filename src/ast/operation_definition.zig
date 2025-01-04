@@ -4,7 +4,6 @@ const input = @import("../input_value.zig");
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
 
 const parser = @import("../parser.zig");
-const VariableDefinitionData = parser.VariableDefinitionData;
 const OperationType = parser.OperationType;
 
 pub const OperationDefinition = struct {
@@ -12,13 +11,13 @@ pub const OperationDefinition = struct {
     name: ?[]const u8,
     operation: OperationType,
     directives: []node.Directive,
-    variableDefinitions: []VariableDefinitionData,
+    variableDefinitions: []node.VariableDefinition,
     selectionSet: node.SelectionSet,
 
     pub fn printAST(self: OperationDefinition, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
         defer self.allocator.free(spaces);
-        std.debug.print("{s}- OperationDefinitionData\n", .{spaces});
+        std.debug.print("{s}- OperationDefinition\n", .{spaces});
         std.debug.print("{s}  operation = {s}\n", .{ spaces, switch (self.operation) {
             OperationType.query => "query",
             OperationType.mutation => "mutation",

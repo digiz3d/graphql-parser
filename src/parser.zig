@@ -231,45 +231,6 @@ pub const SelectionSetSelectionUnion = union(enum) {
     }
 };
 
-pub const VariableDefinitionData = struct {
-    allocator: Allocator,
-    name: []const u8,
-    type: []const u8,
-    defaultValue: ?input.InputValueData,
-    directives: []node.Directive,
-
-    pub fn printAST(self: VariableDefinitionData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- VariableDefinitionData\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  type: {s}\n", .{ spaces, self.type });
-        if (self.defaultValue != null) {
-            const value = self.defaultValue.?.getPrintableString(self.allocator);
-            defer self.allocator.free(value);
-            std.debug.print("{s}  defaultValue = {s}\n", .{ spaces, value });
-        } else {
-            std.debug.print("{s}  defaultValue = null\n", .{spaces});
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
-    pub fn deinit(self: VariableDefinitionData) void {
-        self.allocator.free(self.name);
-        self.allocator.free(self.type);
-        if (self.defaultValue != null) {
-            self.defaultValue.?.deinit(self.allocator);
-        }
-        for (self.directives) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.directives);
-    }
-};
-
 const ParseError = error{
     EmptyTokenList,
     ExpectedColon,
@@ -585,8 +546,8 @@ pub const Parser = struct {
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
-    fn readVariableDefinition(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]VariableDefinitionData {
-        var variableDefinitions = ArrayList(VariableDefinitionData).init(allocator);
+    fn readVariableDefinition(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]node.VariableDefinition {
+        var variableDefinitions = ArrayList(node.VariableDefinition).init(allocator);
 
         var currentToken = self.peekNextToken(tokens) orelse
             return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -629,7 +590,7 @@ pub const Parser = struct {
 
             const directives = try self.readDirectives(tokens, allocator);
 
-            const variableDefinition = VariableDefinitionData{
+            const variableDefinition = node.VariableDefinition{
                 .allocator = allocator,
                 .name = variableName,
                 .type = variableType,
