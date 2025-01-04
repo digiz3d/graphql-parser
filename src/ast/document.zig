@@ -1,13 +1,12 @@
 const std = @import("std");
 
-const DefinitionData = @import("../parser.zig").DefinitionData;
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
 
 const node = @import("./index.zig");
 
 pub const Document = struct {
     allocator: std.mem.Allocator,
-    definitions: std.ArrayList(DefinitionData),
+    definitions: std.ArrayList(node.ExecutableDefinition),
 
     pub fn printAST(self: Document, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);

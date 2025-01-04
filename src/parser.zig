@@ -85,25 +85,6 @@ const FieldData = struct {
     }
 };
 
-pub const DefinitionData = union(enum) {
-    fragment: node.FragmentDefinition,
-    operation: node.OperationDefinition,
-
-    pub fn printAST(self: DefinitionData, indent: usize) void {
-        switch (self) {
-            DefinitionData.fragment => self.fragment.printAST(indent),
-            DefinitionData.operation => self.operation.printAST(indent),
-        }
-    }
-
-    pub fn deinit(self: DefinitionData) void {
-        switch (self) {
-            DefinitionData.fragment => self.fragment.deinit(),
-            DefinitionData.operation => self.operation.deinit(),
-        }
-    }
-};
-
 pub const SelectionSetSelectionUnion = union(enum) {
     field: FieldData,
     fragmentSpread: node.FragmentSpread,
@@ -167,7 +148,7 @@ pub const Parser = struct {
     }
 
     fn processTokens(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!node.Document {
-        const definitions = ArrayList(DefinitionData).init(allocator);
+        const definitions = ArrayList(node.ExecutableDefinition).init(allocator);
 
         var documentNode = node.Document{
             .allocator = allocator,
@@ -228,7 +209,7 @@ pub const Parser = struct {
                 const directivesNodes = try self.readDirectives(tokens, allocator);
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
-                const fragmentDefinitionNode = DefinitionData{
+                const fragmentDefinitionNode = node.ExecutableDefinition{
                     .fragment = node.FragmentDefinition{
                         .allocator = allocator,
                         .name = fragmentName,
@@ -255,7 +236,7 @@ pub const Parser = struct {
                 const directivesNodes = try self.readDirectives(tokens, allocator);
                 const selectionSetNode = try self.readSelectionSet(tokens, allocator);
 
-                const fragmentDefinitionNode = DefinitionData{
+                const fragmentDefinitionNode = node.ExecutableDefinition{
                     .operation = node.OperationDefinition{
                         .allocator = allocator,
                         .directives = directivesNodes,
