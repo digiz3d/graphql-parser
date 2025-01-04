@@ -77,7 +77,7 @@ pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) Pa
     return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }
 
-test "parsing arguments works" {
+test "parsing arguments" {
     var parser = Parser.init();
     const buffer = "(id: 123, value: $var)";
 
@@ -95,5 +95,5 @@ test "parsing arguments works" {
         testing.allocator.free(arguments);
     }
 
-    try testing.expectEqual(arguments.len, 2);
+    try testing.expectEqual(2, arguments.len);
 }

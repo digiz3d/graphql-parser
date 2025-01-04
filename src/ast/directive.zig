@@ -1,9 +1,12 @@
 const std = @import("std");
+const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-const Token = @import("../tokenizer.zig").Token;
+const t = @import("../tokenizer.zig");
+const Token = t.Token;
+const Tokenizer = t.Tokenizer;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
@@ -56,4 +59,25 @@ pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) P
         directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
     }
     return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+}
+
+test "parsing directives" {
+    var parser = Parser.init();
+    const buffer = "@oneDirective @twoDirective(id: 1, other: $val)";
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const directives = try parseDirectives(&parser, tokens, testing.allocator);
+    defer {
+        for (directives) |directive| {
+            directive.deinit();
+        }
+        testing.allocator.free(directives);
+    }
+
+    try testing.expectEqual(2, directives.len);
 }
