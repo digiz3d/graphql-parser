@@ -1,12 +1,20 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const Token = @import("../tokenizer.zig").Token;
+const p = @import("../parser.zig");
+const Parser = p.Parser;
+const ParseError = p.ParseError;
 
-const node = @import("./index.zig");
+const arg = @import("argument.zig");
+const Argument = arg.Argument;
+const parseArguments = arg.parseArguments;
 
 pub const Directive = struct {
-    allocator: std.mem.Allocator,
-    arguments: []node.Argument,
+    allocator: Allocator,
+    arguments: []Argument,
     name: []const u8,
 
     pub fn printAST(self: Directive, indent: usize) void {
@@ -28,3 +36,24 @@ pub const Directive = struct {
         self.allocator.free(self.arguments);
     }
 };
+
+pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]Directive {
+    var directives = ArrayList(Directive).init(allocator);
+    var currentToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    while (currentToken.tag == Token.Tag.punct_at) : (currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
+        _ = parser.consumeNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+
+        const directiveNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+
+        if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+        const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
+        const arguments = try parseArguments(parser, tokens, allocator);
+        const directiveNode = Directive{
+            .allocator = allocator,
+            .arguments = arguments,
+            .name = directiveName,
+        };
+        directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
+    }
+    return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+}

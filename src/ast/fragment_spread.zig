@@ -1,13 +1,14 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
-const node = @import("./index.zig");
+const Directive = @import("directive.zig").Directive;
 
 pub const FragmentSpread = struct {
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     name: []const u8,
-    directives: []node.Directive,
+    directives: []Directive,
 
     pub fn printAST(self: FragmentSpread, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);

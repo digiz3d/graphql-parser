@@ -1,14 +1,16 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
-const node = @import("./index.zig");
+const Directive = @import("directive.zig").Directive;
+const SelectionSet = @import("selection_set.zig").SelectionSet;
 
 pub const InlineFragment = struct {
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     typeCondition: []const u8,
-    directives: []node.Directive,
-    selectionSet: node.SelectionSet,
+    directives: []Directive,
+    selectionSet: SelectionSet,
 
     pub fn printAST(self: InlineFragment, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);

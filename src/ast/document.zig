@@ -1,12 +1,13 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
-const node = @import("./index.zig");
+const ExecutableDefinition = @import("executable_definition.zig").ExecutableDefinition;
 
 pub const Document = struct {
-    allocator: std.mem.Allocator,
-    definitions: std.ArrayList(node.ExecutableDefinition),
+    allocator: Allocator,
+    definitions: std.ArrayList(ExecutableDefinition),
 
     pub fn printAST(self: Document, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);

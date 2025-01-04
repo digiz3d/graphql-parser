@@ -1,16 +1,19 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
-const node = @import("./index.zig");
+const Argument = @import("argument.zig").Argument;
+const Directive = @import("directive.zig").Directive;
+const SelectionSet = @import("selection_set.zig").SelectionSet;
 
 pub const Field = struct {
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     name: []const u8,
     alias: ?[]const u8,
-    arguments: []node.Argument,
-    directives: []node.Directive,
-    selectionSet: ?node.SelectionSet,
+    arguments: []Argument,
+    directives: []Directive,
+    selectionSet: ?SelectionSet,
 
     pub fn printAST(self: Field, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);

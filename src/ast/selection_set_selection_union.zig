@@ -1,9 +1,11 @@
-const node = @import("./index.zig");
+const Field = @import("field.zig").Field;
+const FragmentSpread = @import("fragment_spread.zig").FragmentSpread;
+const InlineFragment = @import("inline_fragment.zig").InlineFragment;
 
 pub const Selection = union(enum) {
-    field: node.Field,
-    fragmentSpread: node.FragmentSpread,
-    inlineFragment: node.InlineFragment,
+    field: Field,
+    fragmentSpread: FragmentSpread,
+    inlineFragment: InlineFragment,
 
     pub fn printAST(self: Selection, indent: usize) void {
         switch (self) {

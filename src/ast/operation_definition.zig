@@ -1,8 +1,11 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
-const node = @import("./index.zig");
+const Directive = @import("directive.zig").Directive;
+const VariableDefinition = @import("variable_definition.zig").VariableDefinition;
+const SelectionSet = @import("selection_set.zig").SelectionSet;
 
 pub const OperationType = enum {
     query,
@@ -11,12 +14,12 @@ pub const OperationType = enum {
 };
 
 pub const OperationDefinition = struct {
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     name: ?[]const u8,
     operation: OperationType,
-    directives: []node.Directive,
-    variableDefinitions: []node.VariableDefinition,
-    selectionSet: node.SelectionSet,
+    directives: []Directive,
+    variableDefinitions: []VariableDefinition,
+    selectionSet: SelectionSet,
 
     pub fn printAST(self: OperationDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);

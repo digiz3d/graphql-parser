@@ -1,8 +1,9 @@
-const node = @import("./index.zig");
+const FragmentDefinition = @import("fragment_definition.zig").FragmentDefinition;
+const OperationDefinition = @import("operation_definition.zig").OperationDefinition;
 
 pub const ExecutableDefinition = union(enum) {
-    fragment: node.FragmentDefinition,
-    operation: node.OperationDefinition,
+    fragment: FragmentDefinition,
+    operation: OperationDefinition,
 
     pub fn printAST(self: ExecutableDefinition, indent: usize) void {
         switch (self) {

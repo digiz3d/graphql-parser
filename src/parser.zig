@@ -9,16 +9,24 @@ const Token = tok.Token;
 const Tokenizer = tok.Tokenizer;
 const printTokens = tok.printTokens;
 
-const input = @import("input_value.zig");
+const input = @import("ast/input_value.zig");
+const parseInputValue = input.parseInputValue;
+const parseDirectives = @import("ast/directive.zig").parseDirectives;
+const parseSelectionSet = @import("ast/selection_set.zig").parseSelectionSet;
+const parseVariableDefinition = @import("ast/variable_definition.zig").parseVariableDefinition;
 
-const node = @import("./ast/index.zig");
-const OperationType = @import("./ast/operation_definition.zig").OperationType;
+const Document = @import("ast/document.zig").Document;
+const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
+const FragmentDefinition = @import("ast/fragment_definition.zig").FragmentDefinition;
+const op = @import("ast/operation_definition.zig");
+const OperationType = op.OperationType;
+const OperationDefinition = op.OperationDefinition;
 
-inline fn strEq(a: []const u8, b: []const u8) bool {
+pub inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
 }
 
-const ParseError = error{
+pub const ParseError = error{
     EmptyTokenList,
     ExpectedColon,
     ExpectedDollar,
@@ -49,7 +57,7 @@ pub const Parser = struct {
         return Parser{};
     }
 
-    pub fn parse(self: *Parser, buffer: [:0]const u8, allocator: Allocator) ParseError!node.Document {
+    pub fn parse(self: *Parser, buffer: [:0]const u8, allocator: Allocator) ParseError!Document {
         var tokenizer = Tokenizer.init(allocator, buffer);
         defer tokenizer.deinit();
         const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
@@ -58,10 +66,10 @@ pub const Parser = struct {
         return token;
     }
 
-    fn processTokens(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!node.Document {
-        const definitions = ArrayList(node.ExecutableDefinition).init(allocator);
+    fn processTokens(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!Document {
+        const definitions = ArrayList(ExecutableDefinition).init(allocator);
 
-        var documentNode = node.Document{
+        var documentNode = Document{
             .allocator = allocator,
             .definitions = definitions,
         };
@@ -117,11 +125,11 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
-                const directivesNodes = try self.readDirectives(tokens, allocator);
-                const selectionSetNode = try self.readSelectionSet(tokens, allocator);
+                const directivesNodes = try parseDirectives(self, tokens, allocator);
+                const selectionSetNode = try parseSelectionSet(self, tokens, allocator);
 
-                const fragmentDefinitionNode = node.ExecutableDefinition{
-                    .fragment = node.FragmentDefinition{
+                const fragmentDefinitionNode = ExecutableDefinition{
+                    .fragment = FragmentDefinition{
                         .allocator = allocator,
                         .name = fragmentName,
                         .directives = directivesNodes,
@@ -143,12 +151,12 @@ pub const Parser = struct {
                     operationName = name;
                 }
 
-                const variablesNodes = try self.readVariableDefinition(tokens, allocator);
-                const directivesNodes = try self.readDirectives(tokens, allocator);
-                const selectionSetNode = try self.readSelectionSet(tokens, allocator);
+                const variablesNodes = try parseVariableDefinition(self, tokens, allocator);
+                const directivesNodes = try parseDirectives(self, tokens, allocator);
+                const selectionSetNode = try parseSelectionSet(self, tokens, allocator);
 
-                const fragmentDefinitionNode = node.ExecutableDefinition{
-                    .operation = node.OperationDefinition{
+                const fragmentDefinitionNode = ExecutableDefinition{
+                    .operation = OperationDefinition{
                         .allocator = allocator,
                         .directives = directivesNodes,
                         .name = operationName,
@@ -170,14 +178,14 @@ pub const Parser = struct {
         return documentNode;
     }
 
-    fn peekNextToken(self: *Parser, tokens: []Token) ?Token {
+    pub fn peekNextToken(self: *Parser, tokens: []Token) ?Token {
         if (self.index >= tokens.len) {
             return null;
         }
         return tokens[self.index];
     }
 
-    fn consumeNextToken(self: *Parser, tokens: []Token) ?Token {
+    pub fn consumeNextToken(self: *Parser, tokens: []Token) ?Token {
         if (self.index >= tokens.len) {
             return null;
         }
@@ -186,291 +194,7 @@ pub const Parser = struct {
         return nextToken;
     }
 
-    fn readDirectives(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]node.Directive {
-        var directives = ArrayList(node.Directive).init(allocator);
-        var currentToken = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        while (currentToken.tag == Token.Tag.punct_at) : (currentToken = self.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
-            _ = self.consumeNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-            const directiveNameToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-
-            if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-            const directiveName = try self.getTokenValue(directiveNameToken, allocator);
-            const arguments = try self.readArguments(tokens, allocator);
-            const directiveNode = node.Directive{
-                .allocator = allocator,
-                .arguments = arguments,
-                .name = directiveName,
-            };
-            directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
-        }
-        return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-    }
-
-    fn readSelectionSet(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!node.SelectionSet {
-        const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
-        if (openBraceToken.tag != Token.Tag.punct_brace_left) {
-            return ParseError.MissingExpectedBrace;
-        }
-        var currentToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-
-        var selections = ArrayList(node.Selection).init(allocator);
-
-        while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
-            if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
-
-            if (currentToken.tag == Token.Tag.punct_spread) {
-                const onOrSpreadNameToken = self.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-                const onOrSpreadName = onOrSpreadNameToken.getStringValue(allocator) catch "";
-                defer allocator.free(onOrSpreadName);
-
-                var selection: node.Selection = undefined;
-                if (strEq(onOrSpreadName, "on")) {
-                    const typeConditionToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-                    if (typeConditionToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-                    const typeCondition = try self.getTokenValue(typeConditionToken, allocator);
-                    const directives = try self.readDirectives(tokens, allocator);
-                    const selectionSet = try self.readSelectionSet(tokens, allocator);
-                    selection = node.Selection{
-                        .inlineFragment = node.InlineFragment{
-                            .allocator = allocator,
-                            .typeCondition = typeCondition,
-                            .directives = directives,
-                            .selectionSet = selectionSet,
-                        },
-                    };
-                } else {
-                    const directives = try self.readDirectives(tokens, allocator);
-                    const spreadName = allocator.dupe(u8, onOrSpreadName) catch return ParseError.UnexpectedMemoryError;
-                    selection = node.Selection{
-                        .fragmentSpread = node.FragmentSpread{
-                            .allocator = allocator,
-                            .name = spreadName,
-                            .directives = directives,
-                        },
-                    };
-                }
-                selections.append(selection) catch return ParseError.UnexpectedMemoryError;
-                continue;
-            }
-
-            const nameOrAlias = try self.getTokenValue(currentToken, allocator);
-            const nextToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-            const name, const alias = if (nextToken.tag == Token.Tag.punct_colon) assign: {
-                // consume colon
-                _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-                const finalNameToken = self.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-                const finalName = try self.getTokenValue(finalNameToken, allocator);
-                break :assign .{ finalName, nameOrAlias };
-            } else .{ nameOrAlias, null };
-
-            const arguments = try self.readArguments(tokens, allocator);
-            const directives = try self.readDirectives(tokens, allocator);
-
-            const potentialNextLeftBrace = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-            const selectionSet: ?node.SelectionSet = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
-                break :ok try self.readSelectionSet(tokens, allocator);
-            } else null;
-
-            const fieldNode = node.Selection{
-                .field = node.Field{
-                    .allocator = allocator,
-                    .name = name,
-                    .alias = alias,
-                    .arguments = arguments,
-                    .directives = directives,
-                    .selectionSet = selectionSet,
-                },
-            };
-            selections.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
-        }
-
-        const selectionSetNode = node.SelectionSet{
-            .allocator = allocator,
-            .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
-        };
-        return selectionSetNode;
-    }
-
-    fn readArguments(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]node.Argument {
-        var arguments = ArrayList(node.Argument).init(allocator);
-
-        var currentToken = self.peekNextToken(tokens) orelse
-            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-        if (currentToken.tag != Token.Tag.punct_paren_left) {
-            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        }
-
-        // consume the left parenthesis
-        _ = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-        while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = self.peekNextToken(tokens) orelse
-            return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
-        {
-            const argumentNameToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (argumentNameToken.tag != Token.Tag.identifier) return arguments.toOwnedSlice() catch return ParseError.ExpectedName;
-
-            const argumentName = try self.getTokenValue(argumentNameToken, allocator);
-            const colonToken = self.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
-
-            const argumentValue = try self.readInputValue(tokens, allocator);
-
-            const argument = node.Argument{
-                .allocator = allocator,
-                .name = argumentName,
-                .value = argumentValue,
-            };
-            arguments.append(argument) catch return ParseError.UnexpectedMemoryError;
-
-            currentToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
-        }
-
-        // consume the right parenthesis
-        _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
-
-        return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-    }
-
-    fn readVariableDefinition(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]node.VariableDefinition {
-        var variableDefinitions = ArrayList(node.VariableDefinition).init(allocator);
-
-        var currentToken = self.peekNextToken(tokens) orelse
-            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-        if (currentToken.tag != Token.Tag.punct_paren_left) {
-            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        }
-
-        // consume the left parenthesis
-        _ = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-        while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = self.peekNextToken(tokens) orelse
-            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
-        {
-            const variableDollarToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (variableDollarToken.tag != Token.Tag.punct_dollar) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedDollar;
-
-            const variableNameToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (variableNameToken.tag != Token.Tag.identifier) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedName;
-            const variableName = try self.getTokenValue(variableNameToken, allocator);
-
-            const variableColonToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (variableColonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
-
-            // TODO: properly parse type (NonNullType, ListType, NamedType)
-            const variableTypeToken = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            if (variableTypeToken.tag != Token.Tag.identifier) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedName;
-            const variableType = try self.getTokenValue(variableTypeToken, allocator);
-
-            const nextToken = self.peekNextToken(tokens) orelse
-                return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-            var defaultValue: ?input.InputValueData = null;
-
-            if (nextToken.tag == Token.Tag.punct_equal) {
-                _ = self.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-                // TODO: don't accept variables values there
-                defaultValue = try self.readInputValue(tokens, allocator);
-            }
-
-            const directives = try self.readDirectives(tokens, allocator);
-
-            const variableDefinition = node.VariableDefinition{
-                .allocator = allocator,
-                .name = variableName,
-                .type = variableType,
-                .defaultValue = defaultValue,
-                .directives = directives,
-            };
-            variableDefinitions.append(variableDefinition) catch return ParseError.UnexpectedMemoryError;
-
-            currentToken = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
-        }
-
-        // consume the right parenthesis
-        _ = self.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
-
-        return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-    }
-
-    fn readInputValue(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!input.InputValueData {
-        var token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
-        defer allocator.free(str);
-
-        var isVariable = false;
-
-        if (token.tag == Token.Tag.punct_dollar) {
-            token = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-            allocator.free(str);
-            str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
-            isVariable = true;
-        }
-
-        switch (token.tag) {
-            Token.Tag.integer_literal => return input.InputValueData{
-                .int_value = input.IntValue{
-                    .value = std.fmt.parseInt(i32, str, 10) catch return ParseError.UnexpectedMemoryError,
-                },
-            },
-            Token.Tag.float_literal => return input.InputValueData{
-                .float_value = input.FloatValue{
-                    .value = std.fmt.parseFloat(f64, str) catch return ParseError.UnexpectedMemoryError,
-                },
-            },
-            Token.Tag.string_literal => {
-                const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
-                return input.InputValueData{
-                    .string_value = input.StringValue{
-                        .value = strCopy,
-                    },
-                };
-            },
-            Token.Tag.identifier => {
-                if (isVariable) {
-                    const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
-                    return input.InputValueData{
-                        .variable = input.Variable{
-                            .name = strCopy,
-                        },
-                    };
-                } else if (strEq(str, "true")) {
-                    return input.InputValueData{
-                        .boolean_value = input.BooleanValue{
-                            .value = true,
-                        },
-                    };
-                } else if (strEq(str, "false")) {
-                    return input.InputValueData{
-                        .boolean_value = input.BooleanValue{
-                            .value = false,
-                        },
-                    };
-                } else if (strEq(str, "null")) {
-                    return input.InputValueData{
-                        .null_value = input.NullValue{},
-                    };
-                } else {
-                    return input.InputValueData{
-                        .enum_value = input.EnumValue{
-                            .name = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError,
-                        },
-                    };
-                }
-            },
-            // Token.Tag.punct_dollar => {
-            //     const actualVariableName = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-            //     isVariable = true;
-            //     continue :currentTag actualVariableName.tag;
-            // },
-            else => return ParseError.NotImplemented,
-        }
-        return ParseError.NotImplemented;
-    }
-
-    fn getTokenValue(_: *Parser, token: Token, allocator: Allocator) ParseError![]const u8 {
+    pub fn getTokenValue(_: *Parser, token: Token, allocator: Allocator) ParseError![]const u8 {
         const str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
         return str;
     }
@@ -493,7 +217,7 @@ test "initialize fragment" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].fragment.name, "Profile"));
+    try testing.expectEqualStrings(rootNode.definitions.items[0].fragment.name, "Profile");
 }
 
 test "initialize query" {
@@ -518,8 +242,8 @@ test "initialize query" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery"));
-    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.query);
+    try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery");
+    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.query);
 
     rootNode.printAST(0);
 }
@@ -536,8 +260,8 @@ test "initialize query without name" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(rootNode.definitions.items[0].operation.name == null);
-    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.query);
+    try testing.expectEqual(rootNode.definitions.items[0].operation.name, null);
+    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.query);
 }
 
 test "initialize mutation" {
@@ -556,8 +280,8 @@ test "initialize mutation" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeMutation"));
-    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.mutation);
+    try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeMutation");
+    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.mutation);
 }
 
 test "initialize subscription" {
@@ -577,8 +301,8 @@ test "initialize subscription" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expect(strEq(rootNode.definitions.items[0].operation.name orelse "", "SomeSubscription"));
-    try testing.expect(rootNode.definitions.items[0].operation.operation == OperationType.subscription);
+    try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeSubscription");
+    try testing.expectEqual(rootNode.definitions.items[0].operation.operation, OperationType.subscription);
 }
 
 // error cases
