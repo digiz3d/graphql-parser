@@ -11,6 +11,8 @@ const printTokens = tok.printTokens;
 
 const input = @import("input_value.zig");
 
+const node = @import("./ast/index.zig");
+
 inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
 }
@@ -30,30 +32,9 @@ const OperationType = enum {
     subscription,
 };
 
-const ArgumentData = struct {
-    allocator: Allocator,
-    name: []const u8,
-    value: input.InputValueData,
-
-    pub fn printAST(self: ArgumentData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- ArgumentData\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        const value = self.value.getPrintableString(self.allocator);
-        defer self.allocator.free(value);
-        std.debug.print("{s}  value = {s}\n", .{ spaces, value });
-    }
-
-    pub fn deinit(self: ArgumentData) void {
-        self.allocator.free(self.name);
-        self.value.deinit(self.allocator);
-    }
-};
-
 const DirectiveData = struct {
     allocator: Allocator,
-    arguments: []ArgumentData,
+    arguments: []node.Argument,
     name: []const u8,
 
     pub fn printAST(self: DirectiveData, indent: usize) void {
@@ -102,7 +83,7 @@ const FieldData = struct {
     allocator: Allocator,
     name: []const u8,
     alias: ?[]const u8,
-    arguments: []ArgumentData,
+    arguments: []node.Argument,
     directives: []DirectiveData,
     selectionSet: ?SelectionSetData,
 
@@ -656,8 +637,8 @@ pub const Parser = struct {
         return selectionSetNode;
     }
 
-    fn readArguments(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]ArgumentData {
-        var arguments = ArrayList(ArgumentData).init(allocator);
+    fn readArguments(self: *Parser, tokens: []Token, allocator: Allocator) ParseError![]node.Argument {
+        var arguments = ArrayList(node.Argument).init(allocator);
 
         var currentToken = self.peekNextToken(tokens) orelse
             return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -681,7 +662,7 @@ pub const Parser = struct {
 
             const argumentValue = try self.readInputValue(tokens, allocator);
 
-            const argument = ArgumentData{
+            const argument = node.Argument{
                 .allocator = allocator,
                 .name = argumentName,
                 .value = argumentValue,
