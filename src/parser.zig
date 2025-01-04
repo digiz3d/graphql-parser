@@ -12,25 +12,11 @@ const printTokens = tok.printTokens;
 const input = @import("input_value.zig");
 
 const node = @import("./ast/index.zig");
+const OperationType = @import("./ast/operation_definition.zig").OperationType;
 
 inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
 }
-
-fn makeSpaceFromNumber(indent: usize, allocator: Allocator) []const u8 {
-    var spaces = std.ArrayList(u8).init(allocator);
-    const newIndent = indent * 2;
-    for (0..newIndent) |_| {
-        spaces.append(' ') catch return "";
-    }
-    return spaces.toOwnedSlice() catch return "";
-}
-
-pub const OperationType = enum {
-    query,
-    mutation,
-    subscription,
-};
 
 const ParseError = error{
     EmptyTokenList,

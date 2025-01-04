@@ -1,9 +1,14 @@
 const std = @import("std");
 
 const makeSpaceFromNumber = @import("../utils/utils.zig").makeSpaceFromNumber;
-const OperationType = @import("../parser.zig").OperationType;
 
 const node = @import("./index.zig");
+
+pub const OperationType = enum {
+    query,
+    mutation,
+    subscription,
+};
 
 pub const OperationDefinition = struct {
     allocator: std.mem.Allocator,
