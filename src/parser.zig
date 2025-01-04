@@ -60,7 +60,7 @@ const FieldData = struct {
     alias: ?[]const u8,
     arguments: []node.Argument,
     directives: []node.Directive,
-    selectionSet: ?SelectionSetData,
+    selectionSet: ?node.SelectionSet,
 
     pub fn printAST(self: FieldData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -130,7 +130,7 @@ const FragmentDefinitionData = struct {
     allocator: Allocator,
     name: []const u8,
     directives: []node.Directive,
-    selectionSet: SelectionSetData,
+    selectionSet: node.SelectionSet,
 
     pub fn printAST(self: FragmentDefinitionData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -161,7 +161,7 @@ const OperationDefinitionData = struct {
     operation: OperationType,
     directives: []node.Directive,
     variableDefinitions: []VariableDefinitionData,
-    selectionSet: SelectionSetData,
+    selectionSet: node.SelectionSet,
 
     pub fn printAST(self: OperationDefinitionData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -230,7 +230,7 @@ const InlineFragmentData = struct {
     allocator: Allocator,
     typeCondition: []const u8,
     directives: []node.Directive,
-    selectionSet: SelectionSetData,
+    selectionSet: node.SelectionSet,
 
     pub fn printAST(self: InlineFragmentData, indent: usize) void {
         const spaces = makeSpaceFromNumber(indent, self.allocator);
@@ -255,7 +255,7 @@ const InlineFragmentData = struct {
     }
 };
 
-const SelectionSetSelectionUnion = union(enum) {
+pub const SelectionSetSelectionUnion = union(enum) {
     field: FieldData,
     fragmentSpread: FragmentSpreadData,
     inlineFragment: InlineFragmentData,
@@ -274,28 +274,6 @@ const SelectionSetSelectionUnion = union(enum) {
             SelectionSetSelectionUnion.fragmentSpread => self.fragmentSpread.deinit(),
             SelectionSetSelectionUnion.inlineFragment => self.inlineFragment.deinit(),
         }
-    }
-};
-
-const SelectionSetData = struct {
-    allocator: Allocator,
-    selections: []SelectionSetSelectionUnion,
-
-    pub fn printAST(self: SelectionSetData, indent: usize) void {
-        const spaces = makeSpaceFromNumber(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- SelectionSetData\n", .{spaces});
-        std.debug.print("{s}  selections:\n", .{spaces});
-        for (self.selections) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
-    pub fn deinit(self: SelectionSetData) void {
-        for (self.selections) |item| {
-            item.deinit();
-        }
-        self.allocator.free(self.selections);
     }
 };
 
@@ -527,7 +505,7 @@ pub const Parser = struct {
         return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
-    fn readSelectionSet(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!SelectionSetData {
+    fn readSelectionSet(self: *Parser, tokens: []Token, allocator: Allocator) ParseError!node.SelectionSet {
         const openBraceToken = self.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
         if (openBraceToken.tag != Token.Tag.punct_brace_left) {
             return ParseError.MissingExpectedBrace;
@@ -588,7 +566,7 @@ pub const Parser = struct {
             const directives = try self.readDirectives(tokens, allocator);
 
             const potentialNextLeftBrace = self.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-            const selectionSet: ?SelectionSetData = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
+            const selectionSet: ?node.SelectionSet = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
                 break :ok try self.readSelectionSet(tokens, allocator);
             } else null;
 
@@ -605,7 +583,7 @@ pub const Parser = struct {
             selections.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
         }
 
-        const selectionSetNode = SelectionSetData{
+        const selectionSetNode = node.SelectionSet{
             .allocator = allocator,
             .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         };
