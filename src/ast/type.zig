@@ -38,6 +38,7 @@ const ListType = struct {
         defer self.allocator.free(spaces);
 
         std.debug.print("{s}- ListType\n", .{spaces});
+        std.debug.print("{s}  type\n", .{spaces});
         self.elementType.*.printAST(indent + 1, self.allocator);
     }
 
@@ -55,7 +56,8 @@ const NonNullType = union(enum) {
         const spaces = makeIndentation(indent, allocator);
         defer allocator.free(spaces);
 
-        std.debug.print("{s}- NonNull\n", .{spaces});
+        std.debug.print("{s}- NonNullType\n", .{spaces});
+        std.debug.print("{s}  type\n", .{spaces});
         switch (self) {
             .namedType => |n| n.printAST(indent + 1),
             .listType => |n| n.printAST(indent + 1),
