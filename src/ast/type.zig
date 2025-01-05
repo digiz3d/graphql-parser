@@ -16,12 +16,12 @@ const NamedType = struct {
     allocator: Allocator,
     name: []const u8,
 
-    pub fn printAST(self: NamedType, _: usize) void {
-        // const spaces = makeIndentation(indent, self.allocator);
-        // defer self.allocator.free(spaces);
+    pub fn printAST(self: NamedType, indent: usize) void {
+        const spaces = makeIndentation(indent, self.allocator);
+        defer self.allocator.free(spaces);
 
-        std.debug.print("{s}- NamedType\n", .{" "});
-        std.debug.print("{s}  name = {s}\n", .{ " ", self.name });
+        std.debug.print("{s}- NamedType\n", .{spaces});
+        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
     }
 
     pub fn deinit(self: NamedType) void {
@@ -38,11 +38,12 @@ const ListType = struct {
         defer self.allocator.free(spaces);
 
         std.debug.print("{s}- ListType\n", .{spaces});
-        self.elementType.printAST(indent + 1, self.allocator);
+        self.elementType.*.printAST(indent + 1, self.allocator);
     }
 
     pub fn deinit(self: ListType) void {
-        self.elementType.deinit();
+        self.elementType.*.deinit();
+        self.allocator.destroy(self.elementType);
     }
 };
 
@@ -53,8 +54,8 @@ const NonNullType = union(enum) {
     pub fn printAST(self: NonNullType, indent: usize, allocator: Allocator) void {
         const spaces = makeIndentation(indent, allocator);
         defer allocator.free(spaces);
-        std.debug.print("{s} - NonNull\n", .{spaces});
 
+        std.debug.print("{s}- NonNull\n", .{spaces});
         switch (self) {
             .namedType => |n| n.printAST(indent + 1),
             .listType => |n| n.printAST(indent + 1),
@@ -113,18 +114,20 @@ fn parseNamedType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseE
 
 fn parseListType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!Type {
     const bracketLeftToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-    std.debug.print("should be left bracket = {}\n", .{bracketLeftToken.tag});
     if (bracketLeftToken.tag != Token.Tag.punct_bracket_left) return ParseError.ExpectedBracketLeft;
-    var elementType = try parseType(parser, tokens, allocator);
+
+    const elementType: *Type = allocator.create(Type) catch return ParseError.UnexpectedMemoryError;
+    elementType.* = try parseType(parser, tokens, allocator);
 
     const bracketRightToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-    std.debug.print("should be right bracket = {}\n", .{bracketRightToken.tag});
     if (bracketRightToken.tag != Token.Tag.punct_bracket_right) return ParseError.ExpectedBracketRight;
 
-    var temporaryType = Type{ .listType = ListType{
-        .allocator = allocator,
-        .elementType = &elementType,
-    } };
+    var temporaryType = Type{
+        .listType = ListType{
+            .allocator = allocator,
+            .elementType = elementType,
+        },
+    };
 
     const nextToken = parser.peekNextToken(tokens) orelse return temporaryType;
     if (nextToken.tag == Token.Tag.punct_excl) {
@@ -158,30 +161,34 @@ pub fn parseType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseEr
         return parseNamedType(parser, tokens, allocator);
     } else if (typeNameOrListToken.tag == Token.Tag.punct_bracket_left) {
         return parseListType(parser, tokens, allocator);
-    } else {
-        return ParseError.ExpectedName;
     }
+
+    return ParseError.ExpectedName;
 }
 
-// test "parsing simple type" {
-//     try runTest("String");
-// }
+test "parsing simple type" {
+    try runTest("String");
+}
 
-// test "parsing mandatory simple type" {
-//     try runTest("String!");
-// }
+test "parsing mandatory simple type" {
+    try runTest("String!");
+}
 
 test "parsing array type" {
     try runTest("[String]");
 }
 
-// test "parsing mandatory array of simple type" {
-//     try runTest("[String]!");
-// }
+test "parsing mandatory array of simple type" {
+    try runTest("[String]!");
+}
 
-// test "parsing mandatory array of mandatory simple type" {
-//     try runTest("[String!]!");
-// }
+test "parsing mandatory array of mandatory simple type" {
+    try runTest("[String!]!");
+}
+
+test "parsing mandatory array of array of mandatory simple type" {
+    try runTest("[[String!]]!");
+}
 
 fn runTest(buffer: [:0]const u8) !void {
     var parser = Parser.init();
@@ -194,6 +201,4 @@ fn runTest(buffer: [:0]const u8) !void {
 
     const ok = try parseType(&parser, tokens, testing.allocator);
     defer ok.deinit();
-
-    ok.printAST(1, testing.allocator);
 }

@@ -36,7 +36,7 @@ pub const VariableDefinition = struct {
         std.debug.print("{s}- VariableDefinition\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  type:\n", .{spaces});
-        self.type.printAST(indent + 1);
+        self.type.printAST(indent, self.allocator);
         if (self.defaultValue != null) {
             const value = self.defaultValue.?.getPrintableString(self.allocator);
             defer self.allocator.free(value);
@@ -121,49 +121,49 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
     return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }
 
-// test "empty" {
-//     try runTest("", .{ .len = 0 });
-// }
+test "empty" {
+    try runTest("", .{ .len = 0 });
+}
 
-// test "variables definitions" {
-//     try runTest("($name: String, $id: Int)", .{ .len = 2 });
-// }
+test "variables definitions" {
+    try runTest("($name: String, $id: Int)", .{ .len = 2 });
+}
 
-// test "NonNull variables definitions" {
-//     try runTest("($name: String!, $id: Int!)", .{ .len = 2 });
-// }
+test "NonNull variables definitions" {
+    try runTest("($name: String!, $id: Int!)", .{ .len = 2 });
+}
 
-// test "missing $" {
-//     try runTest("(name: String!)", .{ .parseError = ParseError.ExpectedDollar });
-// }
+test "missing $" {
+    try runTest("(name: String!)", .{ .parseError = ParseError.ExpectedDollar });
+}
 
-// fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
-//     len: usize,
-//     parseError: ParseError,
-// }) !void {
-//     var parser = Parser.init();
+fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
+    len: usize,
+    parseError: ParseError,
+}) !void {
+    var parser = Parser.init();
 
-//     var tokenizer = Tokenizer.init(testing.allocator, buffer);
-//     defer tokenizer.deinit();
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
 
-//     const tokens = try tokenizer.getAllTokens();
-//     defer testing.allocator.free(tokens);
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
 
-//     switch (expectedLenOrError) {
-//         .parseError => |expectedError| {
-//             const variableDefinitions = parseVariableDefinition(&parser, tokens, testing.allocator);
-//             try testing.expectError(expectedError, variableDefinitions);
-//             return;
-//         },
-//         .len => |length| {
-//             const variableDefinitions = try parseVariableDefinition(&parser, tokens, testing.allocator);
-//             defer {
-//                 for (variableDefinitions) |variableDefinition| {
-//                     variableDefinition.deinit();
-//                 }
-//                 testing.allocator.free(variableDefinitions);
-//             }
-//             try testing.expectEqual(length, variableDefinitions.len);
-//         },
-//     }
-// }
+    switch (expectedLenOrError) {
+        .parseError => |expectedError| {
+            const variableDefinitions = parseVariableDefinition(&parser, tokens, testing.allocator);
+            try testing.expectError(expectedError, variableDefinitions);
+            return;
+        },
+        .len => |length| {
+            const variableDefinitions = try parseVariableDefinition(&parser, tokens, testing.allocator);
+            defer {
+                for (variableDefinitions) |variableDefinition| {
+                    variableDefinition.deinit();
+                }
+                testing.allocator.free(variableDefinitions);
+            }
+            try testing.expectEqual(length, variableDefinitions.len);
+        },
+    }
+}
