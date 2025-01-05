@@ -28,6 +28,8 @@ pub inline fn strEq(a: []const u8, b: []const u8) bool {
 
 pub const ParseError = error{
     EmptyTokenList,
+    ExpectedBracketLeft,
+    ExpectedBracketRight,
     ExpectedColon,
     ExpectedDollar,
     ExpectedName,
@@ -224,8 +226,8 @@ test "initialize query" {
     var parser = Parser.init();
 
     const buffer =
-        \\query SomeQuery($someParam:String!) @SomeDecorator
-        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
+        \\query SomeQuery($someParams: [String!]!) @SomeDecorator
+        \\  @AnotherOne(v: $someParams, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
         \\  nickname: username
         \\  avatar {
         \\    thumbnail: picUrl(size: 64)

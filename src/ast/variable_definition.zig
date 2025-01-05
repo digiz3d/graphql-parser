@@ -19,21 +19,24 @@ const input = @import("input_value.zig");
 const InputValue = input.InputValue;
 const parseInputValue = input.parseInputValue;
 
+const ty = @import("type.zig");
+const Type = ty.Type;
+const parseType = ty.parseType;
+
 pub const VariableDefinition = struct {
     allocator: Allocator,
     name: []const u8,
-    type: []const u8,
+    type: Type,
     defaultValue: ?InputValue,
     directives: []Directive,
-    nullable: bool,
 
     pub fn printAST(self: VariableDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- VariableDefinition\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  type: {s}\n", .{ spaces, self.type });
-        std.debug.print("{s}  nullable: {}\n", .{ spaces, self.nullable });
+        std.debug.print("{s}  type:\n", .{spaces});
+        self.type.printAST(indent, self.allocator);
         if (self.defaultValue != null) {
             const value = self.defaultValue.?.getPrintableString(self.allocator);
             defer self.allocator.free(value);
@@ -49,7 +52,7 @@ pub const VariableDefinition = struct {
 
     pub fn deinit(self: VariableDefinition) void {
         self.allocator.free(self.name);
-        self.allocator.free(self.type);
+        self.type.deinit();
         if (self.defaultValue != null) {
             self.defaultValue.?.deinit(self.allocator);
         }
@@ -86,21 +89,9 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
         const variableColonToken = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (variableColonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-        // TODO: properly parse type (NonNullType, ListType, NamedType)
-        const variableTypeToken = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        if (variableTypeToken.tag != Token.Tag.identifier) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedName;
-        const variableType = try parser.getTokenValue(variableTypeToken, allocator);
+        const variableType = try parseType(parser, tokens, allocator);
 
-        var isNullable = true;
-        var nextToken = parser.peekNextToken(tokens) orelse
-            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-
-        if (nextToken.tag == Token.Tag.punct_excl) {
-            _ = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            isNullable = false;
-        }
-
-        nextToken = parser.peekNextToken(tokens) orelse
+        const nextToken = parser.peekNextToken(tokens) orelse
             return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
         var defaultValue: ?input.InputValue = null;
@@ -118,15 +109,14 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
             .type = variableType,
             .defaultValue = defaultValue,
             .directives = directives,
-            .nullable = isNullable,
         };
         variableDefinitions.append(variableDefinition) catch return ParseError.UnexpectedMemoryError;
 
-        currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 
     // consume the right parenthesis
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
+    _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis;
 
     return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }
@@ -165,7 +155,7 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
             try testing.expectError(expectedError, variableDefinitions);
             return;
         },
-        .len => |ux| {
+        .len => |length| {
             const variableDefinitions = try parseVariableDefinition(&parser, tokens, testing.allocator);
             defer {
                 for (variableDefinitions) |variableDefinition| {
@@ -173,7 +163,7 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
                 }
                 testing.allocator.free(variableDefinitions);
             }
-            try testing.expectEqual(ux, variableDefinitions.len);
+            try testing.expectEqual(length, variableDefinitions.len);
         },
     }
 }

@@ -68,11 +68,11 @@ pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) Pa
         };
         arguments.append(argument) catch return ParseError.UnexpectedMemoryError;
 
-        currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 
     // consume the right parenthesis
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis catch return ParseError.UnexpectedMemoryError;
+    _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis;
 
     return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }

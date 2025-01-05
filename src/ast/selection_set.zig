@@ -12,7 +12,7 @@ const strEq = p.strEq;
 const Field = @import("field.zig").Field;
 const FragmentSpread = @import("fragment_spread.zig").FragmentSpread;
 const InlineFragment = @import("inline_fragment.zig").InlineFragment;
-const Selection = @import("selection_set_selection_union.zig").Selection;
+const Selection = @import("selection.zig").Selection;
 
 const parseArguments = @import("argument.zig").parseArguments;
 const parseDirectives = @import("directive.zig").parseDirectives;
