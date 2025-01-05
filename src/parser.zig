@@ -10,7 +10,6 @@ const Tokenizer = tok.Tokenizer;
 const printTokens = tok.printTokens;
 
 const input = @import("ast/input_value.zig");
-const parseInputValue = input.parseInputValue;
 const parseDirectives = @import("ast/directive.zig").parseDirectives;
 const parseSelectionSet = @import("ast/selection_set.zig").parseSelectionSet;
 const parseVariableDefinition = @import("ast/variable_definition.zig").parseVariableDefinition;

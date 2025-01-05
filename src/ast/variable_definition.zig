@@ -35,7 +35,7 @@ pub const VariableDefinition = struct {
         defer self.allocator.free(spaces);
         std.debug.print("{s}- VariableDefinition\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  type:\n", .{spaces});
+        std.debug.print("{s}  type\n", .{spaces});
         self.type.printAST(indent, self.allocator);
         if (self.defaultValue != null) {
             const value = self.defaultValue.?.getPrintableString(self.allocator);

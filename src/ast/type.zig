@@ -38,6 +38,7 @@ const ListType = struct {
         defer self.allocator.free(spaces);
 
         std.debug.print("{s}- ListType\n", .{spaces});
+        std.debug.print("{s}  type\n", .{spaces});
         self.elementType.*.printAST(indent + 1, self.allocator);
     }
 
@@ -55,7 +56,8 @@ const NonNullType = union(enum) {
         const spaces = makeIndentation(indent, allocator);
         defer allocator.free(spaces);
 
-        std.debug.print("{s}- NonNull\n", .{spaces});
+        std.debug.print("{s}- NonNullType\n", .{spaces});
+        std.debug.print("{s}  type\n", .{spaces});
         switch (self) {
             .namedType => |n| n.printAST(indent + 1),
             .listType => |n| n.printAST(indent + 1),
@@ -167,30 +169,111 @@ pub fn parseType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseEr
 }
 
 test "parsing simple type" {
-    try runTest("String");
+    try runTest(
+        "String",
+        Type{
+            .namedType = NamedType{
+                .allocator = testing.allocator,
+                .name = "String",
+            },
+        },
+    );
 }
 
 test "parsing mandatory simple type" {
-    try runTest("String!");
+    try runTest("String!", Type{
+        .nonNullType = NonNullType{
+            .namedType = NamedType{
+                .allocator = testing.allocator,
+                .name = "String",
+            },
+        },
+    });
 }
 
 test "parsing array type" {
-    try runTest("[String]");
+    var elementType = Type{
+        .namedType = NamedType{
+            .allocator = testing.allocator,
+            .name = "String",
+        },
+    };
+    const listType = Type{
+        .listType = ListType{
+            .allocator = testing.allocator,
+            .elementType = &elementType,
+        },
+    };
+    try runTest("[String]", listType);
 }
 
 test "parsing mandatory array of simple type" {
-    try runTest("[String]!");
+    var elementType = Type{
+        .namedType = NamedType{
+            .allocator = testing.allocator,
+            .name = "String",
+        },
+    };
+
+    const nonNullType = Type{
+        .nonNullType = NonNullType{
+            .listType = ListType{
+                .allocator = testing.allocator,
+                .elementType = &elementType,
+            },
+        },
+    };
+    try runTest("[String]!", nonNullType);
 }
 
 test "parsing mandatory array of mandatory simple type" {
-    try runTest("[String!]!");
+    var elementType = Type{
+        .nonNullType = NonNullType{
+            .namedType = NamedType{
+                .allocator = testing.allocator,
+                .name = "String",
+            },
+        },
+    };
+
+    const nonNullType = Type{
+        .nonNullType = NonNullType{
+            .listType = ListType{
+                .allocator = testing.allocator,
+                .elementType = &elementType,
+            },
+        },
+    };
+    try runTest("[String!]!", nonNullType);
 }
 
 test "parsing mandatory array of array of mandatory simple type" {
-    try runTest("[[String!]]!");
+    var subElementType = Type{
+        .nonNullType = NonNullType{
+            .namedType = NamedType{
+                .allocator = testing.allocator,
+                .name = "String",
+            },
+        },
+    };
+    var elementType = Type{
+        .listType = ListType{
+            .allocator = testing.allocator,
+            .elementType = &subElementType,
+        },
+    };
+    const nonNullType = Type{
+        .nonNullType = NonNullType{
+            .listType = ListType{
+                .allocator = testing.allocator,
+                .elementType = &elementType,
+            },
+        },
+    };
+    try runTest("[[String!]]!", nonNullType);
 }
 
-fn runTest(buffer: [:0]const u8) !void {
+fn runTest(buffer: [:0]const u8, comparison: Type) !void {
     var parser = Parser.init();
 
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
@@ -201,4 +284,48 @@ fn runTest(buffer: [:0]const u8) !void {
 
     const ok = try parseType(&parser, tokens, testing.allocator);
     defer ok.deinit();
+
+    try expectDeepEqual(ok, comparison);
+}
+
+fn expectDeepEqual(val1: Type, val2: Type) !void {
+    switch (val1) {
+        .namedType => |a| {
+            switch (val2) {
+                .namedType => |b| {
+                    return testing.expectEqualStrings(a.name, b.name);
+                },
+                else => return testing.expect(false),
+            }
+        },
+        .listType => |a| {
+            switch (val2) {
+                .listType => |b| {
+                    return expectDeepEqual(a.elementType.*, b.elementType.*);
+                },
+                else => return testing.expect(false),
+            }
+        },
+        .nonNullType => |a| {
+            switch (val2) {
+                .nonNullType => |b| {
+                    switch (a) {
+                        .namedType => |aa| {
+                            switch (b) {
+                                .namedType => |bb| return testing.expectEqualStrings(aa.name, bb.name),
+                                else => return testing.expect(false),
+                            }
+                        },
+                        .listType => |aa| {
+                            switch (b) {
+                                .listType => |bb| return expectDeepEqual(aa.elementType.*, bb.elementType.*),
+                                else => return testing.expect(false),
+                            }
+                        },
+                    }
+                },
+                else => return testing.expect(false),
+            }
+        },
+    }
 }
