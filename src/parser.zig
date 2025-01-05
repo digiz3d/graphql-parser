@@ -224,7 +224,7 @@ test "initialize query" {
     var parser = Parser.init();
 
     const buffer =
-        \\query SomeQuery @SomeDecorator
+        \\query SomeQuery($someParam:String!) @SomeDecorator
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
         \\  nickname: username
         \\  avatar {

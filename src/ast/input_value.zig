@@ -39,7 +39,7 @@ pub const InputValue = union(enum) {
             },
             InputValue.boolean_value => {
                 const boolean_value = self.boolean_value;
-                return allocPrint(allocator, "{s} ({s})", .{ if (boolean_value.value) "true" else "false", typeName }) catch return "";
+                return allocPrint(allocator, "{} ({s})", .{ boolean_value.value, typeName }) catch return "";
             },
             InputValue.null_value => {
                 return allocPrint(allocator, "null ({s})", .{typeName}) catch return "";
