@@ -155,7 +155,7 @@ fn wrapNonNullType(tempType: Type) Type {
 }
 
 pub fn parseType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!Type {
-    const typeNameOrListToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+    const typeNameOrListToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
     if (typeNameOrListToken.tag == Token.Tag.identifier) {
         return parseNamedType(parser, tokens, allocator);

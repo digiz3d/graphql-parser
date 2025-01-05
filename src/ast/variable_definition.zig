@@ -112,7 +112,7 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
         };
         variableDefinitions.append(variableDefinition) catch return ParseError.UnexpectedMemoryError;
 
-        currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError catch return ParseError.UnexpectedMemoryError;
+        currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 
     // consume the right parenthesis
