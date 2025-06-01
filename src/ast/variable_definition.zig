@@ -91,6 +91,8 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
         if (nextToken.tag == Token.Tag.punct_dollar) return ParseError.ExpectedName;
 
         const variableType = try parseType(parser, tokens, allocator);
+        errdefer variableType.deinit();
+
         const defaultValueToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
         var defaultValue: ?input.InputValue = null;
