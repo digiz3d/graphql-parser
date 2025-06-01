@@ -11,3 +11,7 @@ pub fn makeIndentation(indent: usize, allocator: Allocator) []const u8 {
     }
     return spaces.toOwnedSlice() catch return "";
 }
+
+pub inline fn strEq(a: []const u8, b: []const u8) bool {
+    return std.mem.eql(u8, a, b);
+}

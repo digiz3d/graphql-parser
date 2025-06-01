@@ -1,12 +1,13 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const strEq = @import("utils/utils.zig").strEq;
 
 const Args = struct {
     file: []const u8 = "graphql.graphql",
 
     pub fn deinit(self: *Args, allocator: Allocator) void {
         // Only free if it's not the default value
-        if (!std.mem.eql(u8, self.file, "graphql.graphql")) {
+        if (!strEq(self.file, "graphql.graphql")) {
             allocator.free(self.file);
         }
     }
@@ -20,7 +21,7 @@ pub fn parseArgs(allocator: Allocator) !Args {
     _ = args.next(); // skip program name
 
     while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--file") or std.mem.eql(u8, arg, "-f")) {
+        if (strEq(arg, "--file") or strEq(arg, "-f")) {
             if (args.next()) |file_arg| {
                 result.file = try allocator.dupe(u8, file_arg);
             }

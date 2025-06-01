@@ -21,9 +21,7 @@ const op = @import("ast/operation_definition.zig");
 const OperationType = op.OperationType;
 const OperationDefinition = op.OperationDefinition;
 
-pub inline fn strEq(a: []const u8, b: []const u8) bool {
-    return std.mem.eql(u8, a, b);
-}
+const strEq = @import("utils/utils.zig").strEq;
 
 pub const ParseError = error{
     EmptyTokenList,

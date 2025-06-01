@@ -5,7 +5,7 @@ const Allocator = std.mem.Allocator;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
-const strEq = p.strEq;
+const strEq = @import("../utils/utils.zig").strEq;
 const Token = @import("../tokenizer.zig").Token;
 
 pub const InputValue = union(enum) {
