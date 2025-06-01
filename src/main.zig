@@ -1,16 +1,17 @@
 const std = @import("std");
 const Parser = @import("parser.zig").Parser;
 const Allocator = std.mem.Allocator;
+const parseArgs = @import("args.zig").parseArgs;
 
 pub fn main() !void {
-    // TODO: take input from params
-    const filePath = "schema.graphql";
-
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const content = try getFileContent(filePath, allocator);
+    var args = try parseArgs(allocator);
+    defer args.deinit(allocator);
+
+    const content = try getFileContent(args.file, allocator);
     defer allocator.free(content);
 
     var parser = Parser.init();
