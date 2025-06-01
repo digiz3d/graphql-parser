@@ -121,7 +121,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, a
     var isVariable = false;
 
     if (token.tag == Token.Tag.punct_dollar) {
-        if (!acceptVariables) return ParseError.ExpectedName;
+        if (!acceptVariables) return ParseError.UnexpectedToken;
         token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
         allocator.free(str);
         str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;

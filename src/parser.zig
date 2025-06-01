@@ -38,6 +38,7 @@ pub const ParseError = error{
     InvalidOperationType,
     MissingExpectedBrace,
     NotImplemented,
+    UnexpectedToken,
     UnexpectedMemoryError,
     WrongParentNode,
 };
