@@ -53,7 +53,7 @@ pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) Pa
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
     {
         const argumentNameToken = parser.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        if (argumentNameToken.tag != Token.Tag.identifier) return arguments.toOwnedSlice() catch return ParseError.ExpectedName;
+        if (argumentNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
 
         const argumentName = try parser.getTokenValue(argumentNameToken, allocator);
         const colonToken = parser.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -96,4 +96,19 @@ test "parsing arguments" {
     }
 
     try testing.expectEqual(2, arguments.len);
+}
+
+test "parsing arguments with unexpected token" {
+    var parser = Parser.init();
+    const buffer = "($id: 123, value: $var)";
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const arguments = parseArguments(&parser, tokens, testing.allocator);
+
+    try testing.expectError(ParseError.ExpectedName, arguments);
 }
