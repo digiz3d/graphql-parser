@@ -8,7 +8,8 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const args = try parseArgs(allocator);
+    var args = try parseArgs(allocator);
+    defer args.deinit(allocator);
 
     const content = try getFileContent(args.file, allocator);
     defer allocator.free(content);
