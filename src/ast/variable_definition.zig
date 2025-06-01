@@ -66,39 +66,37 @@ pub const VariableDefinition = struct {
 pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]VariableDefinition {
     var variableDefinitions = ArrayList(VariableDefinition).init(allocator);
 
-    var currentToken = parser.peekNextToken(tokens) orelse
-        return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    var currentToken = parser.peekNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
-    if (currentToken.tag != Token.Tag.punct_paren_left) {
-        return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-    }
+    if (currentToken.tag != Token.Tag.punct_paren_left) return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
     // consume the left parenthesis
-    _ = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedLeftParenthesis;
 
-    while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken(tokens) orelse
-        return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
-    {
-        const variableDollarToken = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError) {
+        const variableDollarToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedDollar;
         if (variableDollarToken.tag != Token.Tag.punct_dollar) return ParseError.ExpectedDollar;
 
-        const variableNameToken = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        if (variableNameToken.tag != Token.Tag.identifier) return variableDefinitions.toOwnedSlice() catch return ParseError.ExpectedName;
+        const variableNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+        if (variableNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
         const variableName = try parser.getTokenValue(variableNameToken, allocator);
+        errdefer allocator.free(variableName);
 
-        const variableColonToken = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        const variableColonToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedColon;
+
         if (variableColonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-        const variableType = try parseType(parser, tokens, allocator);
+        const nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
-        const nextToken = parser.peekNextToken(tokens) orelse
-            return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        if (nextToken.tag == Token.Tag.punct_dollar) return ParseError.ExpectedName;
+
+        const variableType = try parseType(parser, tokens, allocator);
+        const defaultValueToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
         var defaultValue: ?input.InputValue = null;
-        if (nextToken.tag == Token.Tag.punct_equal) {
-            _ = parser.consumeNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-            // TODO: don't accept variables values there
-            defaultValue = try parseInputValue(parser, tokens, allocator);
+        if (defaultValueToken.tag == Token.Tag.punct_equal) {
+            _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+            defaultValue = try parseInputValue(parser, tokens, allocator, false);
         }
 
         const directives = try parseDirectives(parser, tokens, allocator);
@@ -135,6 +133,18 @@ test "NonNull variables definitions" {
 
 test "missing $" {
     try runTest("(name: String!)", .{ .parseError = ParseError.ExpectedDollar });
+}
+
+test "expected name not variable" {
+    try runTest("($name: $oops!)", .{ .parseError = ParseError.ExpectedName });
+}
+
+test "default value" {
+    try runTest("($name: String = \"default\")", .{ .len = 1 });
+}
+
+test "default value not variable" {
+    try runTest("($name: String = $default)", .{ .parseError = ParseError.ExpectedName });
 }
 
 fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
