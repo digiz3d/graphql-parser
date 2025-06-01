@@ -2,12 +2,14 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const utils = @import("../utils/utils.zig");
+const makeIndentation = utils.makeIndentation;
+const strEq = utils.strEq;
+
 const Token = @import("../tokenizer.zig").Token;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
-const strEq = p.strEq;
 
 const Field = @import("field.zig").Field;
 const FragmentSpread = @import("fragment_spread.zig").FragmentSpread;
