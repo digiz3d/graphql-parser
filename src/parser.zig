@@ -32,11 +32,13 @@ pub const ParseError = error{
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
+    ExpectedLeftParenthesis,
     ExpectedRightParenthesis,
     ExpectedString,
     InvalidOperationType,
     MissingExpectedBrace,
     NotImplemented,
+    UnexpectedToken,
     UnexpectedMemoryError,
     WrongParentNode,
 };
@@ -243,8 +245,6 @@ test "initialize query" {
 
     try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery");
     try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operation.operation);
-
-    rootNode.printAST(0);
 }
 
 test "initialize query without name" {

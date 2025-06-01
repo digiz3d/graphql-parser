@@ -59,7 +59,7 @@ pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) Pa
         const colonToken = parser.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-        const argumentValue = try parseInputValue(parser, tokens, allocator);
+        const argumentValue = try parseInputValue(parser, tokens, allocator, true);
 
         const argument = Argument{
             .allocator = allocator,

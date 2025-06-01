@@ -113,7 +113,7 @@ pub const ListValue = struct {
 // pub const ObjectValue = struct {
 // };
 
-pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!InputValue {
+pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, acceptVariables: bool) ParseError!InputValue {
     var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
     defer allocator.free(str);
@@ -121,6 +121,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator) P
     var isVariable = false;
 
     if (token.tag == Token.Tag.punct_dollar) {
+        if (!acceptVariables) return ParseError.UnexpectedToken;
         token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
         allocator.free(str);
         str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
