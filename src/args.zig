@@ -4,10 +4,10 @@ const strEq = @import("utils/utils.zig").strEq;
 
 const Args = struct {
     file: []const u8 = "schema.graphql",
+    file_owned: bool = false,
 
     pub fn deinit(self: *Args, allocator: Allocator) void {
-        // Only free if it's not the default value
-        if (!strEq(self.file, "schema.graphql")) {
+        if (self.file_owned) {
             allocator.free(self.file);
         }
     }
@@ -24,6 +24,7 @@ pub fn parseArgs(allocator: Allocator) !Args {
         if (strEq(arg, "--file") or strEq(arg, "-f")) {
             if (args.next()) |file_arg| {
                 result.file = try allocator.dupe(u8, file_arg);
+                result.file_owned = true;
             }
         }
     }
