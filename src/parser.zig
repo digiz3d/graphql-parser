@@ -13,10 +13,12 @@ const input = @import("ast/input_value.zig");
 const parseDirectives = @import("ast/directive.zig").parseDirectives;
 const parseSelectionSet = @import("ast/selection_set.zig").parseSelectionSet;
 const parseVariableDefinition = @import("ast/variable_definition.zig").parseVariableDefinition;
+const parseOperationTypeDefinitions = @import("ast/operation_type_definition.zig").parseOperationTypeDefinitions;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
 const FragmentDefinition = @import("ast/fragment_definition.zig").FragmentDefinition;
+const SchemaDefinition = @import("ast/schema_definition.zig").SchemaDefinition;
 const op = @import("ast/operation_definition.zig");
 const OperationType = op.OperationType;
 const OperationDefinition = op.OperationDefinition;
@@ -52,6 +54,7 @@ pub const Parser = struct {
         query_definition,
         mutation_definition,
         subscription_definition,
+        schema_definition,
     };
 
     pub fn init() Parser {
@@ -96,6 +99,8 @@ pub const Parser = struct {
                     continue :state Reading.subscription_definition;
                 } else if (strEq(str, "fragment")) {
                     continue :state Reading.fragment_definition;
+                } else if (strEq(str, "schema")) {
+                    continue :state Reading.schema_definition;
                 }
                 return ParseError.InvalidOperationType;
             },
@@ -172,6 +177,24 @@ pub const Parser = struct {
                     },
                 };
                 documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.schema_definition => {
+                // Consume 'schema'
+                _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+
+                const directivesNodes = try parseDirectives(self, tokens, allocator);
+
+                const operationTypes = try parseOperationTypeDefinitions(self, tokens, allocator);
+
+                documentNode.definitions.append(ExecutableDefinition{
+                    .schema = SchemaDefinition{
+                        .allocator = allocator,
+                        .directives = directivesNodes,
+                        .operation_types = operationTypes,
+                    },
+                }) catch return ParseError.UnexpectedMemoryError;
+
                 continue :state Reading.root;
             },
         }
@@ -302,6 +325,28 @@ test "initialize subscription" {
 
     try testing.expectEqualStrings("SomeSubscription", rootNode.definitions.items[0].operation.name orelse "");
     try testing.expectEqual(OperationType.subscription, rootNode.definitions.items[0].operation.operation);
+}
+
+test "initialize schema" {
+    var parser = Parser.init();
+
+    const buffer =
+        \\schema {
+        \\  query: Query
+        \\  mutation: Mutation
+        \\  subscription: Subscription
+        \\}
+    ;
+
+    var rootNode = try parser.parse(buffer, testing.allocator);
+    defer rootNode.deinit();
+
+    try testing.expectEqualStrings("query", rootNode.definitions.items[0].schema.operation_types[0].operation);
+    try testing.expectEqualStrings("Query", rootNode.definitions.items[0].schema.operation_types[0].name);
+    try testing.expectEqualStrings("mutation", rootNode.definitions.items[0].schema.operation_types[1].operation);
+    try testing.expectEqualStrings("Mutation", rootNode.definitions.items[0].schema.operation_types[1].name);
+    try testing.expectEqualStrings("subscription", rootNode.definitions.items[0].schema.operation_types[2].operation);
+    try testing.expectEqualStrings("Subscription", rootNode.definitions.items[0].schema.operation_types[2].name);
 }
 
 // error cases
