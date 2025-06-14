@@ -191,7 +191,7 @@ pub const Parser = struct {
                     .schema = SchemaDefinition{
                         .allocator = allocator,
                         .directives = directivesNodes,
-                        .operation_types = operationTypes,
+                        .operationTypes = operationTypes,
                     },
                 }) catch return ParseError.UnexpectedMemoryError;
 
@@ -332,21 +332,21 @@ test "initialize schema" {
 
     const buffer =
         \\schema {
-        \\  query: Query
-        \\  mutation: Mutation
-        \\  subscription: Subscription
+        \\  query: Queryyyy
+        \\  mutation: Mut
+        \\  subscription: Sub
         \\}
     ;
 
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings("query", rootNode.definitions.items[0].schema.operation_types[0].operation);
-    try testing.expectEqualStrings("Query", rootNode.definitions.items[0].schema.operation_types[0].name);
-    try testing.expectEqualStrings("mutation", rootNode.definitions.items[0].schema.operation_types[1].operation);
-    try testing.expectEqualStrings("Mutation", rootNode.definitions.items[0].schema.operation_types[1].name);
-    try testing.expectEqualStrings("subscription", rootNode.definitions.items[0].schema.operation_types[2].operation);
-    try testing.expectEqualStrings("Subscription", rootNode.definitions.items[0].schema.operation_types[2].name);
+    try testing.expectEqualStrings("query", rootNode.definitions.items[0].schema.operationTypes[0].operation);
+    try testing.expectEqualStrings("Queryyyy", rootNode.definitions.items[0].schema.operationTypes[0].name);
+    try testing.expectEqualStrings("mutation", rootNode.definitions.items[0].schema.operationTypes[1].operation);
+    try testing.expectEqualStrings("Mut", rootNode.definitions.items[0].schema.operationTypes[1].name);
+    try testing.expectEqualStrings("subscription", rootNode.definitions.items[0].schema.operationTypes[2].operation);
+    try testing.expectEqualStrings("Sub", rootNode.definitions.items[0].schema.operationTypes[2].name);
 }
 
 // error cases

@@ -10,7 +10,7 @@ const OperationTypeDefinition = @import("operation_type_definition.zig").Operati
 pub const SchemaDefinition = struct {
     allocator: Allocator,
     directives: []Directive,
-    operation_types: []OperationTypeDefinition,
+    operationTypes: []OperationTypeDefinition,
 
     pub fn printAST(self: SchemaDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
@@ -20,8 +20,8 @@ pub const SchemaDefinition = struct {
         for (self.directives) |item| {
             item.printAST(indent + 1);
         }
-        std.debug.print("{s}  operation_types: {d}\n", .{ spaces, self.operation_types.len });
-        for (self.operation_types) |item| {
+        std.debug.print("{s}  operation_types: {d}\n", .{ spaces, self.operationTypes.len });
+        for (self.operationTypes) |item| {
             item.printAST(indent + 1);
         }
     }
@@ -31,9 +31,9 @@ pub const SchemaDefinition = struct {
             item.deinit();
         }
         self.allocator.free(self.directives);
-        for (self.operation_types) |item| {
+        for (self.operationTypes) |item| {
             item.deinit();
         }
-        self.allocator.free(self.operation_types);
+        self.allocator.free(self.operationTypes);
     }
 };
