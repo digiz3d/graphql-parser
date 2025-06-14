@@ -360,6 +360,13 @@ test "initialize invalid document " {
     try testing.expectError(ParseError.InvalidOperationType, rootNode);
 }
 
+test "initialize empty schema" {
+    var parser = Parser.init();
+    const buffer = "schema {}";
+    const rootNode = parser.parse(buffer, testing.allocator);
+    try testing.expectError(ParseError.ExpectedName, rootNode);
+}
+
 test "initialize invalid fragment no name" {
     var parser = Parser.init();
 
