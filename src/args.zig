@@ -3,11 +3,11 @@ const Allocator = std.mem.Allocator;
 const strEq = @import("utils/utils.zig").strEq;
 
 const Args = struct {
-    file: []const u8 = "graphql.graphql",
+    file: []const u8 = "schema.graphql",
 
     pub fn deinit(self: *Args, allocator: Allocator) void {
         // Only free if it's not the default value
-        if (!strEq(self.file, "graphql.graphql")) {
+        if (!strEq(self.file, "schema.graphql")) {
             allocator.free(self.file);
         }
     }

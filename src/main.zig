@@ -11,7 +11,15 @@ pub fn main() !void {
     var args = try parseArgs(allocator);
     defer args.deinit(allocator);
 
-    const content = try getFileContent(args.file, allocator);
+    const content = getFileContent(args.file, allocator) catch |err| {
+        if (err == error.FileNotFound) {
+            std.debug.print("File not found: {s}\n", .{args.file});
+        } else {
+            std.debug.print("Error opening file '{s}': {s}\n", .{ args.file, @errorName(err) });
+            return err;
+        }
+        return;
+    };
     defer allocator.free(content);
 
     var parser = Parser.init();
@@ -19,7 +27,7 @@ pub fn main() !void {
     document.printAST(0);
 }
 
-fn getFileContent(filePath: []const u8, allocator: Allocator) ![:0]const u8 {
+fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]const u8 {
     var file = try std.fs.cwd().openFile(filePath, .{});
     defer file.close();
 
