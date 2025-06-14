@@ -352,11 +352,8 @@ test "initialize schema" {
 // error cases
 test "initialize invalid document " {
     var parser = Parser.init();
-
     const buffer = "test { hello }";
-
     const rootNode = parser.parse(buffer, testing.allocator);
-
     try testing.expectError(ParseError.InvalidOperationType, rootNode);
 }
 
@@ -369,30 +366,21 @@ test "initialize empty schema" {
 
 test "initialize invalid fragment no name" {
     var parser = Parser.init();
-
     const buffer = "fragment { hello }";
-
     const rootNode = parser.parse(buffer, testing.allocator);
-
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
 
 test "initialize invalid fragment name is on" {
     var parser = Parser.init();
-
     const buffer = "fragment on on User { hello }";
-
     const rootNode = parser.parse(buffer, testing.allocator);
-
     try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
 }
 
 test "initialize invalid fragment name after on" {
     var parser = Parser.init();
-
     const buffer = "fragment X on { hello }";
-
     const rootNode = parser.parse(buffer, testing.allocator);
-
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
