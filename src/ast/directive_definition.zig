@@ -171,7 +171,7 @@ test "valid directive definition" {
 test "invalid variable argument" {
     try runTest(
         "directive @example($arg: String) on FIELD | OBJECT",
-        .{ .success = .{ .name = "example", .argLen = 1, .onsLen = 2 } },
+        .{ .parseError = ParseError.ExpectedName },
     );
 }
 
