@@ -14,9 +14,11 @@ const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 pub const ObjectTypeDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     name: []const u8,
     // description: ?[]const u8, // TODO: implement description
     // interfaces: []InterfaceType, // TODO: implement interfaces
@@ -27,6 +29,11 @@ pub const ObjectTypeDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- ObjectTypeDefinition\n", .{spaces});
+        if (self.description != null) {
+            std.debug.print("{s}  description: {s}\n", .{ spaces, newLineToBackslashN(self.allocator, self.description.?) });
+        } else {
+            std.debug.print("{s}  description: null\n", .{spaces});
+        }
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
@@ -39,6 +46,9 @@ pub const ObjectTypeDefinition = struct {
     }
 
     pub fn deinit(self: ObjectTypeDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         self.allocator.free(self.name);
         for (self.directives) |item| {
             item.deinit();
@@ -51,7 +61,7 @@ pub const ObjectTypeDefinition = struct {
     }
 };
 
-pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ObjectTypeDefinition {
+pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator, description: ?[]const u8) ParseError!ObjectTypeDefinition {
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
@@ -81,6 +91,7 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Al
 
     const objectTypeDefinition = ObjectTypeDefinition{
         .allocator = allocator,
+        .description = description,
         .directives = directives,
         .name = allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
         .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
@@ -118,11 +129,11 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
 
     switch (expectedLenOrError) {
         .parseError => |expectedError| {
-            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens, testing.allocator);
+            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens, testing.allocator, null);
             try testing.expectError(expectedError, objectTypeDefinition);
         },
         .len => |length| {
-            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens, testing.allocator);
+            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens, testing.allocator, null);
             defer objectTypeDefinition.deinit();
 
             try testing.expectEqual(length, objectTypeDefinition.fields.len);
