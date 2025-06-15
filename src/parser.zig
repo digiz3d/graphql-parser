@@ -14,6 +14,7 @@ const parseDirectives = @import("ast/directive.zig").parseDirectives;
 const parseSelectionSet = @import("ast/selection_set.zig").parseSelectionSet;
 const parseVariableDefinition = @import("ast/variable_definition.zig").parseVariableDefinition;
 const parseOperationTypeDefinitions = @import("ast/operation_type_definition.zig").parseOperationTypeDefinitions;
+const parseObjectTypeDefinition = @import("ast/object_type_definition.zig").parseObjectTypeDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -55,6 +56,7 @@ pub const Parser = struct {
         mutation_definition,
         subscription_definition,
         schema_definition,
+        object_type_definition,
     };
 
     pub fn init() Parser {
@@ -101,6 +103,8 @@ pub const Parser = struct {
                     continue :state Reading.fragment_definition;
                 } else if (strEq(str, "schema")) {
                     continue :state Reading.schema_definition;
+                } else if (strEq(str, "type")) {
+                    continue :state Reading.object_type_definition;
                 }
                 return ParseError.InvalidOperationType;
             },
@@ -180,7 +184,6 @@ pub const Parser = struct {
                 continue :state Reading.root;
             },
             Reading.schema_definition => {
-                // Consume 'schema'
                 _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
                 const directivesNodes = try parseDirectives(self, tokens, allocator);
@@ -193,6 +196,14 @@ pub const Parser = struct {
                         .directives = directivesNodes,
                         .operationTypes = operationTypes,
                     },
+                }) catch return ParseError.UnexpectedMemoryError;
+
+                continue :state Reading.root;
+            },
+            Reading.object_type_definition => {
+                const objectTypeDefinition = try parseObjectTypeDefinition(self, tokens, allocator);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .objectTypeDefinition = objectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
 
                 continue :state Reading.root;
