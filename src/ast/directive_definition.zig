@@ -88,6 +88,10 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
             return ParseError.ExpectedName;
         }
         const location = try parser.getTokenValue(locationToken, allocator);
+        errdefer allocator.free(location);
+        if (!validateLocations(location)) {
+            return ParseError.InvalidLocation;
+        }
         locations.append(location) catch return ParseError.UnexpectedMemoryError;
 
         const nextToken = parser.peekNextToken(tokens) orelse break;
@@ -106,21 +110,68 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
     };
 }
 
+const allowedLocations = [_][]const u8{
+    // executable directives
+    "QUERY",
+    "MUTATION",
+    "SUBSCRIPTION",
+    "FIELD",
+    "FRAGMENT_DEFINITION",
+    "FRAGMENT_SPREAD",
+    "INLINE_FRAGMENT",
+    "VARIABLE_DEFINITION",
+    // type system directives
+    "SCHEMA",
+    "SCALAR",
+    "OBJECT",
+    "FIELD_DEFINITION",
+    "ARGUMENT_DEFINITION",
+    "INTERFACE",
+    "UNION",
+    "ENUM",
+    "ENUM_VALUE",
+    "INPUT_OBJECT",
+    "INPUT_FIELD_DEFINITION",
+};
+
+fn validateLocations(location: []const u8) bool {
+    for (allowedLocations) |allowedLocation| {
+        if (strEq(location, allowedLocation)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 test "parse directive definition" {
     try runTest(
         "directive @example(arg: String = \"default\") on FIELD | OBJECT",
-        .{ .name = "example", .argLen = 1, .onsLen = 2 },
+        .{ .success = .{ .name = "example", .argLen = 1, .onsLen = 2 } },
     );
 }
 
-// test "parse directive definition with multiple locations" {
-//     try runTest(
-//         "directive @example on FIELD | OBJECT | INTERFACE",
-//         .{ .name = "example", .argLen = 0, .onsLen = 3 },
-//     );
-// }
+test "invalid direction location" {
+    try runTest(
+        "directive @example on XXX",
+        .{ .parseError = ParseError.InvalidLocation },
+    );
+}
 
-fn runTest(buffer: [:0]const u8, expected: struct { name: []const u8, argLen: u8, onsLen: u8 }) !void {
+test "parse directive definition with multiple locations" {
+    try runTest(
+        "directive @example on FIELD | OBJECT | INTERFACE",
+        .{ .success = .{ .name = "example", .argLen = 0, .onsLen = 3 } },
+    );
+}
+
+fn runTest(buffer: [:0]const u8, expected: union(enum) {
+    success: struct {
+        name: []const u8,
+        argLen: u8,
+        onsLen: u8,
+    },
+    parseError: ParseError,
+}) !void {
     var parser = Parser.init();
 
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
@@ -129,10 +180,18 @@ fn runTest(buffer: [:0]const u8, expected: struct { name: []const u8, argLen: u8
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const directiveDefinition = try parseDirectiveDefinition(&parser, tokens, testing.allocator);
-    defer directiveDefinition.deinit();
+    switch (expected) {
+        .success => |expectedSuccess| {
+            const directiveDefinition = try parseDirectiveDefinition(&parser, tokens, testing.allocator);
+            defer directiveDefinition.deinit();
 
-    try testing.expectEqualStrings(expected.name, directiveDefinition.name);
-    try testing.expectEqual(expected.argLen, directiveDefinition.arguments.len);
-    try testing.expectEqual(expected.onsLen, directiveDefinition.locations.len);
+            try testing.expectEqualStrings(expectedSuccess.name, directiveDefinition.name);
+            try testing.expectEqual(expectedSuccess.argLen, directiveDefinition.arguments.len);
+            try testing.expectEqual(expectedSuccess.onsLen, directiveDefinition.locations.len);
+        },
+        .parseError => |expectedError| {
+            const directiveDefinition = parseDirectiveDefinition(&parser, tokens, testing.allocator);
+            try testing.expectError(expectedError, directiveDefinition);
+        },
+    }
 }

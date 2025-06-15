@@ -46,6 +46,7 @@ pub const ParseError = error{
     ExpectedRightParenthesis,
     ExpectedString,
     InvalidOperationType,
+    InvalidLocation,
     MissingExpectedBrace,
     NotImplemented,
     UnexpectedExclamationMark,
