@@ -24,7 +24,7 @@ pub const InputValueDefinition = struct {
     pub fn printAST(self: InputValueDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
-        std.debug.print("{s}- Argument\n", .{spaces});
+        std.debug.print("{s}- InputValueDefinition\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         const value = self.value.getPrintableString(self.allocator);
         defer self.allocator.free(value);

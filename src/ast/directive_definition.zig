@@ -11,13 +11,13 @@ const strEq = @import("../utils/utils.zig").strEq;
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
-const Argument = @import("arguments.zig").InputValueDefinition;
+const InputValueDefinition = @import("arguments.zig").InputValueDefinition;
 const parseArguments = @import("arguments.zig").parseArguments;
 
 pub const DirectiveDefinition = struct {
     allocator: Allocator,
     name: []const u8,
-    arguments: []Argument,
+    arguments: []InputValueDefinition,
     locations: []const []const u8,
     directives: []Directive,
 
@@ -26,15 +26,15 @@ pub const DirectiveDefinition = struct {
         defer self.allocator.free(spaces);
         std.debug.print("{s}- DirectiveDefinition\n", .{spaces});
         std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  arguments:\n", .{spaces});
+        std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
         for (self.arguments) |arg| {
             arg.printAST(indent + 1);
         }
-        std.debug.print("{s}  locations:\n", .{spaces});
+        std.debug.print("{s}  locations: {d}\n", .{ spaces, self.locations.len });
         for (self.locations) |location| {
             std.debug.print("{s}    - {s}\n", .{ spaces, location });
         }
-        std.debug.print("{s}  directives:\n", .{spaces});
+        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |directive| {
             directive.printAST(indent + 1);
         }
