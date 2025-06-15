@@ -42,7 +42,7 @@ pub const Directive = struct {
 
 pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]Directive {
     var directives = ArrayList(Directive).init(allocator);
-    var currentToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     while (currentToken.tag == Token.Tag.punct_at) : (currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
         _ = parser.consumeNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 

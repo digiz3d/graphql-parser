@@ -16,6 +16,7 @@ const parseVariableDefinition = @import("ast/variable_definition.zig").parseVari
 const parseOperationTypeDefinitions = @import("ast/operation_type_definition.zig").parseOperationTypeDefinitions;
 const parseObjectTypeDefinition = @import("ast/object_type_definition.zig").parseObjectTypeDefinition;
 const parseUnionTypeDefinition = @import("ast/union_type_definition.zig").parseUnionTypeDefinition;
+const parseScalarTypeDefinition = @import("ast/scalar_type_definition.zig").parseScalarTypeDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -60,6 +61,7 @@ pub const Parser = struct {
         schema_definition,
         object_type_definition,
         union_type_definition,
+        scalar_type_definition,
     };
 
     pub fn init() Parser {
@@ -110,6 +112,8 @@ pub const Parser = struct {
                     continue :state Reading.object_type_definition;
                 } else if (strEq(str, "union")) {
                     continue :state Reading.union_type_definition;
+                } else if (strEq(str, "scalar")) {
+                    continue :state Reading.scalar_type_definition;
                 }
                 return ParseError.InvalidOperationType;
             },
@@ -217,6 +221,14 @@ pub const Parser = struct {
                 const unionTypeDefinition = try parseUnionTypeDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .unionTypeDefinition = unionTypeDefinition,
+                }) catch return ParseError.UnexpectedMemoryError;
+
+                continue :state Reading.root;
+            },
+            Reading.scalar_type_definition => {
+                const scalarTypeDefinition = try parseScalarTypeDefinition(self, tokens, allocator);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .scalarTypeDefinition = scalarTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
 
                 continue :state Reading.root;
