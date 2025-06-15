@@ -10,10 +10,8 @@ const Tokenizer = t.Tokenizer;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
-
-const arg = @import("argument.zig");
-const Argument = arg.Argument;
-const parseArguments = arg.parseArguments;
+const Argument = @import("arguments.zig").InputValueDefinition;
+const parseArguments = @import("arguments.zig").parseArguments;
 
 pub const Directive = struct {
     allocator: Allocator,

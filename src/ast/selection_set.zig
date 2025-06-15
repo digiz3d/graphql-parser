@@ -16,7 +16,7 @@ const FragmentSpread = @import("fragment_spread.zig").FragmentSpread;
 const InlineFragment = @import("inline_fragment.zig").InlineFragment;
 const Selection = @import("selection.zig").Selection;
 
-const parseArguments = @import("argument.zig").parseArguments;
+const parseArguments = @import("arguments.zig").parseArguments;
 const parseDirectives = @import("directive.zig").parseDirectives;
 
 pub const SelectionSet = struct {

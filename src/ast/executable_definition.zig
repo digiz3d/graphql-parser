@@ -4,6 +4,7 @@ const SchemaDefinition = @import("schema_definition.zig").SchemaDefinition;
 const ObjectTypeDefinition = @import("object_type_definition.zig").ObjectTypeDefinition;
 const UnionTypeDefinition = @import("union_type_definition.zig").UnionTypeDefinition;
 const ScalarTypeDefinition = @import("scalar_type_definition.zig").ScalarTypeDefinition;
+const DirectiveDefinition = @import("directive_definition.zig").DirectiveDefinition;
 
 pub const ExecutableDefinition = union(enum) {
     fragmentDefinition: FragmentDefinition,
@@ -12,6 +13,7 @@ pub const ExecutableDefinition = union(enum) {
     objectTypeDefinition: ObjectTypeDefinition,
     unionTypeDefinition: UnionTypeDefinition,
     scalarTypeDefinition: ScalarTypeDefinition,
+    directiveDefinition: DirectiveDefinition,
 
     pub fn printAST(self: ExecutableDefinition, indent: usize) void {
         switch (self) {
@@ -21,6 +23,7 @@ pub const ExecutableDefinition = union(enum) {
             ExecutableDefinition.objectTypeDefinition => self.objectTypeDefinition.printAST(indent),
             ExecutableDefinition.unionTypeDefinition => self.unionTypeDefinition.printAST(indent),
             ExecutableDefinition.scalarTypeDefinition => self.scalarTypeDefinition.printAST(indent),
+            ExecutableDefinition.directiveDefinition => self.directiveDefinition.printAST(indent),
         }
     }
 
@@ -32,6 +35,7 @@ pub const ExecutableDefinition = union(enum) {
             ExecutableDefinition.objectTypeDefinition => self.objectTypeDefinition.deinit(),
             ExecutableDefinition.unionTypeDefinition => self.unionTypeDefinition.deinit(),
             ExecutableDefinition.scalarTypeDefinition => self.scalarTypeDefinition.deinit(),
+            ExecutableDefinition.directiveDefinition => self.directiveDefinition.deinit(),
         }
     }
 };
