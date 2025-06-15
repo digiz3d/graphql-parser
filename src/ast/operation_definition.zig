@@ -7,6 +7,14 @@ const Directive = @import("directive.zig").Directive;
 const VariableDefinition = @import("variable_definition.zig").VariableDefinition;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 
+const Parser = @import("../parser.zig").Parser;
+const Token = @import("../tokenizer.zig").Token;
+const ParseError = @import("../parser.zig").ParseError;
+const parseVariableDefinition = @import("variable_definition.zig").parseVariableDefinition;
+const parseDirectives = @import("directive.zig").parseDirectives;
+const parseSelectionSet = @import("selection_set.zig").parseSelectionSet;
+const strEq = @import("../utils/utils.zig").strEq;
+
 pub const OperationType = enum {
     query,
     mutation,
@@ -58,3 +66,47 @@ pub const OperationDefinition = struct {
         self.selectionSet.deinit();
     }
 };
+
+pub fn parseOperationDefinition(
+    parser: *Parser,
+    tokens: []Token,
+    allocator: Allocator,
+) ParseError!OperationDefinition {
+    const operationTypeToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+
+    if (operationTypeToken.tag != Token.Tag.identifier) {
+        return ParseError.ExpectedName;
+    }
+
+    const str = try parser.getTokenValue(operationTypeToken, allocator);
+    defer allocator.free(str);
+
+    const operationType = if (strEq(str, "query"))
+        OperationType.query
+    else if (strEq(str, "mutation"))
+        OperationType.mutation
+    else if (strEq(str, "subscription"))
+        OperationType.subscription
+    else
+        return ParseError.InvalidOperationType;
+
+    var operationName: ?[]const u8 = null;
+    if (parser.peekNextToken(tokens).?.tag == Token.Tag.identifier) {
+        const operationNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        const name: ?[]const u8 = parser.getTokenValue(operationNameToken, allocator) catch null;
+        operationName = name;
+    }
+
+    const variablesNodes = try parseVariableDefinition(parser, tokens, allocator);
+    const directivesNodes = try parseDirectives(parser, tokens, allocator);
+    const selectionSetNode = try parseSelectionSet(parser, tokens, allocator);
+
+    return OperationDefinition{
+        .allocator = allocator,
+        .directives = directivesNodes,
+        .name = operationName,
+        .operation = operationType,
+        .selectionSet = selectionSetNode,
+        .variableDefinitions = variablesNodes,
+    };
+}
