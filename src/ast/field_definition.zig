@@ -11,9 +11,12 @@ const parseDirectives = @import("directive.zig").parseDirectives;
 const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
 const parseType = @import("type.zig").parseType;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const FieldDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     name: []const u8,
     type: Type,
     // description: ?[]const u8, // TODO: implement description
@@ -24,6 +27,11 @@ pub const FieldDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- FieldDefinition\n", .{spaces});
+        if (self.description != null) {
+            std.debug.print("{s}  description: {s}\n", .{ spaces, newLineToBackslashN(self.allocator, self.description.?) });
+        } else {
+            std.debug.print("{s}  description: null\n", .{spaces});
+        }
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
         for (self.arguments) |item| {
@@ -36,6 +44,9 @@ pub const FieldDefinition = struct {
     }
 
     pub fn deinit(self: FieldDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         self.allocator.free(self.name);
         self.type.deinit();
         for (self.arguments) |item| {
@@ -50,6 +61,8 @@ pub const FieldDefinition = struct {
 };
 
 pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) !FieldDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
+
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const name = try parser.getTokenValue(nameToken, allocator);
     defer allocator.free(name);
@@ -71,6 +84,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocat
 
     const fieldDefinition = FieldDefinition{
         .allocator = allocator,
+        .description = description,
         .name = allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
         .type = namedType,
         .arguments = arguments,
