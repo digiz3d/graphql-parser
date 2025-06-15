@@ -87,9 +87,8 @@ pub fn parseOperationDefinition(
         OperationType.mutation
     else if (strEq(str, "subscription"))
         OperationType.subscription
-    else {
+    else
         return ParseError.InvalidOperationType;
-    };
 
     var operationName: ?[]const u8 = null;
     if (parser.peekNextToken(tokens).?.tag == Token.Tag.identifier) {

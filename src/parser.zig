@@ -58,9 +58,7 @@ pub const Parser = struct {
     const Reading = enum {
         root,
         fragment_definition,
-        query_definition,
-        mutation_definition,
-        subscription_definition,
+        operation_definition,
         schema_definition,
         object_type_definition,
         union_type_definition,
@@ -101,12 +99,8 @@ pub const Parser = struct {
 
                 const str = try self.getTokenValue(token, allocator);
                 defer allocator.free(str);
-                if (strEq(str, "query")) {
-                    continue :state Reading.query_definition;
-                } else if (strEq(str, "mutation")) {
-                    continue :state Reading.mutation_definition;
-                } else if (strEq(str, "subscription")) {
-                    continue :state Reading.subscription_definition;
+                if (strEq(str, "query") or strEq(str, "mutation") or strEq(str, "subscription")) {
+                    continue :state Reading.operation_definition;
                 } else if (strEq(str, "fragment")) {
                     continue :state Reading.fragment_definition;
                 } else if (strEq(str, "schema")) {
@@ -122,15 +116,13 @@ pub const Parser = struct {
             },
             Reading.fragment_definition => {
                 const fragmentDefinition = try parseFragmentDefinition(self, tokens, allocator);
-                const fragmentDefinitionNode = ExecutableDefinition{
+
+                documentNode.definitions.append(ExecutableDefinition{
                     .fragmentDefinition = fragmentDefinition,
-                };
-
-                documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
-
+                }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
-            Reading.query_definition, Reading.mutation_definition, Reading.subscription_definition => {
+            Reading.operation_definition => {
                 const operationDefinition = try parseOperationDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .operationDefinition = operationDefinition,
@@ -138,11 +130,10 @@ pub const Parser = struct {
                 continue :state Reading.root;
             },
             Reading.schema_definition => {
-                const schema = try parseSchemaDefinition(self, tokens, allocator);
+                const schemaDefinition = try parseSchemaDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
-                    .schemaDefinition = schema,
+                    .schemaDefinition = schemaDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
-
                 continue :state Reading.root;
             },
             Reading.object_type_definition => {
@@ -150,7 +141,6 @@ pub const Parser = struct {
                 documentNode.definitions.append(ExecutableDefinition{
                     .objectTypeDefinition = objectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
-
                 continue :state Reading.root;
             },
             Reading.union_type_definition => {
@@ -158,7 +148,6 @@ pub const Parser = struct {
                 documentNode.definitions.append(ExecutableDefinition{
                     .unionTypeDefinition = unionTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
-
                 continue :state Reading.root;
             },
             Reading.scalar_type_definition => {
@@ -166,7 +155,6 @@ pub const Parser = struct {
                 documentNode.definitions.append(ExecutableDefinition{
                     .scalarTypeDefinition = scalarTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
-
                 continue :state Reading.root;
             },
         }
