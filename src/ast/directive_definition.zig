@@ -74,7 +74,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
 
     const arguments = try parseArguments(parser, tokens, allocator);
 
-    const onToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
     const onStr = try parser.getTokenValue(onToken, allocator);
     defer allocator.free(onStr);
     if (onToken.tag != Token.Tag.identifier or !strEq(onStr, "on")) {
@@ -97,6 +97,10 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag != Token.Tag.punct_pipe) break;
         _ = parser.consumeNextToken(tokens) orelse break;
+    }
+
+    if (locations.items.len == 0) {
+        return ParseError.ExpectedName;
     }
 
     const directivesNodes = try parseDirectives(parser, tokens, allocator);
@@ -143,9 +147,37 @@ fn validateLocations(location: []const u8) bool {
     return false;
 }
 
+test "missing on" {
+    try runTest(
+        "directive @example",
+        .{ .parseError = ParseError.ExpectedOn },
+    );
+}
+
+test "missing name" {
+    try runTest(
+        "directive @example on",
+        .{ .parseError = ParseError.ExpectedName },
+    );
+}
+
+test "valid directive definition" {
+    try runTest(
+        "directive @example on FIELD",
+        .{ .success = .{ .name = "example", .argLen = 0, .onsLen = 1 } },
+    );
+}
+
+test "invalid variable argument" {
+    try runTest(
+        "directive @example($arg: String) on FIELD | OBJECT",
+        .{ .success = .{ .name = "example", .argLen = 1, .onsLen = 2 } },
+    );
+}
+
 test "parse directive definition" {
     try runTest(
-        "directive @example(arg: String = \"default\") on FIELD | OBJECT",
+        "directive @example(arg: $Ok = \"default\") on FIELD | OBJECT",
         .{ .success = .{ .name = "example", .argLen = 1, .onsLen = 2 } },
     );
 }
