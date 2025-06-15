@@ -72,7 +72,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
     const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
     defer allocator.free(directiveName);
 
-    const arguments = try parseArguments(parser, tokens, allocator);
+    const arguments = try parseArguments(parser, tokens, allocator, false);
 
     const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
     const onStr = try parser.getTokenValue(onToken, allocator);
@@ -168,16 +168,23 @@ test "valid directive definition" {
     );
 }
 
-test "invalid variable argument" {
+test "invalid variable argument name" {
     try runTest(
         "directive @example($arg: String) on FIELD | OBJECT",
         .{ .parseError = ParseError.ExpectedName },
     );
 }
 
-test "parse directive definition" {
+test "invalid variable argument value" {
     try runTest(
-        "directive @example(arg: $Ok = \"default\") on FIELD | OBJECT",
+        "directive @example(arg: $Nope) on FIELD | OBJECT",
+        .{ .parseError = ParseError.ExpectedName },
+    );
+}
+
+test "with default arg value" {
+    try runTest(
+        "directive @example(arg: Ok = \"default\") on FIELD | OBJECT",
         .{ .success = .{ .name = "example", .argLen = 1, .onsLen = 2 } },
     );
 }

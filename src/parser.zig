@@ -51,7 +51,6 @@ pub const ParseError = error{
     NotImplemented,
     UnexpectedExclamationMark,
     UnexpectedMemoryError,
-    UnexpectedToken,
     WrongParentNode,
 };
 

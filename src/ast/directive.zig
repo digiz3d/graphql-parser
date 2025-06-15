@@ -48,7 +48,7 @@ pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) P
 
         if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
         const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
-        const arguments = try parseArguments(parser, tokens, allocator);
+        const arguments = try parseArguments(parser, tokens, allocator, true);
         const directiveNode = Directive{
             .allocator = allocator,
             .arguments = arguments,

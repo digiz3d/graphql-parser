@@ -58,7 +58,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocat
         return ParseError.ExpectedName;
     }
 
-    const arguments = try parseArguments(parser, tokens, allocator);
+    const arguments = try parseArguments(parser, tokens, allocator, false);
 
     const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (colonToken.tag != Token.Tag.punct_colon) {

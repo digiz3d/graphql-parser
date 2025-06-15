@@ -98,7 +98,7 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token, allocator: Allocator)
             break :assign .{ finalName, nameOrAlias };
         } else .{ nameOrAlias, null };
 
-        const arguments = try parseArguments(parser, tokens, allocator);
+        const arguments = try parseArguments(parser, tokens, allocator, true);
         const directives = try parseDirectives(parser, tokens, allocator);
 
         const potentialNextLeftBrace = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
