@@ -94,10 +94,12 @@ pub const Type = union(enum) {
     }
 };
 
-fn parseNamedType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!Type {
+pub fn parseNamedType(parser: *Parser, tokens: []Token, allocator: Allocator, allowNonNull: bool) ParseError!Type {
     const typeNameToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     if (typeNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
     const name = try parser.getTokenValue(typeNameToken, allocator);
+    errdefer allocator.free(name);
+
     var temporaryType = Type{
         .namedType = NamedType{
             .allocator = allocator,
@@ -107,6 +109,10 @@ fn parseNamedType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseE
 
     const nextToken = parser.peekNextToken(tokens) orelse return temporaryType;
     if (nextToken.tag == Token.Tag.punct_excl) {
+        if (!allowNonNull) {
+            return ParseError.UnexpectedExclamationMark;
+        }
+
         _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
         temporaryType = wrapNonNullType(temporaryType);
     }
@@ -160,7 +166,7 @@ pub fn parseType(parser: *Parser, tokens: []Token, allocator: Allocator) ParseEr
     const typeNameOrListToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
     if (typeNameOrListToken.tag == Token.Tag.identifier) {
-        return parseNamedType(parser, tokens, allocator);
+        return parseNamedType(parser, tokens, allocator, true);
     } else if (typeNameOrListToken.tag == Token.Tag.punct_bracket_left) {
         return parseListType(parser, tokens, allocator);
     }
