@@ -22,3 +22,5 @@ zig-out/
 zig-cache/
 
 /*.graphql
+
+/.vscode/

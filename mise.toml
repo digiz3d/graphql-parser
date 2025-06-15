@@ -1,3 +1,9 @@
 [tools]
 zig = "latest"
 zls = "latest"
+
+[tasks.main]
+run = "zig run src/main.zig"
+
+[tasks.tests]
+run = "zig test src/parser.zig"

@@ -20,7 +20,7 @@ pub const SchemaDefinition = struct {
         for (self.directives) |item| {
             item.printAST(indent + 1);
         }
-        std.debug.print("{s}  operation_types: {d}\n", .{ spaces, self.operationTypes.len });
+        std.debug.print("{s}  operationTypes: {d}\n", .{ spaces, self.operationTypes.len });
         for (self.operationTypes) |item| {
             item.printAST(indent + 1);
         }
