@@ -10,6 +10,7 @@ pub const Token = struct {
     pub const Tag = enum {
         identifier,
         string_literal,
+        string_literal_block,
         integer_literal,
         float_literal,
         comment,
@@ -40,6 +41,7 @@ pub const Token = struct {
         return switch (self.tag) {
             Tag.identifier => "identifier",
             Tag.string_literal => "string literal",
+            Tag.string_literal_block => "string block literal",
             Tag.integer_literal => "integer literal",
             Tag.float_literal => "float literal",
             Tag.comment => "comment",
@@ -223,7 +225,10 @@ pub const Tokenizer = struct {
                     self.index += 1;
                 }
 
-                token.tag = Token.Tag.string_literal;
+                token.tag = if (isMultiLineBlock)
+                    Token.Tag.string_literal_block
+                else
+                    Token.Tag.string_literal;
                 token.loc.end = self.index;
                 return token;
             },
@@ -302,7 +307,7 @@ test "string literal" {
 test "block string literal singleline" {
     const source = "\"\"\"FFGGHH\"\"\"";
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.string_literal,
+        Token.Tag.string_literal_block,
     };
     try testTokenize(source, &expected_token_tags);
 }
@@ -314,7 +319,7 @@ test "block string literal multiline" {
         \\"""
     ;
     const expected_token_tags = [_]Token.Tag{
-        Token.Tag.string_literal,
+        Token.Tag.string_literal_block,
     };
     try testTokenize(source, &expected_token_tags);
 }
