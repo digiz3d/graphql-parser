@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
-const Argument = @import("argument.zig").Argument;
+const Argument = @import("arguments.zig").InputValueDefinition;
 const Directive = @import("directive.zig").Directive;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 

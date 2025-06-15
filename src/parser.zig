@@ -20,6 +20,7 @@ const parseScalarTypeDefinition = @import("ast/scalar_type_definition.zig").pars
 const parseSchemaDefinition = @import("ast/schema_definition.zig").parseSchemaDefinition;
 const parseFragmentDefinition = @import("ast/fragment_definition.zig").parseFragmentDefinition;
 const parseOperationDefinition = @import("ast/operation_definition.zig").parseOperationDefinition;
+const parseDirectiveDefinition = @import("ast/directive_definition.zig").parseDirectiveDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -33,20 +34,21 @@ const strEq = @import("utils/utils.zig").strEq;
 
 pub const ParseError = error{
     EmptyTokenList,
+    ExpectedAt,
     ExpectedBracketLeft,
     ExpectedBracketRight,
     ExpectedColon,
     ExpectedDollar,
+    ExpectedLeftParenthesis,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
-    ExpectedLeftParenthesis,
     ExpectedRightParenthesis,
     ExpectedString,
     InvalidOperationType,
+    InvalidLocation,
     MissingExpectedBrace,
     NotImplemented,
-    UnexpectedToken,
     UnexpectedExclamationMark,
     UnexpectedMemoryError,
     WrongParentNode,
@@ -63,6 +65,7 @@ pub const Parser = struct {
         object_type_definition,
         union_type_definition,
         scalar_type_definition,
+        directive_definition,
     };
 
     pub fn init() Parser {
@@ -111,6 +114,8 @@ pub const Parser = struct {
                     continue :state Reading.union_type_definition;
                 } else if (strEq(str, "scalar")) {
                     continue :state Reading.scalar_type_definition;
+                } else if (strEq(str, "directive")) {
+                    continue :state Reading.directive_definition;
                 }
                 return ParseError.InvalidOperationType;
             },
@@ -154,6 +159,13 @@ pub const Parser = struct {
                 const scalarTypeDefinition = try parseScalarTypeDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .scalarTypeDefinition = scalarTypeDefinition,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.directive_definition => {
+                const directiveDefinition = try parseDirectiveDefinition(self, tokens, allocator);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .directiveDefinition = directiveDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },

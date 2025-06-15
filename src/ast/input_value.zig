@@ -115,18 +115,12 @@ pub const ListValue = struct {
 
 pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, acceptVariables: bool) ParseError!InputValue {
     var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag == Token.Tag.punct_dollar and !acceptVariables) {
+        return ParseError.ExpectedName;
+    }
+
     var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
     defer allocator.free(str);
-
-    var isVariable = false;
-
-    if (token.tag == Token.Tag.punct_dollar) {
-        if (!acceptVariables) return ParseError.UnexpectedToken;
-        token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        allocator.free(str);
-        str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
-        isVariable = true;
-    }
 
     switch (token.tag) {
         Token.Tag.integer_literal => return InputValue{
@@ -148,14 +142,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, a
             };
         },
         Token.Tag.identifier => {
-            if (isVariable) {
-                const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
-                return InputValue{
-                    .variable = Variable{
-                        .name = strCopy,
-                    },
-                };
-            } else if (strEq(str, "true")) {
+            if (strEq(str, "true")) {
                 return InputValue{
                     .boolean_value = BooleanValue{
                         .value = true,
@@ -179,11 +166,18 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, a
                 };
             }
         },
-        // Token.Tag.punct_dollar => {
-        //     const actualVariableName = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        //     isVariable = true;
-        //     continue :currentTag actualVariableName.tag;
-        // },
+        Token.Tag.punct_dollar => {
+            token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            allocator.free(str);
+            str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+
+            const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+            return InputValue{
+                .variable = Variable{
+                    .name = strCopy,
+                },
+            };
+        },
         else => return ParseError.NotImplemented,
     }
     return ParseError.NotImplemented;

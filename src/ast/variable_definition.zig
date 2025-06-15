@@ -146,7 +146,7 @@ test "default value" {
 }
 
 test "default value not variable" {
-    try runTest("($name: String = $default)", .{ .parseError = ParseError.UnexpectedToken });
+    try runTest("($name: String = $default)", .{ .parseError = ParseError.ExpectedName });
 }
 
 fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {

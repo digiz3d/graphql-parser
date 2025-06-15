@@ -5,8 +5,8 @@ const parserImport = @import("../parser.zig");
 const Parser = parserImport.Parser;
 const ParseError = parserImport.ParseError;
 const Token = @import("../tokenizer.zig").Token;
-const Argument = @import("argument.zig").Argument;
-const parseArguments = @import("argument.zig").parseArguments;
+const Argument = @import("arguments.zig").InputValueDefinition;
+const parseArguments = @import("arguments.zig").parseArguments;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
@@ -58,7 +58,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocat
         return ParseError.ExpectedName;
     }
 
-    const arguments = try parseArguments(parser, tokens, allocator);
+    const arguments = try parseArguments(parser, tokens, allocator, false);
 
     const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (colonToken.tag != Token.Tag.punct_colon) {

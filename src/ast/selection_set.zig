@@ -16,7 +16,7 @@ const FragmentSpread = @import("fragment_spread.zig").FragmentSpread;
 const InlineFragment = @import("inline_fragment.zig").InlineFragment;
 const Selection = @import("selection.zig").Selection;
 
-const parseArguments = @import("argument.zig").parseArguments;
+const parseArguments = @import("arguments.zig").parseArguments;
 const parseDirectives = @import("directive.zig").parseDirectives;
 
 pub const SelectionSet = struct {
@@ -98,7 +98,7 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token, allocator: Allocator)
             break :assign .{ finalName, nameOrAlias };
         } else .{ nameOrAlias, null };
 
-        const arguments = try parseArguments(parser, tokens, allocator);
+        const arguments = try parseArguments(parser, tokens, allocator, true);
         const directives = try parseDirectives(parser, tokens, allocator);
 
         const potentialNextLeftBrace = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
