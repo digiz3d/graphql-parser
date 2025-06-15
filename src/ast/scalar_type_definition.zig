@@ -62,9 +62,9 @@ test "parse scalar type definition" {
     );
 }
 
-test "parse scalar type definition without directives" {
+test "parse scalar type definition with directive" {
     try runTest(
-        "scalar DateTime",
+        "scalar DateTime @lol",
         .{ .name = "DateTime" },
     );
 }

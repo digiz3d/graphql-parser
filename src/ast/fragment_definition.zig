@@ -5,6 +5,13 @@ const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
 const Directive = @import("directive.zig").Directive;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
+const parseDirectives = @import("directive.zig").parseDirectives;
+const parseSelectionSet = @import("selection_set.zig").parseSelectionSet;
+
+const Parser = @import("../parser.zig").Parser;
+const Token = @import("../tokenizer.zig").Token;
+const ParseError = @import("../parser.zig").ParseError;
+const strEq = @import("../utils/utils.zig").strEq;
 
 pub const FragmentDefinition = struct {
     allocator: Allocator,
@@ -34,3 +41,41 @@ pub const FragmentDefinition = struct {
         self.selectionSet.deinit();
     }
 };
+
+pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!FragmentDefinition {
+    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+
+    const fragmentNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const fragmentName = try parser.getTokenValue(fragmentNameToken, allocator);
+    errdefer allocator.free(fragmentName);
+
+    if (fragmentNameToken.tag != Token.Tag.identifier) {
+        return ParseError.ExpectedName;
+    }
+    if (strEq(fragmentName, "on")) {
+        return ParseError.ExpectedNameNotOn;
+    }
+
+    const onToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const tokenName = try parser.getTokenValue(onToken, allocator);
+    defer allocator.free(tokenName);
+
+    if (onToken.tag != Token.Tag.identifier or !strEq(tokenName, "on")) {
+        return ParseError.ExpectedOn;
+    }
+
+    const namedTypeToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (namedTypeToken.tag != Token.Tag.identifier) {
+        return ParseError.ExpectedName;
+    }
+
+    const directivesNodes = try parseDirectives(parser, tokens, allocator);
+    const selectionSetNode = try parseSelectionSet(parser, tokens, allocator);
+
+    return FragmentDefinition{
+        .allocator = allocator,
+        .name = fragmentName,
+        .directives = directivesNodes,
+        .selectionSet = selectionSetNode,
+    };
+}

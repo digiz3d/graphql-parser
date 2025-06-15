@@ -17,6 +17,9 @@ const parseOperationTypeDefinitions = @import("ast/operation_type_definition.zig
 const parseObjectTypeDefinition = @import("ast/object_type_definition.zig").parseObjectTypeDefinition;
 const parseUnionTypeDefinition = @import("ast/union_type_definition.zig").parseUnionTypeDefinition;
 const parseScalarTypeDefinition = @import("ast/scalar_type_definition.zig").parseScalarTypeDefinition;
+const parseSchemaDefinition = @import("ast/schema_definition.zig").parseSchemaDefinition;
+const parseFragmentDefinition = @import("ast/fragment_definition.zig").parseFragmentDefinition;
+const parseOperationDefinition = @import("ast/operation_definition.zig").parseOperationDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -118,93 +121,26 @@ pub const Parser = struct {
                 return ParseError.InvalidOperationType;
             },
             Reading.fragment_definition => {
-                _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-
-                const fragmentNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                const fragmentName = try self.getTokenValue(fragmentNameToken, allocator);
-                errdefer allocator.free(fragmentName);
-
-                if (fragmentNameToken.tag != Token.Tag.identifier) {
-                    return ParseError.ExpectedName;
-                }
-                if (strEq(fragmentName, "on")) {
-                    return ParseError.ExpectedNameNotOn;
-                }
-
-                const onToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                const tokenName = try self.getTokenValue(onToken, allocator);
-                defer allocator.free(tokenName);
-
-                if (onToken.tag != Token.Tag.identifier or !strEq(tokenName, "on")) {
-                    return ParseError.ExpectedOn;
-                }
-
-                const namedTypeToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                if (namedTypeToken.tag != Token.Tag.identifier) {
-                    return ParseError.ExpectedName;
-                }
-
-                const directivesNodes = try parseDirectives(self, tokens, allocator);
-                const selectionSetNode = try parseSelectionSet(self, tokens, allocator);
-
+                const fragmentDefinition = try parseFragmentDefinition(self, tokens, allocator);
                 const fragmentDefinitionNode = ExecutableDefinition{
-                    .fragment = FragmentDefinition{
-                        .allocator = allocator,
-                        .name = fragmentName,
-                        .directives = directivesNodes,
-                        .selectionSet = selectionSetNode,
-                    },
+                    .fragmentDefinition = fragmentDefinition,
                 };
 
                 documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
 
                 continue :state Reading.root;
             },
-            Reading.query_definition, Reading.mutation_definition, Reading.subscription_definition => |operationType| {
-                _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-
-                var operationName: ?[]const u8 = null;
-                if (self.peekNextToken(tokens).?.tag == Token.Tag.identifier) {
-                    const operationNameToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                    const name: ?[]const u8 = self.getTokenValue(operationNameToken, allocator) catch null;
-                    operationName = name;
-                }
-
-                const variablesNodes = try parseVariableDefinition(self, tokens, allocator);
-                const directivesNodes = try parseDirectives(self, tokens, allocator);
-                const selectionSetNode = try parseSelectionSet(self, tokens, allocator);
-
-                const fragmentDefinitionNode = ExecutableDefinition{
-                    .operation = OperationDefinition{
-                        .allocator = allocator,
-                        .directives = directivesNodes,
-                        .name = operationName,
-                        .operation = switch (operationType) {
-                            Reading.query_definition => OperationType.query,
-                            Reading.mutation_definition => OperationType.mutation,
-                            Reading.subscription_definition => OperationType.subscription,
-                            else => unreachable,
-                        },
-                        .selectionSet = selectionSetNode,
-                        .variableDefinitions = variablesNodes,
-                    },
-                };
-                documentNode.definitions.append(fragmentDefinitionNode) catch return ParseError.UnexpectedMemoryError;
+            Reading.query_definition, Reading.mutation_definition, Reading.subscription_definition => {
+                const operationDefinition = try parseOperationDefinition(self, tokens, allocator);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .operationDefinition = operationDefinition,
+                }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.schema_definition => {
-                _ = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-
-                const directivesNodes = try parseDirectives(self, tokens, allocator);
-
-                const operationTypes = try parseOperationTypeDefinitions(self, tokens, allocator);
-
+                const schema = try parseSchemaDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
-                    .schema = SchemaDefinition{
-                        .allocator = allocator,
-                        .directives = directivesNodes,
-                        .operationTypes = operationTypes,
-                    },
+                    .schemaDefinition = schema,
                 }) catch return ParseError.UnexpectedMemoryError;
 
                 continue :state Reading.root;
@@ -277,7 +213,7 @@ test "initialize fragment" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings(rootNode.definitions.items[0].fragment.name, "Profile");
+    try testing.expectEqualStrings(rootNode.definitions.items[0].fragmentDefinition.name, "Profile");
 }
 
 test "initialize query" {
@@ -302,8 +238,8 @@ test "initialize query" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings(rootNode.definitions.items[0].operation.name orelse "", "SomeQuery");
-    try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operation.operation);
+    try testing.expectEqualStrings(rootNode.definitions.items[0].operationDefinition.name orelse "", "SomeQuery");
+    try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operationDefinition.operation);
 }
 
 test "initialize query without name" {
@@ -318,8 +254,8 @@ test "initialize query without name" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqual(null, rootNode.definitions.items[0].operation.name);
-    try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operation.operation);
+    try testing.expectEqual(null, rootNode.definitions.items[0].operationDefinition.name);
+    try testing.expectEqual(OperationType.query, rootNode.definitions.items[0].operationDefinition.operation);
 }
 
 test "initialize mutation" {
@@ -338,8 +274,8 @@ test "initialize mutation" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings("SomeMutation", rootNode.definitions.items[0].operation.name orelse "");
-    try testing.expectEqual(OperationType.mutation, rootNode.definitions.items[0].operation.operation);
+    try testing.expectEqualStrings("SomeMutation", rootNode.definitions.items[0].operationDefinition.name orelse "");
+    try testing.expectEqual(OperationType.mutation, rootNode.definitions.items[0].operationDefinition.operation);
 }
 
 test "initialize subscription" {
@@ -359,8 +295,8 @@ test "initialize subscription" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings("SomeSubscription", rootNode.definitions.items[0].operation.name orelse "");
-    try testing.expectEqual(OperationType.subscription, rootNode.definitions.items[0].operation.operation);
+    try testing.expectEqualStrings("SomeSubscription", rootNode.definitions.items[0].operationDefinition.name orelse "");
+    try testing.expectEqual(OperationType.subscription, rootNode.definitions.items[0].operationDefinition.operation);
 }
 
 test "initialize schema" {
@@ -377,12 +313,12 @@ test "initialize schema" {
     var rootNode = try parser.parse(buffer, testing.allocator);
     defer rootNode.deinit();
 
-    try testing.expectEqualStrings("query", rootNode.definitions.items[0].schema.operationTypes[0].operation);
-    try testing.expectEqualStrings("Queryyyy", rootNode.definitions.items[0].schema.operationTypes[0].name);
-    try testing.expectEqualStrings("mutation", rootNode.definitions.items[0].schema.operationTypes[1].operation);
-    try testing.expectEqualStrings("Mut", rootNode.definitions.items[0].schema.operationTypes[1].name);
-    try testing.expectEqualStrings("subscription", rootNode.definitions.items[0].schema.operationTypes[2].operation);
-    try testing.expectEqualStrings("Sub", rootNode.definitions.items[0].schema.operationTypes[2].name);
+    try testing.expectEqualStrings("query", rootNode.definitions.items[0].schemaDefinition.operationTypes[0].operation);
+    try testing.expectEqualStrings("Queryyyy", rootNode.definitions.items[0].schemaDefinition.operationTypes[0].name);
+    try testing.expectEqualStrings("mutation", rootNode.definitions.items[0].schemaDefinition.operationTypes[1].operation);
+    try testing.expectEqualStrings("Mut", rootNode.definitions.items[0].schemaDefinition.operationTypes[1].name);
+    try testing.expectEqualStrings("subscription", rootNode.definitions.items[0].schemaDefinition.operationTypes[2].operation);
+    try testing.expectEqualStrings("Sub", rootNode.definitions.items[0].schemaDefinition.operationTypes[2].name);
 }
 
 // error cases

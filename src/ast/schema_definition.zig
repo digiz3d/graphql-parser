@@ -7,6 +7,12 @@ const Directive = @import("directive.zig").Directive;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 const OperationTypeDefinition = @import("operation_type_definition.zig").OperationTypeDefinition;
 
+const Parser = @import("../parser.zig").Parser;
+const Token = @import("../tokenizer.zig").Token;
+const ParseError = @import("../parser.zig").ParseError;
+const parseDirectives = @import("directive.zig").parseDirectives;
+const parseOperationTypeDefinitions = @import("operation_type_definition.zig").parseOperationTypeDefinitions;
+
 pub const SchemaDefinition = struct {
     allocator: Allocator,
     directives: []Directive,
@@ -37,3 +43,17 @@ pub const SchemaDefinition = struct {
         self.allocator.free(self.operationTypes);
     }
 };
+
+pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!SchemaDefinition {
+    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+
+    const directivesNodes = try parseDirectives(parser, tokens, allocator);
+
+    const operationTypes = try parseOperationTypeDefinitions(parser, tokens, allocator);
+
+    return SchemaDefinition{
+        .allocator = allocator,
+        .directives = directivesNodes,
+        .operationTypes = operationTypes,
+    };
+}
