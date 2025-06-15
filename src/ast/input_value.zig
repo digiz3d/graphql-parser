@@ -93,6 +93,7 @@ pub const FloatValue = struct {
 
 pub const StringValue = struct {
     value: []const u8,
+    block: bool,
 };
 
 pub const BooleanValue = struct {
@@ -133,11 +134,12 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, a
                 .value = std.fmt.parseFloat(f64, str) catch return ParseError.UnexpectedMemoryError,
             },
         },
-        Token.Tag.string_literal => {
+        Token.Tag.string_literal, Token.Tag.string_literal_block => {
             const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
             return InputValue{
                 .string_value = StringValue{
                     .value = strCopy,
+                    .block = token.tag == Token.Tag.string_literal_block,
                 },
             };
         },
