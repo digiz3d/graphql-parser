@@ -11,6 +11,7 @@ const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const ScalarTypeDefinition = struct {
     allocator: Allocator,
@@ -46,7 +47,8 @@ pub const ScalarTypeDefinition = struct {
     }
 };
 
-pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator, description: ?[]const u8) ParseError!ScalarTypeDefinition {
+pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ScalarTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const scalarNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (scalarNameToken.tag != Token.Tag.identifier) {
@@ -89,7 +91,7 @@ fn runTest(buffer: [:0]const u8, expected: struct { name: []const u8 }) !void {
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const scalarTypeDefinition = try parseScalarTypeDefinition(&parser, tokens, testing.allocator, null);
+    const scalarTypeDefinition = try parseScalarTypeDefinition(&parser, tokens, testing.allocator);
     defer scalarTypeDefinition.deinit();
 
     try testing.expectEqualStrings(expected.name, scalarTypeDefinition.name);

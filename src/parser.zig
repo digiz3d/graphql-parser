@@ -89,8 +89,6 @@ pub const Parser = struct {
             .definitions = definitions,
         };
 
-        var description: ?[]const u8 = null;
-
         state: switch (Reading.root) {
             Reading.root => {
                 var token = self.peekNextToken(tokens) orelse break :state;
@@ -101,13 +99,8 @@ pub const Parser = struct {
 
                 const isDescription = token.tag == Token.Tag.string_literal or token.tag == Token.Tag.string_literal_block;
                 if (isDescription) {
-                    _ = self.consumeNextToken(tokens);
-                    description = try self.getTokenValue(token, allocator);
-                    token = self.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
-                } else {
-                    description = null;
+                    token = self.peekNextNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 }
-
                 if (token.tag != Token.Tag.identifier) {
                     return ParseError.ExpectedName;
                 }
@@ -147,35 +140,35 @@ pub const Parser = struct {
                 continue :state Reading.root;
             },
             Reading.schema_definition => {
-                const schemaDefinition = try parseSchemaDefinition(self, tokens, allocator, description);
+                const schemaDefinition = try parseSchemaDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .schemaDefinition = schemaDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.object_type_definition => {
-                const objectTypeDefinition = try parseObjectTypeDefinition(self, tokens, allocator, description);
+                const objectTypeDefinition = try parseObjectTypeDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .objectTypeDefinition = objectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.union_type_definition => {
-                const unionTypeDefinition = try parseUnionTypeDefinition(self, tokens, allocator, description);
+                const unionTypeDefinition = try parseUnionTypeDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .unionTypeDefinition = unionTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.scalar_type_definition => {
-                const scalarTypeDefinition = try parseScalarTypeDefinition(self, tokens, allocator, description);
+                const scalarTypeDefinition = try parseScalarTypeDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .scalarTypeDefinition = scalarTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.directive_definition => {
-                const directiveDefinition = try parseDirectiveDefinition(self, tokens, allocator, description);
+                const directiveDefinition = try parseDirectiveDefinition(self, tokens, allocator);
                 documentNode.definitions.append(ExecutableDefinition{
                     .directiveDefinition = directiveDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
@@ -191,6 +184,13 @@ pub const Parser = struct {
             return null;
         }
         return tokens[self.index];
+    }
+
+    pub fn peekNextNextToken(self: *Parser, tokens: []Token) ?Token {
+        if (self.index + 1 >= tokens.len) {
+            return null;
+        }
+        return tokens[self.index + 1];
     }
 
     pub fn consumeNextToken(self: *Parser, tokens: []Token) ?Token {

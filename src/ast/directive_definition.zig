@@ -14,6 +14,7 @@ const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const InputValueDefinition = @import("arguments.zig").InputValueDefinition;
 const parseArguments = @import("arguments.zig").parseArguments;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const DirectiveDefinition = struct {
     allocator: Allocator,
@@ -67,8 +68,14 @@ pub const DirectiveDefinition = struct {
     }
 };
 
-pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: Allocator, description: ?[]const u8) ParseError!DirectiveDefinition {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!DirectiveDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
+
+    const directiveToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (directiveToken.tag != Token.Tag.identifier) {
+        return ParseError.ExpectedName;
+    }
+
     const atToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (atToken.tag != Token.Tag.punct_at) {
         return ParseError.ExpectedAt;
@@ -232,7 +239,7 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
 
     switch (expected) {
         .success => |expectedSuccess| {
-            const directiveDefinition = try parseDirectiveDefinition(&parser, tokens, testing.allocator, null);
+            const directiveDefinition = try parseDirectiveDefinition(&parser, tokens, testing.allocator);
             defer directiveDefinition.deinit();
 
             try testing.expectEqualStrings(expectedSuccess.name, directiveDefinition.name);
@@ -240,7 +247,7 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
             try testing.expectEqual(expectedSuccess.onsLen, directiveDefinition.locations.len);
         },
         .parseError => |expectedError| {
-            const directiveDefinition = parseDirectiveDefinition(&parser, tokens, testing.allocator, null);
+            const directiveDefinition = parseDirectiveDefinition(&parser, tokens, testing.allocator);
             try testing.expectError(expectedError, directiveDefinition);
         },
     }

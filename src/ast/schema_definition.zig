@@ -14,6 +14,7 @@ const Token = @import("../tokenizer.zig").Token;
 const ParseError = @import("../parser.zig").ParseError;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseOperationTypeDefinitions = @import("operation_type_definition.zig").parseOperationTypeDefinitions;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const SchemaDefinition = struct {
     allocator: Allocator,
@@ -57,7 +58,9 @@ pub const SchemaDefinition = struct {
     }
 };
 
-pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Allocator, description: ?[]const u8) ParseError!SchemaDefinition {
+pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!SchemaDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
+
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const directivesNodes = try parseDirectives(parser, tokens, allocator);
@@ -87,7 +90,7 @@ test "parsing schema" {
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const schema = try parseSchemaDefinition(&parser, tokens, testing.allocator, null);
+    const schema = try parseSchemaDefinition(&parser, tokens, testing.allocator);
     defer schema.deinit();
 
     try testing.expectEqual(2, schema.operationTypes.len);

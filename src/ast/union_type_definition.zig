@@ -13,6 +13,7 @@ const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
 const parseNamedType = @import("type.zig").parseNamedType;
 const parseDirectives = @import("directive.zig").parseDirectives;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const UnionTypeDefinition = struct {
     allocator: Allocator,
@@ -57,7 +58,8 @@ pub const UnionTypeDefinition = struct {
     }
 };
 
-pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator, description: ?[]const u8) ParseError!UnionTypeDefinition {
+pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!UnionTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const unionNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const unionName = try parser.getTokenValue(unionNameToken, allocator);
@@ -140,11 +142,11 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
 
     switch (expectedLenOrError) {
         .parseError => |expectedError| {
-            const unionTypeDefinition = parseUnionTypeDefinition(&parser, tokens, testing.allocator, null);
+            const unionTypeDefinition = parseUnionTypeDefinition(&parser, tokens, testing.allocator);
             try testing.expectError(expectedError, unionTypeDefinition);
         },
         .len => |length| {
-            const unionTypeDefinition = try parseUnionTypeDefinition(&parser, tokens, testing.allocator, null);
+            const unionTypeDefinition = try parseUnionTypeDefinition(&parser, tokens, testing.allocator);
             defer unionTypeDefinition.deinit();
 
             try testing.expectEqual(length, unionTypeDefinition.types.len);

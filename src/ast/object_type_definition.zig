@@ -12,6 +12,7 @@ const FieldDefinition = @import("field_definition.zig").FieldDefinition;
 const parseFieldDefinition = @import("field_definition.zig").parseFieldDefinition;
 const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
@@ -61,7 +62,8 @@ pub const ObjectTypeDefinition = struct {
     }
 };
 
-pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator, description: ?[]const u8) ParseError!ObjectTypeDefinition {
+pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ObjectTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
@@ -129,11 +131,11 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
 
     switch (expectedLenOrError) {
         .parseError => |expectedError| {
-            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens, testing.allocator, null);
+            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens, testing.allocator);
             try testing.expectError(expectedError, objectTypeDefinition);
         },
         .len => |length| {
-            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens, testing.allocator, null);
+            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens, testing.allocator);
             defer objectTypeDefinition.deinit();
 
             try testing.expectEqual(length, objectTypeDefinition.fields.len);
