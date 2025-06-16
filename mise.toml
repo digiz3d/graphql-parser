@@ -5,5 +5,11 @@ zls = "latest"
 [tasks.main]
 run = "zig run src/main.zig"
 
-[tasks.tests]
+[tasks.unit]
 run = "zig test src/parser.zig"
+
+[tasks.e2e]
+run = "zig test src/parser.e2e.zig"
+
+[tasks.tests]
+depends = ["unit", "e2e"]

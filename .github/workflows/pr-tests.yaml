@@ -14,10 +14,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Test
+    name: Unit tests
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2
         with:
           version: "master"
       - run: zig test src/parser.zig
+  e2e:
+    runs-on: ubuntu-latest
+    name: E2E tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: "master"
+      - run: zig test src/parser.e2e.zig
