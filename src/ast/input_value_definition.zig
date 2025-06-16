@@ -16,6 +16,8 @@ const InputValue = @import("input_value.zig").InputValue;
 const parseInputValue = @import("input_value.zig").parseInputValue;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
+const Directive = @import("directive.zig").Directive;
+const parseDirectives = @import("directive.zig").parseDirectives;
 
 pub const InputValueDefinition = struct {
     allocator: Allocator,
@@ -23,6 +25,7 @@ pub const InputValueDefinition = struct {
     name: []const u8,
     value: Type,
     defaultValue: ?InputValue,
+    directives: []Directive,
 
     pub fn printAST(self: InputValueDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
@@ -37,6 +40,10 @@ pub const InputValueDefinition = struct {
         const value = self.value.getPrintableString(self.allocator);
         defer self.allocator.free(value);
         std.debug.print("{s}  value = {s}\n", .{ spaces, value });
+        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
+        for (self.directives) |item| {
+            item.printAST(indent + 1);
+        }
     }
 
     pub fn deinit(self: InputValueDefinition) void {
@@ -48,35 +55,39 @@ pub const InputValueDefinition = struct {
         if (self.defaultValue != null) {
             self.defaultValue.?.deinit(self.allocator);
         }
+        for (self.directives) |item| {
+            item.deinit();
+        }
+        self.allocator.free(self.directives);
     }
 };
 
 pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]InputValueDefinition {
-    var inputValueDefintions = ArrayList(InputValueDefinition).init(allocator);
+    var inputValueDefinitions = ArrayList(InputValueDefinition).init(allocator);
 
     var currentToken = parser.peekNextToken(tokens) orelse
-        return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
     if (currentToken.tag != Token.Tag.punct_paren_left) {
-        return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
     // consume the left parenthesis
-    _ = parser.consumeNextToken(tokens) orelse return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    _ = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
     while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken(tokens) orelse
-        return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
     {
         const description = try parseOptionalDescription(parser, tokens, allocator);
-        const argumentNameToken = parser.consumeNextToken(tokens) orelse return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        if (argumentNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+        const nameToken = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        if (nameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
 
-        const argumentName = try parser.getTokenValue(argumentNameToken, allocator);
-        errdefer allocator.free(argumentName);
-        const colonToken = parser.consumeNextToken(tokens) orelse return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        const name = try parser.getTokenValue(nameToken, allocator);
+        errdefer allocator.free(name);
+        const colonToken = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-        const argumentValue = try parseType(parser, tokens, allocator);
+        const value = try parseType(parser, tokens, allocator);
 
         var defaultValue: ?InputValue = null;
         if (parser.peekNextToken(tokens)) |nextToken| {
@@ -86,14 +97,17 @@ pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, allocator: A
             }
         }
 
+        const directives = try parseDirectives(parser, tokens, allocator);
+
         const inputValueDefinition = InputValueDefinition{
             .allocator = allocator,
             .description = description,
-            .name = argumentName,
-            .value = argumentValue,
+            .name = name,
+            .value = value,
             .defaultValue = defaultValue,
+            .directives = directives,
         };
-        inputValueDefintions.append(inputValueDefinition) catch return ParseError.UnexpectedMemoryError;
+        inputValueDefinitions.append(inputValueDefinition) catch return ParseError.UnexpectedMemoryError;
 
         currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
@@ -101,7 +115,7 @@ pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, allocator: A
     // consume the right parenthesis
     _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedRightParenthesis;
 
-    return inputValueDefintions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }
 
 test "parsing input values definitions" {
@@ -117,8 +131,8 @@ test "parsing input values definitions" {
     try testing.expectEqual(2, arguments.len);
 }
 
-test "parsing input value definition with default value" {
-    const buffer = "(id: ID, value: String = 456)";
+test "parsing input value definition with description, directive" {
+    const buffer = "(\"some description\" arg: Ok = \"default\" @someDirective, arg2: Ok)";
     const arguments = try runTest(buffer, testing.allocator);
     defer {
         for (arguments) |argument| {
@@ -128,24 +142,14 @@ test "parsing input value definition with default value" {
     }
 
     try testing.expectEqual(2, arguments.len);
-    try testing.expectEqual(null, arguments[0].defaultValue);
-    try testing.expectEqual(InputValue{ .int_value = .{ .value = 456 } }, arguments[1].defaultValue.?);
-}
-
-test "parsing input value definition with description" {
-    const buffer = "(\"hi\" id: ID, value: String = 456)";
-    const arguments = try runTest(buffer, testing.allocator);
-    defer {
-        for (arguments) |argument| {
-            argument.deinit();
-        }
-        testing.allocator.free(arguments);
-    }
-
-    try testing.expectEqual(2, arguments.len);
-    try testing.expectEqual(null, arguments[0].defaultValue);
-    try testing.expectEqualStrings("\"hi\"", arguments[0].description.?);
-    try testing.expectEqual(InputValue{ .int_value = .{ .value = 456 } }, arguments[1].defaultValue.?);
+    try testing.expectEqualStrings("\"some description\"", arguments[0].description.?);
+    try testing.expectEqualStrings("arg", arguments[0].name);
+    try testing.expectEqualStrings("Ok", arguments[0].value.namedType.name);
+    try testing.expectEqualStrings("\"default\"", arguments[0].defaultValue.?.string_value.value);
+    try testing.expectEqualStrings("someDirective", arguments[0].directives[0].name);
+    try testing.expectEqualStrings("arg2", arguments[1].name);
+    try testing.expectEqualStrings("Ok", arguments[1].value.namedType.name);
+    try testing.expectEqual(null, arguments[1].defaultValue);
 }
 
 test "parsing input value definitions with unexpected token" {
