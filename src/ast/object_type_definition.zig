@@ -12,11 +12,14 @@ const FieldDefinition = @import("field_definition.zig").FieldDefinition;
 const parseFieldDefinition = @import("field_definition.zig").parseFieldDefinition;
 const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 pub const ObjectTypeDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     name: []const u8,
     // description: ?[]const u8, // TODO: implement description
     // interfaces: []InterfaceType, // TODO: implement interfaces
@@ -27,6 +30,13 @@ pub const ObjectTypeDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- ObjectTypeDefinition\n", .{spaces});
+        if (self.description != null) {
+            const str = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(str);
+            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
+        } else {
+            std.debug.print("{s}  description: null\n", .{spaces});
+        }
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
@@ -39,6 +49,9 @@ pub const ObjectTypeDefinition = struct {
     }
 
     pub fn deinit(self: ObjectTypeDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         self.allocator.free(self.name);
         for (self.directives) |item| {
             item.deinit();
@@ -52,6 +65,7 @@ pub const ObjectTypeDefinition = struct {
 };
 
 pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ObjectTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
@@ -81,6 +95,7 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Al
 
     const objectTypeDefinition = ObjectTypeDefinition{
         .allocator = allocator,
+        .description = description,
         .directives = directives,
         .name = allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
         .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,

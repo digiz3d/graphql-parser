@@ -91,10 +91,15 @@ pub const Parser = struct {
 
         state: switch (Reading.root) {
             Reading.root => {
-                const token = self.peekNextToken(tokens) orelse break :state;
+                var token = self.peekNextToken(tokens) orelse break :state;
 
                 if (token.tag == Token.Tag.eof) {
                     break :state;
+                }
+
+                const isDescription = token.tag == Token.Tag.string_literal or token.tag == Token.Tag.string_literal_block;
+                if (isDescription) {
+                    token = self.peekNextNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 }
                 if (token.tag != Token.Tag.identifier) {
                     return ParseError.ExpectedName;
@@ -179,6 +184,13 @@ pub const Parser = struct {
             return null;
         }
         return tokens[self.index];
+    }
+
+    pub fn peekNextNextToken(self: *Parser, tokens: []Token) ?Token {
+        if (self.index + 1 >= tokens.len) {
+            return null;
+        }
+        return tokens[self.index + 1];
     }
 
     pub fn consumeNextToken(self: *Parser, tokens: []Token) ?Token {

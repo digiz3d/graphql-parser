@@ -8,11 +8,14 @@ const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const ScalarTypeDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     name: []const u8,
     directives: []Directive,
 
@@ -20,6 +23,13 @@ pub const ScalarTypeDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- ScalarTypeDefinition\n", .{spaces});
+        if (self.description != null) {
+            const str = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(str);
+            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
+        } else {
+            std.debug.print("{s}  description: null\n", .{spaces});
+        }
         std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  directives:\n", .{spaces});
         for (self.directives) |directive| {
@@ -28,6 +38,9 @@ pub const ScalarTypeDefinition = struct {
     }
 
     pub fn deinit(self: ScalarTypeDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         self.allocator.free(self.name);
         for (self.directives) |directive| {
             directive.deinit();
@@ -37,6 +50,7 @@ pub const ScalarTypeDefinition = struct {
 };
 
 pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ScalarTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const scalarNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (scalarNameToken.tag != Token.Tag.identifier) {
@@ -50,6 +64,7 @@ pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token, allocator: Al
 
     return ScalarTypeDefinition{
         .allocator = allocator,
+        .description = description,
         .name = allocator.dupe(u8, scalarName) catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,
     };

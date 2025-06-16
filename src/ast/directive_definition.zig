@@ -9,13 +9,16 @@ const ParseError = @import("../parser.zig").ParseError;
 
 const strEq = @import("../utils/utils.zig").strEq;
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
-const InputValueDefinition = @import("arguments.zig").InputValueDefinition;
-const parseArguments = @import("arguments.zig").parseArguments;
+const InputValueDefinition = @import("input_value_definition.zig").InputValueDefinition;
+const parseInputValueDefinitions = @import("input_value_definition.zig").parseInputValueDefinitions;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const DirectiveDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     name: []const u8,
     arguments: []InputValueDefinition,
     locations: []const []const u8,
@@ -25,6 +28,13 @@ pub const DirectiveDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- DirectiveDefinition\n", .{spaces});
+        if (self.description != null) {
+            const str = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(str);
+            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
+        } else {
+            std.debug.print("{s}  description: null\n", .{spaces});
+        }
         std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
         for (self.arguments) |arg| {
@@ -41,6 +51,9 @@ pub const DirectiveDefinition = struct {
     }
 
     pub fn deinit(self: DirectiveDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         self.allocator.free(self.name);
         for (self.arguments) |arg| {
             arg.deinit();
@@ -58,7 +71,13 @@ pub const DirectiveDefinition = struct {
 };
 
 pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!DirectiveDefinition {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const description = try parseOptionalDescription(parser, tokens, allocator);
+
+    const directiveToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (directiveToken.tag != Token.Tag.identifier) {
+        return ParseError.ExpectedName;
+    }
+
     const atToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (atToken.tag != Token.Tag.punct_at) {
         return ParseError.ExpectedAt;
@@ -72,7 +91,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
     const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
     defer allocator.free(directiveName);
 
-    const arguments = try parseArguments(parser, tokens, allocator, false);
+    const arguments = try parseInputValueDefinitions(parser, tokens, allocator);
 
     const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
     const onStr = try parser.getTokenValue(onToken, allocator);
@@ -107,6 +126,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
 
     return DirectiveDefinition{
         .allocator = allocator,
+        .description = description,
         .name = allocator.dupe(u8, directiveName) catch return ParseError.UnexpectedMemoryError,
         .arguments = arguments,
         .locations = locations.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,

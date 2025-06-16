@@ -1,20 +1,24 @@
 const std = @import("std");
+const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 const Directive = @import("directive.zig").Directive;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 const OperationTypeDefinition = @import("operation_type_definition.zig").OperationTypeDefinition;
-
+const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const Parser = @import("../parser.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
 const ParseError = @import("../parser.zig").ParseError;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseOperationTypeDefinitions = @import("operation_type_definition.zig").parseOperationTypeDefinitions;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const SchemaDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     directives: []Directive,
     operationTypes: []OperationTypeDefinition,
 
@@ -22,6 +26,13 @@ pub const SchemaDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- SchemaDefinition\n", .{spaces});
+        if (self.description != null) {
+            const newDescription = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(newDescription);
+            std.debug.print("{s}  description = \"{s}\"\n", .{ spaces, newDescription });
+        } else {
+            std.debug.print("{s}  description = null\n", .{spaces});
+        }
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
             item.printAST(indent + 1);
@@ -33,6 +44,9 @@ pub const SchemaDefinition = struct {
     }
 
     pub fn deinit(self: SchemaDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         for (self.directives) |item| {
             item.deinit();
         }
@@ -45,6 +59,8 @@ pub const SchemaDefinition = struct {
 };
 
 pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!SchemaDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
+
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const directivesNodes = try parseDirectives(parser, tokens, allocator);
@@ -53,7 +69,30 @@ pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Alloca
 
     return SchemaDefinition{
         .allocator = allocator,
+        .description = description,
         .directives = directivesNodes,
         .operationTypes = operationTypes,
     };
+}
+
+test "parsing schema" {
+    var parser = Parser.init();
+    const buffer =
+        \\ schema {
+        \\   query: Query
+        \\   mutation: Mutation
+        \\ }
+    ;
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const schema = try parseSchemaDefinition(&parser, tokens, testing.allocator);
+    defer schema.deinit();
+
+    try testing.expectEqual(2, schema.operationTypes.len);
+    try testing.expectEqual(null, schema.description);
 }

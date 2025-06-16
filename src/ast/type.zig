@@ -27,6 +27,10 @@ const NamedType = struct {
     pub fn deinit(self: NamedType) void {
         self.allocator.free(self.name);
     }
+
+    pub fn getPrintableString(self: NamedType, allocator: Allocator) []const u8 {
+        return std.fmt.allocPrint(allocator, "{s}", .{self.name}) catch return "";
+    }
 };
 
 const ListType = struct {
@@ -45,6 +49,12 @@ const ListType = struct {
     pub fn deinit(self: ListType) void {
         self.elementType.*.deinit();
         self.allocator.destroy(self.elementType);
+    }
+
+    pub fn getPrintableString(self: ListType, allocator: Allocator) []const u8 {
+        const elementType = self.elementType.*.getPrintableString(allocator);
+        defer allocator.free(elementType);
+        return std.fmt.allocPrint(allocator, "[{s}]", .{elementType}) catch return "";
     }
 };
 
@@ -70,6 +80,15 @@ const NonNullType = union(enum) {
             .listType => |n| n.deinit(),
         }
     }
+
+    pub fn getPrintableString(self: NonNullType, allocator: Allocator) []const u8 {
+        const baseType = switch (self) {
+            .namedType => |n| n.getPrintableString(allocator),
+            .listType => |n| n.getPrintableString(allocator),
+        };
+        defer allocator.free(baseType);
+        return std.fmt.allocPrint(allocator, "{s}!", .{baseType}) catch return "";
+    }
 };
 
 pub const Type = union(enum) {
@@ -91,6 +110,14 @@ pub const Type = union(enum) {
             .listType => |n| n.deinit(),
             .nonNullType => |n| n.deinit(),
         }
+    }
+
+    pub fn getPrintableString(self: Type, allocator: Allocator) []const u8 {
+        return switch (self) {
+            .namedType => |n| n.getPrintableString(allocator),
+            .listType => |n| n.getPrintableString(allocator),
+            .nonNullType => |n| n.getPrintableString(allocator),
+        };
     }
 };
 

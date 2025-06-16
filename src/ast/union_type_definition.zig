@@ -8,13 +8,16 @@ const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
 const parseNamedType = @import("type.zig").parseNamedType;
 const parseDirectives = @import("directive.zig").parseDirectives;
+const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const UnionTypeDefinition = struct {
     allocator: Allocator,
+    description: ?[]const u8,
     name: []const u8,
     types: []Type,
     directives: []Directive,
@@ -23,6 +26,13 @@ pub const UnionTypeDefinition = struct {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- UnionTypeDefinition\n", .{spaces});
+        if (self.description != null) {
+            const str = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(str);
+            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
+        } else {
+            std.debug.print("{s}  description: null\n", .{spaces});
+        }
         std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  types:\n", .{spaces});
         for (self.types) |t| {
@@ -35,6 +45,9 @@ pub const UnionTypeDefinition = struct {
     }
 
     pub fn deinit(self: UnionTypeDefinition) void {
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
         self.allocator.free(self.name);
         for (self.types) |t| {
             t.deinit();
@@ -48,6 +61,7 @@ pub const UnionTypeDefinition = struct {
 };
 
 pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!UnionTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens, allocator);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const unionNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const unionName = try parser.getTokenValue(unionNameToken, allocator);
@@ -80,6 +94,7 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token, allocator: All
 
     return UnionTypeDefinition{
         .allocator = allocator,
+        .description = description,
         .name = allocator.dupe(u8, unionName) catch return ParseError.UnexpectedMemoryError,
         .types = types.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,
