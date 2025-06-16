@@ -114,14 +114,14 @@ pub const ListValue = struct {
 // pub const ObjectValue = struct {
 // };
 
-pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, acceptVariables: bool) ParseError!InputValue {
+pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) ParseError!InputValue {
     var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (token.tag == Token.Tag.punct_dollar and !acceptVariables) {
         return ParseError.ExpectedName;
     }
 
-    var str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
-    defer allocator.free(str);
+    var str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
+    defer parser.allocator.free(str);
 
     switch (token.tag) {
         Token.Tag.integer_literal => return InputValue{
@@ -135,7 +135,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, a
             },
         },
         Token.Tag.string_literal, Token.Tag.string_literal_block => {
-            const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+            const strCopy = parser.allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
             return InputValue{
                 .string_value = StringValue{
                     .value = strCopy,
@@ -163,17 +163,17 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, allocator: Allocator, a
             } else {
                 return InputValue{
                     .enum_value = EnumValue{
-                        .name = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError,
+                        .name = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError,
                     },
                 };
             }
         },
         Token.Tag.punct_dollar => {
             token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-            allocator.free(str);
-            str = token.getStringValue(allocator) catch return ParseError.UnexpectedMemoryError;
+            parser.allocator.free(str);
+            str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 
-            const strCopy = allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
+            const strCopy = parser.allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
             return InputValue{
                 .variable = Variable{
                     .name = strCopy,

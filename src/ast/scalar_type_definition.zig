@@ -49,23 +49,23 @@ pub const ScalarTypeDefinition = struct {
     }
 };
 
-pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ScalarTypeDefinition {
-    const description = try parseOptionalDescription(parser, tokens, allocator);
+pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token) ParseError!ScalarTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const scalarNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (scalarNameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
     }
 
-    const scalarName = try parser.getTokenValue(scalarNameToken, allocator);
-    defer allocator.free(scalarName);
+    const scalarName = try parser.getTokenValue(scalarNameToken);
+    defer parser.allocator.free(scalarName);
 
-    const directivesNodes = try parseDirectives(parser, tokens, allocator);
+    const directivesNodes = try parseDirectives(parser, tokens);
 
     return ScalarTypeDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .description = description,
-        .name = allocator.dupe(u8, scalarName) catch return ParseError.UnexpectedMemoryError,
+        .name = parser.allocator.dupe(u8, scalarName) catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,
     };
 }
@@ -85,15 +85,14 @@ test "parse scalar type definition with directive" {
 }
 
 fn runTest(buffer: [:0]const u8, expected: struct { name: []const u8 }) !void {
-    var parser = Parser.init();
-
+    var parser = Parser.init(testing.allocator);
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
 
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const scalarTypeDefinition = try parseScalarTypeDefinition(&parser, tokens, testing.allocator);
+    const scalarTypeDefinition = try parseScalarTypeDefinition(&parser, tokens);
     defer scalarTypeDefinition.deinit();
 
     try testing.expectEqualStrings(expected.name, scalarTypeDefinition.name);

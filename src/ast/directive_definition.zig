@@ -70,8 +70,8 @@ pub const DirectiveDefinition = struct {
     }
 };
 
-pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!DirectiveDefinition {
-    const description = try parseOptionalDescription(parser, tokens, allocator);
+pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!DirectiveDefinition {
+    const description = try parseOptionalDescription(parser, tokens);
 
     const directiveToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (directiveToken.tag != Token.Tag.identifier) {
@@ -88,26 +88,26 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
         return ParseError.ExpectedName;
     }
 
-    const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
-    defer allocator.free(directiveName);
+    const directiveName = try parser.getTokenValue(directiveNameToken);
+    defer parser.allocator.free(directiveName);
 
-    const arguments = try parseInputValueDefinitions(parser, tokens, allocator);
+    const arguments = try parseInputValueDefinitions(parser, tokens);
 
     const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
-    const onStr = try parser.getTokenValue(onToken, allocator);
-    defer allocator.free(onStr);
+    const onStr = try parser.getTokenValue(onToken);
+    defer parser.allocator.free(onStr);
     if (onToken.tag != Token.Tag.identifier or !strEq(onStr, "on")) {
         return ParseError.ExpectedOn;
     }
 
-    var locations = std.ArrayList([]const u8).init(allocator);
+    var locations = std.ArrayList([]const u8).init(parser.allocator);
     while (true) {
         const locationToken = parser.consumeNextToken(tokens) orelse break;
         if (locationToken.tag != Token.Tag.identifier) {
             return ParseError.ExpectedName;
         }
-        const location = try parser.getTokenValue(locationToken, allocator);
-        errdefer allocator.free(location);
+        const location = try parser.getTokenValue(locationToken);
+        errdefer parser.allocator.free(location);
         if (!validateLocations(location)) {
             return ParseError.InvalidLocation;
         }
@@ -122,12 +122,12 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
         return ParseError.ExpectedName;
     }
 
-    const directivesNodes = try parseDirectives(parser, tokens, allocator);
+    const directivesNodes = try parseDirectives(parser, tokens);
 
     return DirectiveDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .description = description,
-        .name = allocator.dupe(u8, directiveName) catch return ParseError.UnexpectedMemoryError,
+        .name = parser.allocator.dupe(u8, directiveName) catch return ParseError.UnexpectedMemoryError,
         .arguments = arguments,
         .locations = locations.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,
@@ -231,8 +231,7 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
     },
     parseError: ParseError,
 }) !void {
-    var parser = Parser.init();
-
+    var parser = Parser.init(testing.allocator);
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
 
@@ -241,7 +240,7 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
 
     switch (expected) {
         .success => |expectedSuccess| {
-            const directiveDefinition = try parseDirectiveDefinition(&parser, tokens, testing.allocator);
+            const directiveDefinition = try parseDirectiveDefinition(&parser, tokens);
             defer directiveDefinition.deinit();
 
             try testing.expectEqualStrings(expectedSuccess.name, directiveDefinition.name);
@@ -249,7 +248,7 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
             try testing.expectEqual(expectedSuccess.onsLen, directiveDefinition.locations.len);
         },
         .parseError => |expectedError| {
-            const directiveDefinition = parseDirectiveDefinition(&parser, tokens, testing.allocator);
+            const directiveDefinition = parseDirectiveDefinition(&parser, tokens);
             try testing.expectError(expectedError, directiveDefinition);
         },
     }

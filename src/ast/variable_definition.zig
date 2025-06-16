@@ -63,8 +63,8 @@ pub const VariableDefinition = struct {
     }
 };
 
-pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]VariableDefinition {
-    var variableDefinitions = ArrayList(VariableDefinition).init(allocator);
+pub fn parseVariableDefinition(parser: *Parser, tokens: []Token) ParseError![]VariableDefinition {
+    var variableDefinitions = ArrayList(VariableDefinition).init(parser.allocator);
 
     var currentToken = parser.peekNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
@@ -79,8 +79,8 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
 
         const variableNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
         if (variableNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-        const variableName = try parser.getTokenValue(variableNameToken, allocator);
-        errdefer allocator.free(variableName);
+        const variableName = try parser.getTokenValue(variableNameToken);
+        errdefer parser.allocator.free(variableName);
 
         const variableColonToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedColon;
 
@@ -90,7 +90,7 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
 
         if (nextToken.tag == Token.Tag.punct_dollar) return ParseError.ExpectedName;
 
-        const variableType = try parseType(parser, tokens, allocator);
+        const variableType = try parseType(parser, tokens);
         errdefer variableType.deinit();
 
         const defaultValueToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
@@ -98,13 +98,13 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token, allocator: Allo
         var defaultValue: ?input.InputValue = null;
         if (defaultValueToken.tag == Token.Tag.punct_equal) {
             _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-            defaultValue = try parseInputValue(parser, tokens, allocator, false);
+            defaultValue = try parseInputValue(parser, tokens, false);
         }
 
-        const directives = try parseDirectives(parser, tokens, allocator);
+        const directives = try parseDirectives(parser, tokens);
 
         const variableDefinition = VariableDefinition{
-            .allocator = allocator,
+            .allocator = parser.allocator,
             .name = variableName,
             .type = variableType,
             .defaultValue = defaultValue,
@@ -153,8 +153,7 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
     len: usize,
     parseError: ParseError,
 }) !void {
-    var parser = Parser.init();
-
+    var parser = Parser.init(testing.allocator);
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
 
@@ -163,12 +162,12 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
 
     switch (expectedLenOrError) {
         .parseError => |expectedError| {
-            const variableDefinitions = parseVariableDefinition(&parser, tokens, testing.allocator);
+            const variableDefinitions = parseVariableDefinition(&parser, tokens);
             try testing.expectError(expectedError, variableDefinitions);
             return;
         },
         .len => |length| {
-            const variableDefinitions = try parseVariableDefinition(&parser, tokens, testing.allocator);
+            const variableDefinitions = try parseVariableDefinition(&parser, tokens);
             defer {
                 for (variableDefinitions) |variableDefinition| {
                     variableDefinition.deinit();

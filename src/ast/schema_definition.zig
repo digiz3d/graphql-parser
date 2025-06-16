@@ -58,17 +58,17 @@ pub const SchemaDefinition = struct {
     }
 };
 
-pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!SchemaDefinition {
-    const description = try parseOptionalDescription(parser, tokens, allocator);
+pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token) ParseError!SchemaDefinition {
+    const description = try parseOptionalDescription(parser, tokens);
 
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
-    const directivesNodes = try parseDirectives(parser, tokens, allocator);
+    const directivesNodes = try parseDirectives(parser, tokens);
 
-    const operationTypes = try parseOperationTypeDefinitions(parser, tokens, allocator);
+    const operationTypes = try parseOperationTypeDefinitions(parser, tokens);
 
     return SchemaDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .description = description,
         .directives = directivesNodes,
         .operationTypes = operationTypes,
@@ -76,7 +76,7 @@ pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token, allocator: Alloca
 }
 
 test "parsing schema" {
-    var parser = Parser.init();
+    var parser = Parser.init(testing.allocator);
     const buffer =
         \\ schema {
         \\   query: Query
@@ -90,7 +90,7 @@ test "parsing schema" {
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const schema = try parseSchemaDefinition(&parser, tokens, testing.allocator);
+    const schema = try parseSchemaDefinition(&parser, tokens);
     defer schema.deinit();
 
     try testing.expectEqual(2, schema.operationTypes.len);

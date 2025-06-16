@@ -42,12 +42,12 @@ pub const FragmentDefinition = struct {
     }
 };
 
-pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!FragmentDefinition {
+pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!FragmentDefinition {
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const fragmentNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const fragmentName = try parser.getTokenValue(fragmentNameToken, allocator);
-    errdefer allocator.free(fragmentName);
+    const fragmentName = try parser.getTokenValue(fragmentNameToken);
+    errdefer parser.allocator.free(fragmentName);
 
     if (fragmentNameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
@@ -57,8 +57,8 @@ pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token, allocator: Allo
     }
 
     const onToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const tokenName = try parser.getTokenValue(onToken, allocator);
-    defer allocator.free(tokenName);
+    const tokenName = try parser.getTokenValue(onToken);
+    defer parser.allocator.free(tokenName);
 
     if (onToken.tag != Token.Tag.identifier or !strEq(tokenName, "on")) {
         return ParseError.ExpectedOn;
@@ -69,11 +69,11 @@ pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token, allocator: Allo
         return ParseError.ExpectedName;
     }
 
-    const directivesNodes = try parseDirectives(parser, tokens, allocator);
-    const selectionSetNode = try parseSelectionSet(parser, tokens, allocator);
+    const directivesNodes = try parseDirectives(parser, tokens);
+    const selectionSetNode = try parseSelectionSet(parser, tokens);
 
     return FragmentDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .name = fragmentName,
         .directives = directivesNodes,
         .selectionSet = selectionSetNode,

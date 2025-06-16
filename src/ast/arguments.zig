@@ -40,8 +40,8 @@ pub const Argument = struct {
     }
 };
 
-pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]Argument {
-    var arguments = ArrayList(Argument).init(allocator);
+pub fn parseArguments(parser: *Parser, tokens: []Token) ParseError![]Argument {
+    var arguments = ArrayList(Argument).init(parser.allocator);
 
     var currentToken = parser.peekNextToken(tokens) orelse
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -59,23 +59,23 @@ pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) Pa
         const argumentNameToken = parser.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (argumentNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
 
-        const argumentName = try parser.getTokenValue(argumentNameToken, allocator);
-        errdefer allocator.free(argumentName);
+        const argumentName = try parser.getTokenValue(argumentNameToken);
+        errdefer parser.allocator.free(argumentName);
         const colonToken = parser.consumeNextToken(tokens) orelse return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-        const argumentValue = try parseInputValue(parser, tokens, allocator, true);
+        const argumentValue = try parseInputValue(parser, tokens, true);
 
         var defaultValue: ?InputValue = null;
         if (parser.peekNextToken(tokens)) |nextToken| {
             if (nextToken.tag == Token.Tag.punct_equal) {
                 _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-                defaultValue = try parseInputValue(parser, tokens, allocator, true);
+                defaultValue = try parseInputValue(parser, tokens, true);
             }
         }
 
         const argument = Argument{
-            .allocator = allocator,
+            .allocator = parser.allocator,
             .name = argumentName,
             .value = argumentValue,
             .defaultValue = defaultValue,
@@ -93,7 +93,7 @@ pub fn parseArguments(parser: *Parser, tokens: []Token, allocator: Allocator) Pa
 
 test "parsing arguments" {
     const buffer = "(id: 123, value: $var)";
-    const arguments = try runTest(buffer, testing.allocator);
+    const arguments = try runTest(buffer);
     defer {
         for (arguments) |argument| {
             argument.deinit();
@@ -106,7 +106,7 @@ test "parsing arguments" {
 
 test "parsing argument with default value" {
     const buffer = "(id: 123, value: $var = 456)";
-    const arguments = try runTest(buffer, testing.allocator);
+    const arguments = try runTest(buffer);
     defer {
         for (arguments) |argument| {
             argument.deinit();
@@ -121,17 +121,17 @@ test "parsing argument with default value" {
 
 test "parsing arguments with unexpected token" {
     const buffer = "($id: 123, value: $var)";
-    const arguments = runTest(buffer, testing.allocator);
+    const arguments = runTest(buffer);
     try testing.expectError(ParseError.ExpectedName, arguments);
 }
 
-fn runTest(buffer: [:0]const u8, testing_allocator: Allocator) ![]Argument {
-    var parser = Parser.init();
-    var tokenizer = Tokenizer.init(testing_allocator, buffer);
+fn runTest(buffer: [:0]const u8) ![]Argument {
+    var parser = Parser.init(testing.allocator);
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
 
     const tokens = try tokenizer.getAllTokens();
-    defer testing_allocator.free(tokens);
+    defer testing.allocator.free(tokens);
 
-    return parseArguments(&parser, tokens, testing_allocator);
+    return parseArguments(&parser, tokens);
 }
