@@ -1,12 +1,14 @@
 const std = @import("std");
+const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const parserImport = @import("../parser.zig");
 const Parser = parserImport.Parser;
 const ParseError = parserImport.ParseError;
 const Token = @import("../tokenizer.zig").Token;
-const Argument = @import("arguments.zig").InputValueDefinition;
-const parseArguments = @import("arguments.zig").parseArguments;
+const Tokenizer = @import("../tokenizer.zig").Tokenizer;
+const InputValueDefinition = @import("input_value_definition.zig").InputValueDefinition;
+const parseInputValueDefinitions = @import("input_value_definition.zig").parseInputValueDefinitions;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
@@ -19,20 +21,19 @@ pub const FieldDefinition = struct {
     description: ?[]const u8,
     name: []const u8,
     type: Type,
-    // description: ?[]const u8, // TODO: implement description
-    arguments: []Argument,
+    arguments: []InputValueDefinition,
     directives: []Directive,
 
     pub fn printAST(self: FieldDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
         defer self.allocator.free(spaces);
         std.debug.print("{s}- FieldDefinition\n", .{spaces});
+        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         if (self.description != null) {
             std.debug.print("{s}  description: {s}\n", .{ spaces, newLineToBackslashN(self.allocator, self.description.?) });
         } else {
             std.debug.print("{s}  description: null\n", .{spaces});
         }
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
         for (self.arguments) |item| {
             item.printAST(indent + 1);
@@ -71,7 +72,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocat
         return ParseError.ExpectedName;
     }
 
-    const arguments = try parseArguments(parser, tokens, allocator, false);
+    const arguments = try parseInputValueDefinitions(parser, tokens, allocator);
 
     const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (colonToken.tag != Token.Tag.punct_colon) {
@@ -92,4 +93,63 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocat
     };
 
     return fieldDefinition;
+}
+
+test "parsing simple field definition" {
+    const buffer = "name: String";
+    const field = try runTest(buffer, testing.allocator);
+    defer field.deinit();
+
+    try testing.expectEqualStrings("name", field.name);
+    try testing.expectEqual(null, field.description);
+    try testing.expectEqual(@as(usize, 0), field.arguments.len);
+    try testing.expectEqual(@as(usize, 0), field.directives.len);
+}
+
+test "parsing field definition with description" {
+    const buffer = "\"field description\" name: String";
+    const field = try runTest(buffer, testing.allocator);
+    defer field.deinit();
+
+    try testing.expectEqualStrings("name", field.name);
+    try testing.expectEqualStrings("\"field description\"", field.description.?);
+    try testing.expectEqual(@as(usize, 0), field.arguments.len);
+    try testing.expectEqual(@as(usize, 0), field.directives.len);
+}
+
+test "parsing field definition with arguments" {
+    const buffer = "name(id: ID!, value: String = \"default\"): String";
+    const field = try runTest(buffer, testing.allocator);
+    defer field.deinit();
+
+    try testing.expectEqualStrings("name", field.name);
+    try testing.expectEqual(@as(usize, 2), field.arguments.len);
+    try testing.expectEqual(@as(usize, 0), field.directives.len);
+}
+
+test "parsing field definition with directives" {
+    const buffer = "name: String @deprecated(reason: \"no longer used\")";
+    const field = try runTest(buffer, testing.allocator);
+    defer field.deinit();
+
+    try testing.expectEqualStrings("name", field.name);
+    try testing.expectEqual(@as(usize, 0), field.arguments.len);
+    try testing.expectEqual(@as(usize, 1), field.directives.len);
+}
+
+test "parsing field definition with unexpected token" {
+    const buffer = "123: String";
+    const field = runTest(buffer, testing.allocator);
+    try testing.expectError(ParseError.ExpectedName, field);
+}
+
+fn runTest(buffer: [:0]const u8, testing_allocator: Allocator) !FieldDefinition {
+    var parser = Parser.init();
+    var tokenizer = Tokenizer.init(testing_allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing_allocator.free(tokens);
+
+    return parseFieldDefinition(&parser, tokens, testing_allocator);
 }

@@ -12,8 +12,8 @@ const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
-const InputValueDefinition = @import("arguments.zig").InputValueDefinition;
-const parseArguments = @import("arguments.zig").parseArguments;
+const InputValueDefinition = @import("input_value_definition.zig").InputValueDefinition;
+const parseInputValueDefinitions = @import("input_value_definition.zig").parseInputValueDefinitions;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
 pub const DirectiveDefinition = struct {
@@ -89,7 +89,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token, allocator: All
     const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
     defer allocator.free(directiveName);
 
-    const arguments = try parseArguments(parser, tokens, allocator, false);
+    const arguments = try parseInputValueDefinitions(parser, tokens, allocator);
 
     const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
     const onStr = try parser.getTokenValue(onToken, allocator);

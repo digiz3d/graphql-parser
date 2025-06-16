@@ -10,7 +10,7 @@ const Tokenizer = t.Tokenizer;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
-const Argument = @import("arguments.zig").InputValueDefinition;
+const Argument = @import("arguments.zig").Argument;
 const parseArguments = @import("arguments.zig").parseArguments;
 
 pub const Directive = struct {
@@ -48,7 +48,7 @@ pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) P
 
         if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
         const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
-        const arguments = try parseArguments(parser, tokens, allocator, true);
+        const arguments = try parseArguments(parser, tokens, allocator);
         const directiveNode = Directive{
             .allocator = allocator,
             .arguments = arguments,
