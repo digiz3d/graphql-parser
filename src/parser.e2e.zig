@@ -39,7 +39,7 @@ test "e2e-parse" {
         \\   id
         \\ }
         \\ 
-        \\ query SomeQuery($id: ok) @lolok(arg: Ok, arg2: Ok) {
+        \\ query SomeQuery($id: ok) @lolok(arg: true, arg2: Ok) {
         \\   ok @field1
         \\   ...SomeFragment @field2
         \\ }
