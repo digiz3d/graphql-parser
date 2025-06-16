@@ -33,7 +33,9 @@ pub const InputValueDefinition = struct {
         std.debug.print("{s}- InputValueDefinition\n", .{spaces});
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
         if (self.description != null) {
-            std.debug.print("{s}  description: {s}\n", .{ spaces, newLineToBackslashN(self.allocator, self.description.?) });
+            const str = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(str);
+            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
         } else {
             std.debug.print("{s}  description: null\n", .{spaces});
         }

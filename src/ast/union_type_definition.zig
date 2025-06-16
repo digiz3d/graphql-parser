@@ -27,7 +27,9 @@ pub const UnionTypeDefinition = struct {
         defer self.allocator.free(spaces);
         std.debug.print("{s}- UnionTypeDefinition\n", .{spaces});
         if (self.description != null) {
-            std.debug.print("{s}  description: {s}\n", .{ spaces, newLineToBackslashN(self.allocator, self.description.?) });
+            const str = newLineToBackslashN(self.allocator, self.description.?);
+            defer self.allocator.free(str);
+            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
         } else {
             std.debug.print("{s}  description: null\n", .{spaces});
         }
