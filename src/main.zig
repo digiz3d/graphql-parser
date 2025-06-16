@@ -22,8 +22,8 @@ pub fn main() !void {
     };
     defer allocator.free(content);
 
-    var parser = Parser.init();
-    var document = try parser.parse(content, allocator);
+    var parser = Parser.init(allocator);
+    var document = try parser.parse(content);
     document.printAST(0);
 }
 

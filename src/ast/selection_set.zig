@@ -41,44 +41,44 @@ pub const SelectionSet = struct {
     }
 };
 
-pub fn parseSelectionSet(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!SelectionSet {
+pub fn parseSelectionSet(parser: *Parser, tokens: []Token) ParseError!SelectionSet {
     const openBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
     if (openBraceToken.tag != Token.Tag.punct_brace_left) {
         return ParseError.MissingExpectedBrace;
     }
     var currentToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
 
-    var selections = ArrayList(Selection).init(allocator);
+    var selections = ArrayList(Selection).init(parser.allocator);
 
     while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = parser.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace) {
         if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
 
         if (currentToken.tag == Token.Tag.punct_spread) {
             const onOrSpreadNameToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-            const onOrSpreadName = onOrSpreadNameToken.getStringValue(allocator) catch "";
-            defer allocator.free(onOrSpreadName);
+            const onOrSpreadName = onOrSpreadNameToken.getStringValue(parser.allocator) catch "";
+            defer parser.allocator.free(onOrSpreadName);
 
             var selection: Selection = undefined;
             if (strEq(onOrSpreadName, "on")) {
                 const typeConditionToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
                 if (typeConditionToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-                const typeCondition = try parser.getTokenValue(typeConditionToken, allocator);
-                const directives = try parseDirectives(parser, tokens, allocator);
-                const selectionSet = try parseSelectionSet(parser, tokens, allocator);
+                const typeCondition = try parser.getTokenValue(typeConditionToken);
+                const directives = try parseDirectives(parser, tokens);
+                const selectionSet = try parseSelectionSet(parser, tokens);
                 selection = Selection{
                     .inlineFragment = InlineFragment{
-                        .allocator = allocator,
+                        .allocator = parser.allocator,
                         .typeCondition = typeCondition,
                         .directives = directives,
                         .selectionSet = selectionSet,
                     },
                 };
             } else {
-                const directives = try parseDirectives(parser, tokens, allocator);
-                const spreadName = allocator.dupe(u8, onOrSpreadName) catch return ParseError.UnexpectedMemoryError;
+                const directives = try parseDirectives(parser, tokens);
+                const spreadName = parser.allocator.dupe(u8, onOrSpreadName) catch return ParseError.UnexpectedMemoryError;
                 selection = Selection{
                     .fragmentSpread = FragmentSpread{
-                        .allocator = allocator,
+                        .allocator = parser.allocator,
                         .name = spreadName,
                         .directives = directives,
                     },
@@ -88,27 +88,27 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token, allocator: Allocator)
             continue;
         }
 
-        const nameOrAlias = try parser.getTokenValue(currentToken, allocator);
+        const nameOrAlias = try parser.getTokenValue(currentToken);
         const nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
         const name, const alias = if (nextToken.tag == Token.Tag.punct_colon) assign: {
             // consume colon
             _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
             const finalNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-            const finalName = try parser.getTokenValue(finalNameToken, allocator);
+            const finalName = try parser.getTokenValue(finalNameToken);
             break :assign .{ finalName, nameOrAlias };
         } else .{ nameOrAlias, null };
 
-        const arguments = try parseArguments(parser, tokens, allocator);
-        const directives = try parseDirectives(parser, tokens, allocator);
+        const arguments = try parseArguments(parser, tokens);
+        const directives = try parseDirectives(parser, tokens);
 
         const potentialNextLeftBrace = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
         const selectionSet: ?SelectionSet = if (potentialNextLeftBrace.tag == Token.Tag.punct_brace_left) ok: {
-            break :ok try parseSelectionSet(parser, tokens, allocator);
+            break :ok try parseSelectionSet(parser, tokens);
         } else null;
 
         const fieldNode = Selection{
             .field = Field{
-                .allocator = allocator,
+                .allocator = parser.allocator,
                 .name = name,
                 .alias = alias,
                 .arguments = arguments,
@@ -120,7 +120,7 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token, allocator: Allocator)
     }
 
     const selectionSetNode = SelectionSet{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
     };
     return selectionSetNode;

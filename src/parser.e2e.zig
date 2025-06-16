@@ -2,7 +2,7 @@ const testing = @import("std").testing;
 const Parser = @import("parser.zig").Parser;
 const OperationType = @import("ast/operation_definition.zig").OperationType;
 
-test "parse e2e" {
+test "e2e-parse" {
     const doc =
         \\ "schema desc"
         \\ schema {
@@ -39,15 +39,15 @@ test "parse e2e" {
         \\   id
         \\ }
         \\ 
-        \\ query SomeQuery($id: ok) @lolok(arg: Ok, arg2: Ok) {
+        \\ query SomeQuery($id: ok) @lolok(arg: true, arg2: Ok) {
         \\   ok @field1
         \\   ...SomeFragment @field2
         \\ }
     ;
 
-    var parser = Parser.init();
+    var parser = Parser.init(testing.allocator);
 
-    const rootNode = try parser.parse(doc, testing.allocator);
+    const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
     try testing.expectEqual(8, rootNode.definitions.items.len);

@@ -63,32 +63,32 @@ pub const FieldDefinition = struct {
     }
 };
 
-pub fn parseFieldDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) !FieldDefinition {
-    const description = try parseOptionalDescription(parser, tokens, allocator);
+pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
+    const description = try parseOptionalDescription(parser, tokens);
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const name = try parser.getTokenValue(nameToken, allocator);
-    defer allocator.free(name);
+    const name = try parser.getTokenValue(nameToken);
+    defer parser.allocator.free(name);
 
     if (nameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
     }
 
-    const arguments = try parseInputValueDefinitions(parser, tokens, allocator);
+    const arguments = try parseInputValueDefinitions(parser, tokens);
 
     const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (colonToken.tag != Token.Tag.punct_colon) {
         return ParseError.ExpectedColon;
     }
 
-    const namedType = try parseType(parser, tokens, allocator);
+    const namedType = try parseType(parser, tokens);
 
-    const directives = try parseDirectives(parser, tokens, allocator);
+    const directives = try parseDirectives(parser, tokens);
 
     const fieldDefinition = FieldDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .description = description,
-        .name = allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
+        .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
         .type = namedType,
         .arguments = arguments,
         .directives = directives,
@@ -146,12 +146,12 @@ test "parsing field definition with unexpected token" {
 }
 
 fn runTest(buffer: [:0]const u8, testing_allocator: Allocator) !FieldDefinition {
-    var parser = Parser.init();
+    var parser = Parser.init(testing.allocator);
     var tokenizer = Tokenizer.init(testing_allocator, buffer);
     defer tokenizer.deinit();
 
     const tokens = try tokenizer.getAllTokens();
     defer testing_allocator.free(tokens);
 
-    return parseFieldDefinition(&parser, tokens, testing_allocator);
+    return parseFieldDefinition(&parser, tokens);
 }

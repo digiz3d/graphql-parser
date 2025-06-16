@@ -38,8 +38,8 @@ pub const Directive = struct {
     }
 };
 
-pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]Directive {
-    var directives = ArrayList(Directive).init(allocator);
+pub fn parseDirectives(parser: *Parser, tokens: []Token) ParseError![]Directive {
+    var directives = ArrayList(Directive).init(parser.allocator);
     var currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     while (currentToken.tag == Token.Tag.punct_at) : (currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
         _ = parser.consumeNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -47,10 +47,10 @@ pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) P
         const directiveNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
 
         if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
-        const directiveName = try parser.getTokenValue(directiveNameToken, allocator);
-        const arguments = try parseArguments(parser, tokens, allocator);
+        const directiveName = try parser.getTokenValue(directiveNameToken);
+        const arguments = try parseArguments(parser, tokens);
         const directiveNode = Directive{
-            .allocator = allocator,
+            .allocator = parser.allocator,
             .arguments = arguments,
             .name = directiveName,
         };
@@ -60,7 +60,7 @@ pub fn parseDirectives(parser: *Parser, tokens: []Token, allocator: Allocator) P
 }
 
 test "parsing directives" {
-    var parser = Parser.init();
+    var parser = Parser.init(testing.allocator);
     const buffer = "@oneDirective @twoDirective(id: 1, other: $val)";
 
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
@@ -69,7 +69,7 @@ test "parsing directives" {
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const directives = try parseDirectives(&parser, tokens, testing.allocator);
+    const directives = try parseDirectives(&parser, tokens);
     defer {
         for (directives) |directive| {
             directive.deinit();

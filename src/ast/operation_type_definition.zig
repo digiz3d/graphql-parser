@@ -46,8 +46,8 @@ fn parseOperationTypeDefinition(
     return operationTypeDef;
 }
 
-pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]OperationTypeDefinition {
-    var definitions = std.ArrayList(OperationTypeDefinition).init(allocator);
+pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseError![]OperationTypeDefinition {
+    var definitions = std.ArrayList(OperationTypeDefinition).init(parser.allocator);
 
     const leftBrace = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBracketLeft;
     if (leftBrace.tag != Token.Tag.punct_brace_left) {
@@ -59,8 +59,8 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token, allocator
         if (opTypeToken.tag != Token.Tag.identifier) {
             return ParseError.ExpectedName;
         }
-        const operationType = try parser.getTokenValue(opTypeToken, allocator);
-        defer allocator.free(operationType);
+        const operationType = try parser.getTokenValue(opTypeToken);
+        defer parser.allocator.free(operationType);
 
         if (!strEq(operationType, "query") and !strEq(operationType, "mutation") and !strEq(operationType, "subscription")) {
             return ParseError.InvalidOperationType;
@@ -76,10 +76,10 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token, allocator
             return ParseError.ExpectedName;
         }
 
-        const typeName = try parser.getTokenValue(typeNameToken, allocator);
-        defer allocator.free(typeName);
+        const typeName = try parser.getTokenValue(typeNameToken);
+        defer parser.allocator.free(typeName);
 
-        const definition = parseOperationTypeDefinition(allocator, operationType, typeName) catch return ParseError.UnexpectedMemoryError;
+        const definition = parseOperationTypeDefinition(parser.allocator, operationType, typeName) catch return ParseError.UnexpectedMemoryError;
         definitions.append(definition) catch return ParseError.UnexpectedMemoryError;
 
         // Peek next token: if it's '}', break; else, expect another operation type
@@ -94,7 +94,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token, allocator
 }
 
 test "parsing operation types definitions" {
-    var parser = Parser.init();
+    var parser = Parser.init(testing.allocator);
     const buffer =
         \\ {
         \\   query: Query
@@ -108,7 +108,7 @@ test "parsing operation types definitions" {
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    const operationTypes = try parseOperationTypeDefinitions(&parser, tokens, testing.allocator);
+    const operationTypes = try parseOperationTypeDefinitions(&parser, tokens);
     defer {
         for (operationTypes) |operationType| {
             operationType.deinit();

@@ -64,19 +64,19 @@ pub const ObjectTypeDefinition = struct {
     }
 };
 
-pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError!ObjectTypeDefinition {
-    const description = try parseOptionalDescription(parser, tokens, allocator);
+pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!ObjectTypeDefinition {
+    const description = try parseOptionalDescription(parser, tokens);
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const name = try parser.getTokenValue(nameToken, allocator);
-    defer allocator.free(name);
+    const name = try parser.getTokenValue(nameToken);
+    defer parser.allocator.free(name);
 
     if (nameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
     }
 
-    const directives = try parseDirectives(parser, tokens, allocator);
+    const directives = try parseDirectives(parser, tokens);
 
     const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (leftBraceToken.tag != Token.Tag.punct_brace_left) {
@@ -85,19 +85,19 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token, allocator: Al
 
     var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
-    var fields = ArrayList(FieldDefinition).init(allocator);
+    var fields = ArrayList(FieldDefinition).init(parser.allocator);
     while (nextToken.tag != Token.Tag.punct_brace_right) {
-        const fieldDefinition = try parseFieldDefinition(parser, tokens, allocator);
+        const fieldDefinition = try parseFieldDefinition(parser, tokens);
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const objectTypeDefinition = ObjectTypeDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .description = description,
         .directives = directives,
-        .name = allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
+        .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
         .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
     };
     return objectTypeDefinition;
@@ -123,7 +123,7 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
     len: usize,
     parseError: ParseError,
 }) !void {
-    var parser = Parser.init();
+    var parser = Parser.init(testing.allocator);
 
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
@@ -133,11 +133,11 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
 
     switch (expectedLenOrError) {
         .parseError => |expectedError| {
-            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens, testing.allocator);
+            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens);
             try testing.expectError(expectedError, objectTypeDefinition);
         },
         .len => |length| {
-            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens, testing.allocator);
+            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens);
             defer objectTypeDefinition.deinit();
 
             try testing.expectEqual(length, objectTypeDefinition.fields.len);

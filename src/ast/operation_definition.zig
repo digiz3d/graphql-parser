@@ -67,19 +67,15 @@ pub const OperationDefinition = struct {
     }
 };
 
-pub fn parseOperationDefinition(
-    parser: *Parser,
-    tokens: []Token,
-    allocator: Allocator,
-) ParseError!OperationDefinition {
+pub fn parseOperationDefinition(parser: *Parser, tokens: []Token) ParseError!OperationDefinition {
     const operationTypeToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     if (operationTypeToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
     }
 
-    const str = try parser.getTokenValue(operationTypeToken, allocator);
-    defer allocator.free(str);
+    const str = try parser.getTokenValue(operationTypeToken);
+    defer parser.allocator.free(str);
 
     const operationType = if (strEq(str, "query"))
         OperationType.query
@@ -93,16 +89,16 @@ pub fn parseOperationDefinition(
     var operationName: ?[]const u8 = null;
     if (parser.peekNextToken(tokens).?.tag == Token.Tag.identifier) {
         const operationNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        const name: ?[]const u8 = parser.getTokenValue(operationNameToken, allocator) catch null;
+        const name: ?[]const u8 = parser.getTokenValue(operationNameToken) catch null;
         operationName = name;
     }
 
-    const variablesNodes = try parseVariableDefinition(parser, tokens, allocator);
-    const directivesNodes = try parseDirectives(parser, tokens, allocator);
-    const selectionSetNode = try parseSelectionSet(parser, tokens, allocator);
+    const variablesNodes = try parseVariableDefinition(parser, tokens);
+    const directivesNodes = try parseDirectives(parser, tokens);
+    const selectionSetNode = try parseSelectionSet(parser, tokens);
 
     return OperationDefinition{
-        .allocator = allocator,
+        .allocator = parser.allocator,
         .directives = directivesNodes,
         .name = operationName,
         .operation = operationType,

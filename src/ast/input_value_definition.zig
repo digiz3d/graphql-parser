@@ -64,8 +64,8 @@ pub const InputValueDefinition = struct {
     }
 };
 
-pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, allocator: Allocator) ParseError![]InputValueDefinition {
-    var inputValueDefinitions = ArrayList(InputValueDefinition).init(allocator);
+pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token) ParseError![]InputValueDefinition {
+    var inputValueDefinitions = ArrayList(InputValueDefinition).init(parser.allocator);
 
     var currentToken = parser.peekNextToken(tokens) orelse
         return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
@@ -80,29 +80,29 @@ pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, allocator: A
     while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken(tokens) orelse
         return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
     {
-        const description = try parseOptionalDescription(parser, tokens, allocator);
+        const description = try parseOptionalDescription(parser, tokens);
         const nameToken = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (nameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
 
-        const name = try parser.getTokenValue(nameToken, allocator);
-        errdefer allocator.free(name);
+        const name = try parser.getTokenValue(nameToken);
+        errdefer parser.allocator.free(name);
         const colonToken = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
         if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
 
-        const value = try parseType(parser, tokens, allocator);
+        const value = try parseType(parser, tokens);
 
         var defaultValue: ?InputValue = null;
         if (parser.peekNextToken(tokens)) |nextToken| {
             if (nextToken.tag == Token.Tag.punct_equal) {
                 _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-                defaultValue = try parseInputValue(parser, tokens, allocator, false);
+                defaultValue = try parseInputValue(parser, tokens, false);
             }
         }
 
-        const directives = try parseDirectives(parser, tokens, allocator);
+        const directives = try parseDirectives(parser, tokens);
 
         const inputValueDefinition = InputValueDefinition{
-            .allocator = allocator,
+            .allocator = parser.allocator,
             .description = description,
             .name = name,
             .value = value,
@@ -122,7 +122,7 @@ pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, allocator: A
 
 test "parsing input values definitions" {
     const buffer = "(id: ID, value: String)";
-    const arguments = try runTest(buffer, testing.allocator);
+    const arguments = try runTest(buffer);
     defer {
         for (arguments) |argument| {
             argument.deinit();
@@ -135,7 +135,7 @@ test "parsing input values definitions" {
 
 test "parsing input value definition with description, directive" {
     const buffer = "(\"some description\" arg: Ok = \"default\" @someDirective, arg2: Ok)";
-    const arguments = try runTest(buffer, testing.allocator);
+    const arguments = try runTest(buffer);
     defer {
         for (arguments) |argument| {
             argument.deinit();
@@ -156,17 +156,17 @@ test "parsing input value definition with description, directive" {
 
 test "parsing input value definitions with unexpected token" {
     const buffer = "($id: ID, value: String)";
-    const arguments = runTest(buffer, testing.allocator);
+    const arguments = runTest(buffer);
     try testing.expectError(ParseError.ExpectedName, arguments);
 }
 
-fn runTest(buffer: [:0]const u8, testing_allocator: Allocator) ![]InputValueDefinition {
-    var parser = Parser.init();
-    var tokenizer = Tokenizer.init(testing_allocator, buffer);
+fn runTest(buffer: [:0]const u8) ![]InputValueDefinition {
+    var parser = Parser.init(testing.allocator);
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
 
     const tokens = try tokenizer.getAllTokens();
-    defer testing_allocator.free(tokens);
+    defer testing.allocator.free(tokens);
 
-    return parseInputValueDefinitions(&parser, tokens, testing_allocator);
+    return parseInputValueDefinitions(&parser, tokens);
 }
