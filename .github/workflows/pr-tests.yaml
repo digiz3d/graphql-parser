@@ -21,3 +21,12 @@ jobs:
         with:
           version: "master"
       - run: zig test src/parser.zig
+  e2e:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: "master"
+      - run: zig test src/parser.e2e.zig
