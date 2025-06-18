@@ -1,12 +1,16 @@
 const std = @import("std");
+const testing = std.testing;
 const allocPrint = std.fmt.allocPrint;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
 const strEq = @import("../utils/utils.zig").strEq;
-const Token = @import("../tokenizer.zig").Token;
+const t = @import("../tokenizer.zig");
+const Token = t.Token;
+const Tokenizer = t.Tokenizer;
 
 pub const InputValue = union(enum) {
     variable: Variable,
@@ -17,6 +21,7 @@ pub const InputValue = union(enum) {
     null_value: NullValue,
     enum_value: EnumValue,
     list_value: ListValue,
+    object_value: ObjectValue,
 
     pub fn getPrintableString(self: InputValue, allocator: Allocator) []const u8 {
         const typeName = @tagName(self);
@@ -49,10 +54,35 @@ pub const InputValue = union(enum) {
                 return allocPrint(allocator, "{s} ({s})", .{ enum_value.name, typeName }) catch return "";
             },
             InputValue.list_value => {
-                // TODO: implement list value printing
-                unreachable;
+                const list_value = self.list_value;
+                var result = ArrayList(u8).init(allocator);
+                defer result.deinit();
+
+                result.appendSlice("[") catch return "";
+                for (list_value.values, 0..) |value, i| {
+                    if (i > 0) result.appendSlice(", ") catch return "";
+                    result.appendSlice(value.getPrintableString(allocator)) catch return "";
+                }
+                result.appendSlice("]") catch return "";
+
+                return result.toOwnedSlice() catch return "";
             },
-            // TODO: implement object value printing
+            InputValue.object_value => {
+                const object_value = self.object_value;
+                var result = ArrayList(u8).init(allocator);
+                defer result.deinit();
+
+                result.appendSlice("{") catch return "";
+                for (object_value.fields, 0..) |field, i| {
+                    if (i > 0) result.appendSlice(", ") catch return "";
+                    result.appendSlice(field.name) catch return "";
+                    result.appendSlice(": ") catch return "";
+                    result.appendSlice(field.value.getPrintableString(allocator)) catch return "";
+                }
+                result.appendSlice("}") catch return "";
+
+                return result.toOwnedSlice() catch return "";
+            },
         }
     }
 
@@ -71,9 +101,18 @@ pub const InputValue = union(enum) {
             .enum_value => |*x| {
                 allocator.free(x.name);
             },
-            .list_value => {
-                // TODO: implement list value deinit
-                unreachable;
+            .list_value => |*x| {
+                for (x.values) |value| {
+                    value.deinit(allocator);
+                }
+                allocator.free(x.values);
+            },
+            .object_value => |*x| {
+                for (x.fields) |field| {
+                    field.value.deinit(allocator);
+                    allocator.free(field.name);
+                }
+                allocator.free(x.fields);
             },
         }
     }
@@ -110,18 +149,32 @@ pub const ListValue = struct {
     values: []InputValue,
 };
 
-// TODO: implement ObjectValue
-// pub const ObjectValue = struct {
-// };
+pub const ObjectValue = struct {
+    fields: []ObjectField,
+};
+
+pub const ObjectField = struct {
+    name: []const u8,
+    value: InputValue,
+};
 
 pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) ParseError!InputValue {
-    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (token.tag == Token.Tag.punct_dollar and !acceptVariables) {
         return ParseError.ExpectedName;
     }
 
     var str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
     defer parser.allocator.free(str);
+
+    switch (token.tag) {
+        Token.Tag.punct_brace_left,
+        Token.Tag.punct_bracket_left,
+        => {},
+        else => {
+            token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        },
+    }
 
     switch (token.tag) {
         Token.Tag.integer_literal => return InputValue{
@@ -180,7 +233,329 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
                 },
             };
         },
+        Token.Tag.punct_brace_left => {
+            return parseObjectValue(parser, tokens);
+        },
+        Token.Tag.punct_bracket_left => {
+            return parseListValue(parser, tokens);
+        },
         else => return ParseError.NotImplemented,
     }
     return ParseError.NotImplemented;
+}
+
+fn parseListValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
+    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.punct_bracket_left) {
+        return ParseError.UnexpectedToken;
+    }
+
+    var values = ArrayList(InputValue).init(parser.allocator);
+
+    while (true) {
+        token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        if (token.tag == Token.Tag.punct_bracket_right) {
+            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBracketRight;
+            break;
+        }
+        const value = try parseInputValue(parser, tokens, false);
+        values.append(value) catch return ParseError.UnexpectedMemoryError;
+    }
+
+    return InputValue{
+        .list_value = ListValue{
+            .values = values.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        },
+    };
+}
+
+fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
+    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.punct_brace_left) {
+        std.debug.print("token 1: {}\n", .{token.tag});
+        return ParseError.UnexpectedToken;
+    }
+
+    var fields = ArrayList(ObjectField).init(parser.allocator);
+
+    while (true) {
+        token = parser.peekNextToken(tokens) orelse return ParseError.ExpectedBraceRight;
+        if (token.tag == Token.Tag.punct_brace_right) {
+            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBraceRight;
+            break;
+        }
+        const field = try parseObjectField(parser, tokens);
+        fields.append(field) catch return ParseError.UnexpectedMemoryError;
+    }
+
+    return InputValue{
+        .object_value = ObjectValue{
+            .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        },
+    };
+}
+
+fn parseObjectField(parser: *Parser, tokens: []Token) ParseError!ObjectField {
+    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.identifier) {
+        std.debug.print("token 2: {}\n", .{token.tag});
+        return ParseError.UnexpectedToken;
+    }
+    const name = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
+    token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.punct_colon) {
+        std.debug.print("token 3: {}\n", .{token});
+        return ParseError.UnexpectedToken;
+    }
+    const value = try parseInputValue(parser, tokens, false);
+    return ObjectField{
+        .name = name,
+        .value = value,
+    };
+}
+
+test "parsing integer values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "42");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .int_value = IntValue{ .value = 42 } }, inputValue);
+    try testing.expectEqual(@as(i32, 42), inputValue.int_value.value);
+}
+
+test "parsing float values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "3.14");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .float_value = FloatValue{ .value = 3.14 } }, inputValue);
+    try testing.expectEqual(@as(f64, 3.14), inputValue.float_value.value);
+}
+
+test "parsing string values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "\"hello world\"");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("\"hello world\"", inputValue.string_value.value);
+    try testing.expectEqual(false, inputValue.string_value.block);
+}
+
+test "parsing block string values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "\"\"\"hello\nworld\"\"\"");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("\"\"\"hello\nworld\"\"\"", inputValue.string_value.value);
+    try testing.expectEqual(true, inputValue.string_value.block);
+}
+
+test "parsing boolean values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "true");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .boolean_value = BooleanValue{ .value = true } }, inputValue);
+    try testing.expectEqual(true, inputValue.boolean_value.value);
+}
+
+test "parsing false boolean values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "false");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .boolean_value = BooleanValue{ .value = false } }, inputValue);
+    try testing.expectEqual(false, inputValue.boolean_value.value);
+}
+
+test "parsing null values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "null");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .null_value = NullValue{} }, inputValue);
+}
+
+test "parsing enum values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "ENUM_VALUE");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("ENUM_VALUE", inputValue.enum_value.name);
+}
+
+test "parsing variable values with acceptVariables true" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "$variableName");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, true);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("variableName", inputValue.variable.name);
+}
+
+test "parsing variable values with acceptVariables false should fail" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "$variableName");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const result = parseInputValue(&parser, tokens, false);
+    try testing.expectError(ParseError.ExpectedName, result);
+}
+
+test "parsing list values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "[1, 2, 3]");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 3), inputValue.list_value.values.len);
+    try testing.expectEqual(@as(i32, 1), inputValue.list_value.values[0].int_value.value);
+    try testing.expectEqual(@as(i32, 2), inputValue.list_value.values[1].int_value.value);
+    try testing.expectEqual(@as(i32, 3), inputValue.list_value.values[2].int_value.value);
+}
+
+test "parsing empty list values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "[]");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .list_value = ListValue{ .values = &[_]InputValue{} } }, inputValue);
+    try testing.expectEqual(@as(usize, 0), inputValue.list_value.values.len);
+}
+
+test "parsing object values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "{name: \"John\", age: 30}");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 2), inputValue.object_value.fields.len);
+    try testing.expectEqualStrings("name", inputValue.object_value.fields[0].name);
+    try testing.expectEqualStrings("\"John\"", inputValue.object_value.fields[0].value.string_value.value);
+    try testing.expectEqualStrings("age", inputValue.object_value.fields[1].name);
+    try testing.expectEqual(@as(i32, 30), inputValue.object_value.fields[1].value.int_value.value);
+}
+
+test "parsing empty object values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "{}");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .object_value = ObjectValue{ .fields = &[_]ObjectField{} } }, inputValue);
+    try testing.expectEqual(@as(usize, 0), inputValue.object_value.fields.len);
+}
+
+test "parsing nested complex values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "{items: [1, 2, {nested: true}], count: 3}");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 2), inputValue.object_value.fields.len);
+
+    const itemsField = inputValue.object_value.fields[0];
+    try testing.expectEqualStrings("items", itemsField.name);
+    try testing.expectEqual(@as(usize, 3), itemsField.value.list_value.values.len);
+
+    const nestedObject = itemsField.value.list_value.values[2];
+    try testing.expectEqualStrings("nested", nestedObject.object_value.fields[0].name);
+    try testing.expectEqual(true, nestedObject.object_value.fields[0].value.boolean_value.value);
 }

@@ -35,6 +35,7 @@ const strEq = @import("utils/utils.zig").strEq;
 pub const ParseError = error{
     EmptyTokenList,
     ExpectedAt,
+    ExpectedBraceRight,
     ExpectedBracketLeft,
     ExpectedBracketRight,
     ExpectedColon,
@@ -45,12 +46,13 @@ pub const ParseError = error{
     ExpectedOn,
     ExpectedRightParenthesis,
     ExpectedString,
-    InvalidOperationType,
     InvalidLocation,
+    InvalidOperationType,
     MissingExpectedBrace,
     NotImplemented,
     UnexpectedExclamationMark,
     UnexpectedMemoryError,
+    UnexpectedToken,
     WrongParentNode,
 };
 
