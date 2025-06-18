@@ -98,11 +98,11 @@ pub const InputValue = union(enum) {
             .enum_value => |*x| {
                 allocator.free(x.name);
             },
-            .list_value => {
-                for (self.list_value.values) |value| {
+            .list_value => |*x| {
+                for (x.values) |value| {
                     value.deinit(allocator);
                 }
-                allocator.free(self.list_value.values);
+                allocator.free(x.values);
             },
             .object_value => {
                 for (self.object_value.fields) |field| {
