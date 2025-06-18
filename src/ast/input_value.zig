@@ -104,12 +104,12 @@ pub const InputValue = union(enum) {
                 }
                 allocator.free(x.values);
             },
-            .object_value => {
-                for (self.object_value.fields) |field| {
+            .object_value => |*x| {
+                for (x.fields) |field| {
                     field.value.deinit(allocator);
                     allocator.free(field.name);
                 }
-                allocator.free(self.object_value.fields);
+                allocator.free(x.fields);
             },
         }
     }
