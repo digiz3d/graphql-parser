@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const allocPrint = std.fmt.allocPrint;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
@@ -7,7 +8,9 @@ const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
 const strEq = @import("../utils/utils.zig").strEq;
-const Token = @import("../tokenizer.zig").Token;
+const t = @import("../tokenizer.zig");
+const Token = t.Token;
+const Tokenizer = t.Tokenizer;
 
 pub const InputValue = union(enum) {
     variable: Variable,
@@ -309,4 +312,250 @@ fn parseObjectField(parser: *Parser, tokens: []Token) ParseError!ObjectField {
         .name = name,
         .value = value,
     };
+}
+
+test "parsing integer values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "42");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .int_value = IntValue{ .value = 42 } }, inputValue);
+    try testing.expectEqual(@as(i32, 42), inputValue.int_value.value);
+}
+
+test "parsing float values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "3.14");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .float_value = FloatValue{ .value = 3.14 } }, inputValue);
+    try testing.expectEqual(@as(f64, 3.14), inputValue.float_value.value);
+}
+
+test "parsing string values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "\"hello world\"");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("\"hello world\"", inputValue.string_value.value);
+    try testing.expectEqual(false, inputValue.string_value.block);
+}
+
+test "parsing block string values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "\"\"\"hello\nworld\"\"\"");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("\"\"\"hello\nworld\"\"\"", inputValue.string_value.value);
+    try testing.expectEqual(true, inputValue.string_value.block);
+}
+
+test "parsing boolean values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "true");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .boolean_value = BooleanValue{ .value = true } }, inputValue);
+    try testing.expectEqual(true, inputValue.boolean_value.value);
+}
+
+test "parsing false boolean values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "false");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .boolean_value = BooleanValue{ .value = false } }, inputValue);
+    try testing.expectEqual(false, inputValue.boolean_value.value);
+}
+
+test "parsing null values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "null");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .null_value = NullValue{} }, inputValue);
+}
+
+test "parsing enum values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "ENUM_VALUE");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("ENUM_VALUE", inputValue.enum_value.name);
+}
+
+test "parsing variable values with acceptVariables true" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "$variableName");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, true);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("variableName", inputValue.variable.name);
+}
+
+test "parsing variable values with acceptVariables false should fail" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "$variableName");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const result = parseInputValue(&parser, tokens, false);
+    try testing.expectError(ParseError.ExpectedName, result);
+}
+
+test "parsing list values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "[1, 2, 3]");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 3), inputValue.list_value.values.len);
+    try testing.expectEqual(@as(i32, 1), inputValue.list_value.values[0].int_value.value);
+    try testing.expectEqual(@as(i32, 2), inputValue.list_value.values[1].int_value.value);
+    try testing.expectEqual(@as(i32, 3), inputValue.list_value.values[2].int_value.value);
+}
+
+test "parsing empty list values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "[]");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .list_value = ListValue{ .values = &[_]InputValue{} } }, inputValue);
+    try testing.expectEqual(@as(usize, 0), inputValue.list_value.values.len);
+}
+
+test "parsing object values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "{name: \"John\", age: 30}");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 2), inputValue.object_value.fields.len);
+    try testing.expectEqualStrings("name", inputValue.object_value.fields[0].name);
+    try testing.expectEqualStrings("\"John\"", inputValue.object_value.fields[0].value.string_value.value);
+    try testing.expectEqualStrings("age", inputValue.object_value.fields[1].name);
+    try testing.expectEqual(@as(i32, 30), inputValue.object_value.fields[1].value.int_value.value);
+}
+
+test "parsing empty object values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "{}");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(InputValue{ .object_value = ObjectValue{ .fields = &[_]ObjectField{} } }, inputValue);
+    try testing.expectEqual(@as(usize, 0), inputValue.object_value.fields.len);
+}
+
+test "parsing nested complex values" {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, "{items: [1, 2, {nested: true}], count: 3}");
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const inputValue = try parseInputValue(&parser, tokens, false);
+    defer inputValue.deinit(testing.allocator);
+
+    try testing.expectEqual(@as(usize, 2), inputValue.object_value.fields.len);
+
+    const itemsField = inputValue.object_value.fields[0];
+    try testing.expectEqualStrings("items", itemsField.name);
+    try testing.expectEqual(@as(usize, 3), itemsField.value.list_value.values.len);
+
+    const nestedObject = itemsField.value.list_value.values[2];
+    try testing.expectEqualStrings("nested", nestedObject.object_value.fields[0].name);
+    try testing.expectEqual(true, nestedObject.object_value.fields[0].value.boolean_value.value);
 }
