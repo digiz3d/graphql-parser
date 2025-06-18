@@ -1,6 +1,7 @@
 const std = @import("std");
 const allocPrint = std.fmt.allocPrint;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const p = @import("../parser.zig");
 const Parser = p.Parser;
@@ -17,6 +18,7 @@ pub const InputValue = union(enum) {
     null_value: NullValue,
     enum_value: EnumValue,
     list_value: ListValue,
+    object_value: ObjectValue,
 
     pub fn getPrintableString(self: InputValue, allocator: Allocator) []const u8 {
         const typeName = @tagName(self);
@@ -49,10 +51,35 @@ pub const InputValue = union(enum) {
                 return allocPrint(allocator, "{s} ({s})", .{ enum_value.name, typeName }) catch return "";
             },
             InputValue.list_value => {
-                // TODO: implement list value printing
-                unreachable;
+                const list_value = self.list_value;
+                var result = ArrayList(u8).init(allocator);
+                defer result.deinit();
+
+                result.appendSlice("[") catch return "";
+                for (list_value.values, 0..) |value, i| {
+                    if (i > 0) result.appendSlice(", ") catch return "";
+                    result.appendSlice(value.getPrintableString(allocator)) catch return "";
+                }
+                result.appendSlice("]") catch return "";
+
+                return result.toOwnedSlice() catch return "";
             },
-            // TODO: implement object value printing
+            InputValue.object_value => {
+                const object_value = self.object_value;
+                var result = ArrayList(u8).init(allocator);
+                defer result.deinit();
+
+                result.appendSlice("{") catch return "";
+                for (object_value.fields, 0..) |field, i| {
+                    if (i > 0) result.appendSlice(", ") catch return "";
+                    result.appendSlice(field.name) catch return "";
+                    result.appendSlice(": ") catch return "";
+                    result.appendSlice(field.value.getPrintableString(allocator)) catch return "";
+                }
+                result.appendSlice("}") catch return "";
+
+                return result.toOwnedSlice() catch return "";
+            },
         }
     }
 
@@ -72,8 +99,20 @@ pub const InputValue = union(enum) {
                 allocator.free(x.name);
             },
             .list_value => {
-                // TODO: implement list value deinit
-                unreachable;
+                for (self.list_value.values) |value| {
+                    value.deinit(allocator);
+                }
+                allocator.free(self.list_value.values);
+            },
+            .object_value => {
+                for (self.object_value.fields) |field| {
+                    allocator.free(field);
+                }
+                for (self.object_value.values) |value| {
+                    value.deinit(allocator);
+                }
+                allocator.free(self.object_value.fields);
+                allocator.free(self.object_value.values);
             },
         }
     }
@@ -110,18 +149,32 @@ pub const ListValue = struct {
     values: []InputValue,
 };
 
-// TODO: implement ObjectValue
-// pub const ObjectValue = struct {
-// };
+pub const ObjectValue = struct {
+    fields: []ObjectField,
+};
+
+pub const ObjectField = struct {
+    name: []const u8,
+    value: InputValue,
+};
 
 pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) ParseError!InputValue {
-    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (token.tag == Token.Tag.punct_dollar and !acceptVariables) {
         return ParseError.ExpectedName;
     }
 
     var str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
     defer parser.allocator.free(str);
+
+    switch (token.tag) {
+        Token.Tag.punct_brace_left,
+        Token.Tag.punct_bracket_left,
+        => {},
+        else => {
+            token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        },
+    }
 
     switch (token.tag) {
         Token.Tag.integer_literal => return InputValue{
@@ -180,7 +233,83 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
                 },
             };
         },
+        Token.Tag.punct_brace_left => {
+            return parseObjectValue(parser, tokens);
+        },
+        Token.Tag.punct_bracket_left => {
+            return parseListValue(parser, tokens);
+        },
         else => return ParseError.NotImplemented,
     }
     return ParseError.NotImplemented;
+}
+
+fn parseListValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
+    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.punct_bracket_left) {
+        return ParseError.UnexpectedToken;
+    }
+
+    var values = ArrayList(InputValue).init(parser.allocator);
+
+    while (true) {
+        token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        if (token.tag == Token.Tag.punct_bracket_right) {
+            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBracketRight;
+            break;
+        }
+        const value = try parseInputValue(parser, tokens, false);
+        values.append(value) catch return ParseError.UnexpectedMemoryError;
+    }
+
+    return InputValue{
+        .list_value = ListValue{
+            .values = values.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        },
+    };
+}
+
+fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
+    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.punct_brace_left) {
+        std.debug.print("token 1: {}\n", .{token.tag});
+        return ParseError.UnexpectedToken;
+    }
+
+    var fields = ArrayList(ObjectField).init(parser.allocator);
+
+    while (true) {
+        token = parser.peekNextToken(tokens) orelse return ParseError.ExpectedBraceRight;
+        if (token.tag == Token.Tag.punct_brace_right) {
+            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBraceRight;
+            break;
+        }
+        const field = try parseObjectField(parser, tokens);
+        fields.append(field) catch return ParseError.UnexpectedMemoryError;
+    }
+
+    return InputValue{
+        .object_value = ObjectValue{
+            .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        },
+    };
+}
+
+fn parseObjectField(parser: *Parser, tokens: []Token) ParseError!ObjectField {
+    var token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.identifier) {
+        std.debug.print("token 2: {}\n", .{token.tag});
+        return ParseError.UnexpectedToken;
+    }
+    const name = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
+    token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    if (token.tag != Token.Tag.punct_colon) {
+        std.debug.print("token 3: {}\n", .{token});
+        return ParseError.UnexpectedToken;
+    }
+    const value = try parseInputValue(parser, tokens, false);
+    return ObjectField{
+        .name = name,
+        .value = value,
+    };
 }
