@@ -113,14 +113,36 @@ pub fn parseInterfaceTypeDefinition(parser: *Parser, tokens: []Token) ParseError
     };
 }
 
-test "parseInterfaceTypeDefinition" {
-    var parser = Parser.init(std.testing.allocator);
+test "parseInterfaceTypeDefinition simple" {
+    const buffer =
+        \\ interface X {
+        \\   id: ID!
+        \\ }
+    ;
+    const interfaceTypeDefinition = try runTest(buffer);
+    defer interfaceTypeDefinition.deinit();
 
+    try std.testing.expectEqualStrings("X", interfaceTypeDefinition.name);
+    try std.testing.expectEqualStrings("id", interfaceTypeDefinition.fields[0].name);
+}
+
+test "parseInterfaceTypeDefinition composed of other interfaces" {
     const buffer =
         \\ interface A implements B & C @lol {
         \\   id: ID!
         \\ }
     ;
+    const interfaceTypeDefinition = try runTest(buffer);
+    defer interfaceTypeDefinition.deinit();
+
+    try std.testing.expectEqualStrings("A", interfaceTypeDefinition.name);
+    try std.testing.expectEqualStrings("B", interfaceTypeDefinition.interfaces[0].type.namedType.name);
+    try std.testing.expectEqualStrings("C", interfaceTypeDefinition.interfaces[1].type.namedType.name);
+    try std.testing.expectEqualStrings("id", interfaceTypeDefinition.fields[0].name);
+}
+
+fn runTest(buffer: [:0]const u8) !InterfaceTypeDefinition {
+    var parser = Parser.init(std.testing.allocator);
 
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
     defer tokenizer.deinit();
@@ -129,8 +151,5 @@ test "parseInterfaceTypeDefinition" {
     defer testing.allocator.free(tokens);
 
     const interfaceTypeDefinition = try parseInterfaceTypeDefinition(&parser, tokens);
-    defer interfaceTypeDefinition.deinit();
-
-    try std.testing.expectEqualStrings("A", interfaceTypeDefinition.name);
-    try std.testing.expectEqualStrings("id", interfaceTypeDefinition.fields[0].name);
+    return interfaceTypeDefinition;
 }
