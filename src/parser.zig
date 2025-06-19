@@ -21,6 +21,7 @@ const parseSchemaDefinition = @import("ast/schema_definition.zig").parseSchemaDe
 const parseFragmentDefinition = @import("ast/fragment_definition.zig").parseFragmentDefinition;
 const parseOperationDefinition = @import("ast/operation_definition.zig").parseOperationDefinition;
 const parseDirectiveDefinition = @import("ast/directive_definition.zig").parseDirectiveDefinition;
+const parseInterfaceTypeDefinition = @import("ast/interface_type_definition.zig").parseInterfaceTypeDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -69,6 +70,7 @@ pub const Parser = struct {
         union_type_definition,
         scalar_type_definition,
         directive_definition,
+        interface_type_definition,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -85,12 +87,11 @@ pub const Parser = struct {
     }
 
     fn processTokens(self: *Parser, tokens: []Token) ParseError!Document {
-        const definitions = ArrayList(ExecutableDefinition).init(self.allocator);
-
         var documentNode = Document{
             .allocator = self.allocator,
-            .definitions = definitions,
+            .definitions = ArrayList(ExecutableDefinition).init(self.allocator),
         };
+        errdefer documentNode.deinit();
 
         state: switch (Reading.root) {
             Reading.root => {
@@ -124,12 +125,13 @@ pub const Parser = struct {
                     continue :state Reading.scalar_type_definition;
                 } else if (strEq(str, "directive")) {
                     continue :state Reading.directive_definition;
+                } else if (strEq(str, "interface")) {
+                    continue :state Reading.interface_type_definition;
                 }
                 return ParseError.InvalidOperationType;
             },
             Reading.fragment_definition => {
                 const fragmentDefinition = try parseFragmentDefinition(self, tokens);
-
                 documentNode.definitions.append(ExecutableDefinition{
                     .fragmentDefinition = fragmentDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
@@ -174,6 +176,13 @@ pub const Parser = struct {
                 const directiveDefinition = try parseDirectiveDefinition(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .directiveDefinition = directiveDefinition,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.interface_type_definition => {
+                const interfaceTypeDefinition = try parseInterfaceTypeDefinition(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .interfaceTypeDefinition = interfaceTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },

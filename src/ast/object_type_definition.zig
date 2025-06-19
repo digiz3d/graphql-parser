@@ -17,12 +17,14 @@ const parseOptionalDescription = @import("description.zig").parseOptionalDescrip
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
+const Interface = @import("interface.zig").Interface;
+const parseInterfaces = @import("interface.zig").parseInterfaces;
+
 pub const ObjectTypeDefinition = struct {
     allocator: Allocator,
     description: ?[]const u8,
     name: []const u8,
-    // description: ?[]const u8, // TODO: implement description
-    // interfaces: []InterfaceType, // TODO: implement interfaces
+    interfaces: []Interface,
     directives: []Directive,
     fields: []FieldDefinition,
 
@@ -38,6 +40,10 @@ pub const ObjectTypeDefinition = struct {
             std.debug.print("{s}  description: null\n", .{spaces});
         }
         std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
+        std.debug.print("{s}  interfaces: {d}\n", .{ spaces, self.interfaces.len });
+        for (self.interfaces) |interface| {
+            interface.printAST(indent + 1);
+        }
         std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
         for (self.directives) |item| {
             item.printAST(indent + 1);
@@ -53,6 +59,10 @@ pub const ObjectTypeDefinition = struct {
             self.allocator.free(self.description.?);
         }
         self.allocator.free(self.name);
+        for (self.interfaces) |interface| {
+            interface.deinit();
+        }
+        self.allocator.free(self.interfaces);
         for (self.directives) |item| {
             item.deinit();
         }
@@ -76,6 +86,8 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Ob
         return ParseError.ExpectedName;
     }
 
+    const interfaces = try parseInterfaces(parser, tokens);
+
     const directives = try parseDirectives(parser, tokens);
 
     const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
@@ -83,9 +95,9 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Ob
         return ParseError.ExpectedBracketLeft;
     }
 
-    var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
-
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
+
+    var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
         const fieldDefinition = try parseFieldDefinition(parser, tokens);
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
@@ -96,6 +108,7 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Ob
     const objectTypeDefinition = ObjectTypeDefinition{
         .allocator = parser.allocator,
         .description = description,
+        .interfaces = interfaces,
         .directives = directives,
         .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
         .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
@@ -108,7 +121,7 @@ test "parseObjectTypeDefinition" {
         \\type Query @lol {
         \\ ok(id:String): Boolean! @lol
         \\}
-    , .{ .len = 1 });
+    , 1);
 }
 test "parseObjectTypeDefinition with two fields" {
     try runTest(
@@ -116,13 +129,18 @@ test "parseObjectTypeDefinition with two fields" {
         \\ ok: Boolean!
         \\ ok2: Boolean
         \\}
-    , .{ .len = 2 });
+    , 2);
+}
+test "parseObjectTypeDefinition with two fields that implements interface" {
+    try runTest(
+        \\type Hi implements A & B @lol {
+        \\ ok: Boolean!
+        \\ ok2: Boolean
+        \\}
+    , 2);
 }
 
-fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
-    len: usize,
-    parseError: ParseError,
-}) !void {
+fn runTest(buffer: [:0]const u8, len: usize) !void {
     var parser = Parser.init(testing.allocator);
 
     var tokenizer = Tokenizer.init(testing.allocator, buffer);
@@ -131,16 +149,8 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
     const tokens = try tokenizer.getAllTokens();
     defer testing.allocator.free(tokens);
 
-    switch (expectedLenOrError) {
-        .parseError => |expectedError| {
-            const objectTypeDefinition = parseObjectTypeDefinition(&parser, tokens);
-            try testing.expectError(expectedError, objectTypeDefinition);
-        },
-        .len => |length| {
-            const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens);
-            defer objectTypeDefinition.deinit();
+    const objectTypeDefinition = try parseObjectTypeDefinition(&parser, tokens);
+    defer objectTypeDefinition.deinit();
 
-            try testing.expectEqual(length, objectTypeDefinition.fields.len);
-        },
-    }
+    try testing.expectEqual(len, objectTypeDefinition.fields.len);
 }
