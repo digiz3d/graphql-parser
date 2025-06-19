@@ -429,13 +429,12 @@ fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !v
         source,
     );
     defer tokenizer.deinit();
-    // std.debug.print("Tokens: ", .{});
+
     for (expected_token_tags) |expected_token_tag| {
         const token = try tokenizer.getNextToken();
-        // std.debug.print("{s} ", .{source[token.loc.start..token.loc.end]});
         try std.testing.expectEqual(expected_token_tag, token.tag);
     }
-    // std.debug.print("\n", .{});
+
     const last_token = try tokenizer.getNextToken();
     try std.testing.expectEqual(Token.Tag.eof, last_token.tag);
     try std.testing.expectEqual(source.len, last_token.loc.start);
