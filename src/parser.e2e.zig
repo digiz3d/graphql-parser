@@ -22,15 +22,27 @@ test "e2e-parse" {
         \\ "object def desc"
         \\ type Query @lol {
         \\   "ok"
-        \\   name("obj def arg desc" id: ID!, value: String = "default"): String
+        \\   name("obj def arg desc" id:ID!, value: String = "default"): String
         \\ }
         \\ 
+        \\ interface USBA {
+        \\   a: A
+        \\ }
+        \\ 
+        \\ interface USBC {
+        \\   C: C
+        \\ }
+        \\ 
+        \\ type Desktop implements USBA & USBC {
+        \\   ok: String
+        \\ }
+        \\
+        \\ type Laptop implements USBC {
+        \\   ok: String
+        \\ } 
+        \\ 
         \\ "directive desc 1"
-        \\ directive @example(
-        \\   "directive arg desc"
-        \\   arg: Ok = 123 @lol
-        \\   arg2: Ok
-        \\ ) on FIELD | OBJECT
+        \\ directive @example("directive arg desc" arg: Ok = 123 @lol, arg2: Ok) on FIELD | OBJECT
         \\ 
         \\ "directive desc 2"
         \\ directive @lol on FIELD
@@ -39,7 +51,7 @@ test "e2e-parse" {
         \\   id
         \\ }
         \\ 
-        \\ query SomeQuery($id: ok) @lolok(arg: true, arg2: Ok) {
+        \\ query SomeQuery($id: ok) @lolok(arg: {lol:{ok:[true]}}, arg2: Ok) {
         \\   ok @field1
         \\   ...SomeFragment @field2
         \\ }
@@ -50,7 +62,7 @@ test "e2e-parse" {
     const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
-    try testing.expectEqual(8, rootNode.definitions.items.len);
+    try testing.expectEqual(12, rootNode.definitions.items.len);
     try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
-    try testing.expectEqual(OperationType.query, rootNode.definitions.items[7].operationDefinition.operation);
+    try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
 }
