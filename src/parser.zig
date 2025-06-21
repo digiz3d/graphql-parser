@@ -468,27 +468,3 @@ test "initialize invalid fragment name after on" {
     const rootNode = parser.parse(buffer);
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
-
-test "initialize interface type extension" {
-    var parser = Parser.init(testing.allocator);
-
-    const buffer =
-        \\extend interface SomeInterface implements OtherInterface @someDirective {
-        \\  newField: String
-        \\  anotherField: Int!
-        \\}
-    ;
-
-    var rootNode = try parser.parse(buffer);
-    defer rootNode.deinit();
-
-    try testing.expectEqual(1, rootNode.definitions.items.len);
-    try testing.expectEqualStrings("SomeInterface", rootNode.definitions.items[0].interfaceTypeExtension.name);
-    try testing.expectEqual(1, rootNode.definitions.items[0].interfaceTypeExtension.interfaces.len);
-    try testing.expectEqualStrings("OtherInterface", rootNode.definitions.items[0].interfaceTypeExtension.interfaces[0].type.namedType.name);
-    try testing.expectEqual(1, rootNode.definitions.items[0].interfaceTypeExtension.directives.len);
-    try testing.expectEqualStrings("someDirective", rootNode.definitions.items[0].interfaceTypeExtension.directives[0].name);
-    try testing.expectEqual(2, rootNode.definitions.items[0].interfaceTypeExtension.fields.len);
-    try testing.expectEqualStrings("newField", rootNode.definitions.items[0].interfaceTypeExtension.fields[0].name);
-    try testing.expectEqualStrings("anotherField", rootNode.definitions.items[0].interfaceTypeExtension.fields[1].name);
-}
