@@ -25,6 +25,7 @@ const parseInterfaceTypeDefinition = @import("ast/interface_type_definition.zig"
 const parseSchemaExtension = @import("ast/schema_extension.zig").parseSchemaExtension;
 const parseObjectTypeExtension = @import("ast/object_type_extension.zig").parseObjectTypeExtension;
 const parseEnumTypeDefinition = @import("ast/enum_type_definition.zig").parseEnumTypeDefinition;
+const parseEnumTypeExtension = @import("ast/enum_type_extension.zig").parseEnumTypeExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -77,6 +78,7 @@ pub const Parser = struct {
         schema_extension,
         object_type_extension,
         enum_type_definition,
+        enum_type_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -147,6 +149,8 @@ pub const Parser = struct {
                         continue :state Reading.schema_extension;
                     } else if (strEq(nextTokenStr, "type")) {
                         continue :state Reading.object_type_extension;
+                    } else if (strEq(nextTokenStr, "enum")) {
+                        continue :state Reading.enum_type_extension;
                     } else {
                         return ParseError.NotImplemented;
                     }
@@ -227,6 +231,13 @@ pub const Parser = struct {
                 const enumTypeDefinition = try parseEnumTypeDefinition(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .enumTypeDefinition = enumTypeDefinition,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.enum_type_extension => {
+                const enumTypeExtension = try parseEnumTypeExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .enumTypeExtension = enumTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
