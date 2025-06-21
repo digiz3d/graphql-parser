@@ -22,6 +22,7 @@ const parseFragmentDefinition = @import("ast/fragment_definition.zig").parseFrag
 const parseOperationDefinition = @import("ast/operation_definition.zig").parseOperationDefinition;
 const parseDirectiveDefinition = @import("ast/directive_definition.zig").parseDirectiveDefinition;
 const parseInterfaceTypeDefinition = @import("ast/interface_type_definition.zig").parseInterfaceTypeDefinition;
+const parseSchemaExtension = @import("ast/schema_extension.zig").parseSchemaExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -71,6 +72,7 @@ pub const Parser = struct {
         scalar_type_definition,
         directive_definition,
         interface_type_definition,
+        schema_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -109,6 +111,9 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
+                const tokenStr = token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
+                defer self.allocator.free(tokenStr);
+
                 const str = try self.getTokenValue(token);
                 defer self.allocator.free(str);
                 if (strEq(str, "query") or strEq(str, "mutation") or strEq(str, "subscription")) {
@@ -127,6 +132,16 @@ pub const Parser = struct {
                     continue :state Reading.directive_definition;
                 } else if (strEq(str, "interface")) {
                     continue :state Reading.interface_type_definition;
+                } else if (strEq(str, "extend")) {
+                    const nextToken = self.peekNextNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                    const nextTokenStr = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
+                    defer self.allocator.free(nextTokenStr);
+
+                    if (strEq(nextTokenStr, "schema")) {
+                        continue :state Reading.schema_extension;
+                    } else {
+                        return ParseError.NotImplemented;
+                    }
                 }
                 return ParseError.InvalidOperationType;
             },
@@ -186,8 +201,14 @@ pub const Parser = struct {
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
+            Reading.schema_extension => {
+                const schemaExtension = try parseSchemaExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .schemaExtension = schemaExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
         }
-
         return documentNode;
     }
 
