@@ -27,6 +27,7 @@ const parseObjectTypeExtension = @import("ast/object_type_extension.zig").parseO
 const parseEnumTypeDefinition = @import("ast/enum_type_definition.zig").parseEnumTypeDefinition;
 const parseEnumTypeExtension = @import("ast/enum_type_extension.zig").parseEnumTypeExtension;
 const parseInputObjectTypeDefinition = @import("ast/input_object_type_defintiion.zig").parseInputObjectTypeDefinition;
+const parseInputObjectTypeExtension = @import("ast/input_object_type_extension.zig").parseInputObjectTypeExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -81,6 +82,7 @@ pub const Parser = struct {
         enum_type_definition,
         enum_type_extension,
         input_object_type_definition,
+        input_object_type_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -156,6 +158,8 @@ pub const Parser = struct {
                         continue :state Reading.object_type_extension;
                     } else if (strEq(nextTokenStr, "enum")) {
                         continue :state Reading.enum_type_extension;
+                    } else if (strEq(nextTokenStr, "input")) {
+                        continue :state Reading.input_object_type_extension;
                     } else {
                         return ParseError.NotImplemented;
                     }
@@ -250,6 +254,13 @@ pub const Parser = struct {
                 const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .inputObjectTypeDefinition = inputObjectTypeDefinition,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.input_object_type_extension => {
+                const inputObjectTypeExtension = try parseInputObjectTypeExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .inputObjectTypeExtension = inputObjectTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },

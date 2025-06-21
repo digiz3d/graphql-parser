@@ -11,6 +11,7 @@ const ObjectTypeExtension = @import("object_type_extension.zig").ObjectTypeExten
 const EnumTypeDefinition = @import("enum_type_definition.zig").EnumTypeDefinition;
 const EnumTypeExtension = @import("enum_type_extension.zig").EnumTypeExtension;
 const InputObjectTypeDefinition = @import("input_object_type_defintiion.zig").InputObjectTypeDefinition;
+const InputObjectTypeExtension = @import("input_object_type_extension.zig").InputObjectTypeExtension;
 
 pub const ExecutableDefinition = union(enum) {
     fragmentDefinition: FragmentDefinition,
@@ -26,6 +27,7 @@ pub const ExecutableDefinition = union(enum) {
     enumTypeDefinition: EnumTypeDefinition,
     enumTypeExtension: EnumTypeExtension,
     inputObjectTypeDefinition: InputObjectTypeDefinition,
+    inputObjectTypeExtension: InputObjectTypeExtension,
 
     pub fn printAST(self: ExecutableDefinition, indent: usize) void {
         switch (self) {
