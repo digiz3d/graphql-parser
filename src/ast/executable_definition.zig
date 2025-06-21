@@ -8,6 +8,7 @@ const DirectiveDefinition = @import("directive_definition.zig").DirectiveDefinit
 const InterfaceTypeDefinition = @import("interface_type_definition.zig").InterfaceTypeDefinition;
 const SchemaExtension = @import("schema_extension.zig").SchemaExtension;
 const ObjectTypeExtension = @import("object_type_extension.zig").ObjectTypeExtension;
+const EnumTypeDefinition = @import("enum_type_definition.zig").EnumTypeDefinition;
 
 pub const ExecutableDefinition = union(enum) {
     fragmentDefinition: FragmentDefinition,
@@ -20,6 +21,7 @@ pub const ExecutableDefinition = union(enum) {
     interfaceTypeDefinition: InterfaceTypeDefinition,
     schemaExtension: SchemaExtension,
     objectTypeExtension: ObjectTypeExtension,
+    enumTypeDefinition: EnumTypeDefinition,
 
     pub fn printAST(self: ExecutableDefinition, indent: usize) void {
         switch (self) {

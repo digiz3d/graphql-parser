@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const Parser = @import("../parser.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
@@ -100,7 +101,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
         return ParseError.ExpectedOn;
     }
 
-    var locations = std.ArrayList([]const u8).init(parser.allocator);
+    var locations = ArrayList([]const u8).init(parser.allocator);
     while (true) {
         const locationToken = parser.consumeNextToken(tokens) orelse break;
         if (locationToken.tag != Token.Tag.identifier) {

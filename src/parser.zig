@@ -24,6 +24,7 @@ const parseDirectiveDefinition = @import("ast/directive_definition.zig").parseDi
 const parseInterfaceTypeDefinition = @import("ast/interface_type_definition.zig").parseInterfaceTypeDefinition;
 const parseSchemaExtension = @import("ast/schema_extension.zig").parseSchemaExtension;
 const parseObjectTypeExtension = @import("ast/object_type_extension.zig").parseObjectTypeExtension;
+const parseEnumTypeDefinition = @import("ast/enum_type_definition.zig").parseEnumTypeDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -75,6 +76,7 @@ pub const Parser = struct {
         interface_type_definition,
         schema_extension,
         object_type_extension,
+        enum_type_definition,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -132,6 +134,8 @@ pub const Parser = struct {
                     continue :state Reading.scalar_type_definition;
                 } else if (strEq(str, "directive")) {
                     continue :state Reading.directive_definition;
+                } else if (strEq(str, "enum")) {
+                    continue :state Reading.enum_type_definition;
                 } else if (strEq(str, "interface")) {
                     continue :state Reading.interface_type_definition;
                 } else if (strEq(str, "extend")) {
@@ -216,6 +220,13 @@ pub const Parser = struct {
                 const objectTypeExtension = try parseObjectTypeExtension(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .objectTypeExtension = objectTypeExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.enum_type_definition => {
+                const enumTypeDefinition = try parseEnumTypeDefinition(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .enumTypeDefinition = enumTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
