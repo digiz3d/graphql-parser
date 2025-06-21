@@ -23,6 +23,7 @@ const parseOperationDefinition = @import("ast/operation_definition.zig").parseOp
 const parseDirectiveDefinition = @import("ast/directive_definition.zig").parseDirectiveDefinition;
 const parseInterfaceTypeDefinition = @import("ast/interface_type_definition.zig").parseInterfaceTypeDefinition;
 const parseSchemaExtension = @import("ast/schema_extension.zig").parseSchemaExtension;
+const parseObjectTypeExtension = @import("ast/object_type_extension.zig").parseObjectTypeExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -73,6 +74,7 @@ pub const Parser = struct {
         directive_definition,
         interface_type_definition,
         schema_extension,
+        object_type_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -139,6 +141,8 @@ pub const Parser = struct {
 
                     if (strEq(nextTokenStr, "schema")) {
                         continue :state Reading.schema_extension;
+                    } else if (strEq(nextTokenStr, "type")) {
+                        continue :state Reading.object_type_extension;
                     } else {
                         return ParseError.NotImplemented;
                     }
@@ -205,6 +209,13 @@ pub const Parser = struct {
                 const schemaExtension = try parseSchemaExtension(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .schemaExtension = schemaExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.object_type_extension => {
+                const objectTypeExtension = try parseObjectTypeExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .objectTypeExtension = objectTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },

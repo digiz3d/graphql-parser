@@ -58,14 +58,14 @@ pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Sc
     }
 
     const scalarName = try parser.getTokenValue(scalarNameToken);
-    defer parser.allocator.free(scalarName);
+    errdefer parser.allocator.free(scalarName);
 
     const directivesNodes = try parseDirectives(parser, tokens);
 
     return ScalarTypeDefinition{
         .allocator = parser.allocator,
         .description = description,
-        .name = parser.allocator.dupe(u8, scalarName) catch return ParseError.UnexpectedMemoryError,
+        .name = scalarName,
         .directives = directivesNodes,
     };
 }

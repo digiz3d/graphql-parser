@@ -59,6 +59,12 @@ test "e2e-parse" {
         \\ extend schema @someDirective {
         \\   mutation: Mutation
         \\ }
+        \\
+        \\ extend type Laptop implements ok @someDirective {
+        \\   "ok"
+        \\   k:String @someOtherDirective
+        \\   k2:String @someOtherDirective
+        \\ }
     ;
 
     var parser = Parser.init(testing.allocator);
@@ -66,7 +72,10 @@ test "e2e-parse" {
     const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
-    try testing.expectEqual(13, rootNode.definitions.items.len);
+    try testing.expectEqual(14, rootNode.definitions.items.len);
     try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
     try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
+
+    try testing.expectEqual(1, rootNode.definitions.items[13].objectTypeExtension.directives.len);
+    try testing.expectEqual(2, rootNode.definitions.items[13].objectTypeExtension.fields.len);
 }
