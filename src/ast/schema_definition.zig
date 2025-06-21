@@ -75,6 +75,21 @@ pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token) ParseError!Schema
     };
 }
 
+test "initialize schema without anything" {
+    var parser = Parser.init(testing.allocator);
+    const buffer = "schema {}";
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const schema = parseSchemaDefinition(&parser, tokens);
+
+    try testing.expectError(ParseError.ExpectedName, schema);
+}
+
 test "parsing schema" {
     var parser = Parser.init(testing.allocator);
     const buffer =
