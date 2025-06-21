@@ -74,7 +74,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
         return ParseError.ExpectedName;
     }
 
-    const arguments = try parseInputValueDefinitions(parser, tokens);
+    const arguments = try parseInputValueDefinitions(parser, tokens, false);
 
     const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (colonToken.tag != Token.Tag.punct_colon) {

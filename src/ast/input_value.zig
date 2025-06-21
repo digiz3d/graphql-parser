@@ -279,9 +279,9 @@ fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
     var fields = ArrayList(ObjectField).init(parser.allocator);
 
     while (true) {
-        token = parser.peekNextToken(tokens) orelse return ParseError.ExpectedBraceRight;
+        token = parser.peekNextToken(tokens) orelse return ParseError.ExpectedRightBrace;
         if (token.tag == Token.Tag.punct_brace_right) {
-            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBraceRight;
+            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedRightBrace;
             break;
         }
         const field = try parseObjectField(parser, tokens);
