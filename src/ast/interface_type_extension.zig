@@ -101,6 +101,7 @@ pub fn parseInterfaceTypeExtension(parser: *Parser, tokens: []Token) ParseError!
 test "parseInterfaceTypeExtension" {
     try runTest(
         \\extend interface SomeInterface implements OtherInterface @lol {
+        \\ "new field desc"
         \\ newField: String
         \\}
     , 1);
@@ -119,4 +120,9 @@ fn runTest(buffer: [:0]const u8, len: usize) !void {
     defer interfaceTypeExtension.deinit();
 
     try testing.expectEqual(len, interfaceTypeExtension.fields.len);
+    const newField = interfaceTypeExtension.fields[0];
+    try testing.expectEqualStrings("\"new field desc\"", newField.description.?);
+    try testing.expectEqualStrings("newField", newField.name);
+    try testing.expectEqual(0, newField.arguments.len);
+    try testing.expectEqual(0, newField.directives.len);
 }
