@@ -28,6 +28,7 @@ const parseEnumTypeDefinition = @import("ast/enum_type_definition.zig").parseEnu
 const parseEnumTypeExtension = @import("ast/enum_type_extension.zig").parseEnumTypeExtension;
 const parseInputObjectTypeDefinition = @import("ast/input_object_type_defintiion.zig").parseInputObjectTypeDefinition;
 const parseInputObjectTypeExtension = @import("ast/input_object_type_extension.zig").parseInputObjectTypeExtension;
+const parseInterfaceTypeExtension = @import("ast/interface_type_extension.zig").parseInterfaceTypeExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -83,6 +84,7 @@ pub const Parser = struct {
         enum_type_extension,
         input_object_type_definition,
         input_object_type_extension,
+        interface_type_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -160,6 +162,8 @@ pub const Parser = struct {
                         continue :state Reading.enum_type_extension;
                     } else if (strEq(nextTokenStr, "input")) {
                         continue :state Reading.input_object_type_extension;
+                    } else if (strEq(nextTokenStr, "interface")) {
+                        continue :state Reading.interface_type_extension;
                     } else {
                         return ParseError.NotImplemented;
                     }
@@ -261,6 +265,13 @@ pub const Parser = struct {
                 const inputObjectTypeExtension = try parseInputObjectTypeExtension(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .inputObjectTypeExtension = inputObjectTypeExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.interface_type_extension => {
+                const interfaceTypeExtension = try parseInterfaceTypeExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .interfaceTypeExtension = interfaceTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
@@ -456,4 +467,28 @@ test "initialize invalid fragment name after on" {
     const buffer = "fragment X on { hello }";
     const rootNode = parser.parse(buffer);
     try testing.expectError(ParseError.ExpectedName, rootNode);
+}
+
+test "initialize interface type extension" {
+    var parser = Parser.init(testing.allocator);
+
+    const buffer =
+        \\extend interface SomeInterface implements OtherInterface @someDirective {
+        \\  newField: String
+        \\  anotherField: Int!
+        \\}
+    ;
+
+    var rootNode = try parser.parse(buffer);
+    defer rootNode.deinit();
+
+    try testing.expectEqual(1, rootNode.definitions.items.len);
+    try testing.expectEqualStrings("SomeInterface", rootNode.definitions.items[0].interfaceTypeExtension.name);
+    try testing.expectEqual(1, rootNode.definitions.items[0].interfaceTypeExtension.interfaces.len);
+    try testing.expectEqualStrings("OtherInterface", rootNode.definitions.items[0].interfaceTypeExtension.interfaces[0].type.namedType.name);
+    try testing.expectEqual(1, rootNode.definitions.items[0].interfaceTypeExtension.directives.len);
+    try testing.expectEqualStrings("someDirective", rootNode.definitions.items[0].interfaceTypeExtension.directives[0].name);
+    try testing.expectEqual(2, rootNode.definitions.items[0].interfaceTypeExtension.fields.len);
+    try testing.expectEqualStrings("newField", rootNode.definitions.items[0].interfaceTypeExtension.fields[0].name);
+    try testing.expectEqualStrings("anotherField", rootNode.definitions.items[0].interfaceTypeExtension.fields[1].name);
 }

@@ -95,6 +95,12 @@ test "e2e-parse" {
         \\   okayyy: String!
         \\ }
         \\ 
+        \\ extend interface USBA implements NewInterface @someDirective {
+        \\   "new field desc"
+        \\   newField: String
+        \\   anotherField: Int!
+        \\ }
+        \\ 
     ;
 
     var parser = Parser.init(testing.allocator);
@@ -102,10 +108,20 @@ test "e2e-parse" {
     const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
-    try testing.expectEqual(19, rootNode.definitions.items.len);
+    try testing.expectEqual(20, rootNode.definitions.items.len);
     try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
     try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
 
-    try testing.expectEqual(1, rootNode.definitions.items[13].objectTypeExtension.directives.len);
-    try testing.expectEqual(2, rootNode.definitions.items[13].objectTypeExtension.fields.len);
+    const objectTypeExtension = rootNode.definitions.items[13].objectTypeExtension;
+    try testing.expectEqual(1, objectTypeExtension.directives.len);
+    try testing.expectEqual(2, objectTypeExtension.fields.len);
+
+    const interfaceTypeExtension = rootNode.definitions.items[19].interfaceTypeExtension;
+    try testing.expectEqual(1, interfaceTypeExtension.interfaces.len);
+    try testing.expectEqualStrings("NewInterface", interfaceTypeExtension.interfaces[0].type.namedType.name);
+    try testing.expectEqual(1, interfaceTypeExtension.directives.len);
+    try testing.expectEqualStrings("someDirective", interfaceTypeExtension.directives[0].name);
+    try testing.expectEqual(2, interfaceTypeExtension.fields.len);
+    try testing.expectEqualStrings("newField", interfaceTypeExtension.fields[0].name);
+    try testing.expectEqualStrings("anotherField", interfaceTypeExtension.fields[1].name);
 }
