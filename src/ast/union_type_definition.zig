@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const Parser = @import("../parser.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
@@ -69,7 +70,7 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Uni
 
     const directivesNodes = try parseDirectives(parser, tokens);
 
-    var types = std.ArrayList(Type).init(parser.allocator);
+    var types = ArrayList(Type).init(parser.allocator);
     errdefer {
         for (types.items) |t| {
             t.deinit();

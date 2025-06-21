@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const p = @import("../parser.zig");
 const Parser = p.Parser;
@@ -35,7 +36,7 @@ pub const Interface = struct {
 };
 
 pub fn parseInterfaces(parser: *Parser, tokens: []Token) ParseError![]Interface {
-    var interfaces = std.ArrayList(Interface).init(parser.allocator);
+    var interfaces = ArrayList(Interface).init(parser.allocator);
 
     const implementsToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const implementsStr = try parser.getTokenValue(implementsToken);

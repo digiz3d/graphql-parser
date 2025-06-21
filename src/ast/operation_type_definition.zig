@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
@@ -47,7 +48,7 @@ fn parseOperationTypeDefinition(
 }
 
 pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseError![]OperationTypeDefinition {
-    var definitions = std.ArrayList(OperationTypeDefinition).init(parser.allocator);
+    var definitions = ArrayList(OperationTypeDefinition).init(parser.allocator);
 
     const leftBrace = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBracketLeft;
     if (leftBrace.tag != Token.Tag.punct_brace_left) {

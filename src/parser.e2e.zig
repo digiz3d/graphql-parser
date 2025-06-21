@@ -65,6 +65,20 @@ test "e2e-parse" {
         \\   k:String @someOtherDirective
         \\   k2:String @someOtherDirective
         \\ }
+        \\
+        \\ enum SomeEnum {
+        \\   SOME_VALUE
+        \\   SOME_OTHER_VALUE
+        \\ }
+        \\
+        \\ enum SomeEnum2 @ok {
+        \\   SOME_VALUE @ok2
+        \\   SOME_OTHER_VALUE @ok3
+        \\ }
+        \\
+        \\ extend enum SomeEnum2 @ok {
+        \\   SOME_NEW_VALUE @ok4
+        \\ }
     ;
 
     var parser = Parser.init(testing.allocator);
@@ -72,7 +86,7 @@ test "e2e-parse" {
     const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
-    try testing.expectEqual(14, rootNode.definitions.items.len);
+    try testing.expectEqual(17, rootNode.definitions.items.len);
     try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
     try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
 

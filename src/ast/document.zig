@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
@@ -7,7 +8,7 @@ const ExecutableDefinition = @import("executable_definition.zig").ExecutableDefi
 
 pub const Document = struct {
     allocator: Allocator,
-    definitions: std.ArrayList(ExecutableDefinition),
+    definitions: ArrayList(ExecutableDefinition),
 
     pub fn printAST(self: Document, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
