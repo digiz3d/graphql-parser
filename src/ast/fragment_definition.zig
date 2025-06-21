@@ -1,5 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const testing = std.testing;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 
@@ -10,6 +11,7 @@ const parseSelectionSet = @import("selection_set.zig").parseSelectionSet;
 
 const Parser = @import("../parser.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
+const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 const strEq = @import("../utils/utils.zig").strEq;
 
@@ -78,4 +80,52 @@ pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!Frag
         .directives = directivesNodes,
         .selectionSet = selectionSetNode,
     };
+}
+
+test "initialize fragment" {
+    var parser = Parser.init(testing.allocator);
+
+    const buffer =
+        \\fragment Profile on User @SomeDecorator
+        \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
+        \\  nickname: username
+        \\  avatar {
+        \\    thumbnail: picUrl(size: 64)
+        \\    fullsize: picUrl
+        \\  }
+        \\}
+    ;
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    const fragmentDefinition = try parseFragmentDefinition(&parser, tokens);
+    defer fragmentDefinition.deinit();
+
+    try testing.expectEqualStrings(fragmentDefinition.name, "Profile");
+}
+
+// error cases
+test "initialize invalid fragment no name" {
+    var parser = Parser.init(testing.allocator);
+    const buffer = "fragment { hello }";
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedName, rootNode);
+}
+
+test "initialize invalid fragment name is on" {
+    var parser = Parser.init(testing.allocator);
+    const buffer = "fragment on on User { hello }";
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
+}
+
+test "initialize invalid fragment name after on" {
+    var parser = Parser.init(testing.allocator);
+    const buffer = "fragment X on { hello }";
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedName, rootNode);
 }
