@@ -26,6 +26,7 @@ const parseSchemaExtension = @import("ast/schema_extension.zig").parseSchemaExte
 const parseObjectTypeExtension = @import("ast/object_type_extension.zig").parseObjectTypeExtension;
 const parseEnumTypeDefinition = @import("ast/enum_type_definition.zig").parseEnumTypeDefinition;
 const parseEnumTypeExtension = @import("ast/enum_type_extension.zig").parseEnumTypeExtension;
+const parseInputObjectTypeDefinition = @import("ast/input_object_type_defintiion.zig").parseInputObjectTypeDefinition;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -40,7 +41,6 @@ const strEq = @import("utils/utils.zig").strEq;
 pub const ParseError = error{
     EmptyTokenList,
     ExpectedAt,
-    ExpectedBraceRight,
     ExpectedBracketLeft,
     ExpectedBracketRight,
     ExpectedColon,
@@ -49,6 +49,7 @@ pub const ParseError = error{
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
+    ExpectedRightBrace,
     ExpectedRightParenthesis,
     ExpectedString,
     InvalidLocation,
@@ -79,6 +80,7 @@ pub const Parser = struct {
         object_type_extension,
         enum_type_definition,
         enum_type_extension,
+        input_object_type_definition,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -114,6 +116,7 @@ pub const Parser = struct {
                     token = self.peekNextNextToken(tokens) orelse return ParseError.EmptyTokenList;
                 }
                 if (token.tag != Token.Tag.identifier) {
+                    std.debug.print("expected name {}\n", .{token.tag});
                     return ParseError.ExpectedName;
                 }
 
@@ -130,6 +133,8 @@ pub const Parser = struct {
                     continue :state Reading.schema_definition;
                 } else if (strEq(str, "type")) {
                     continue :state Reading.object_type_definition;
+                } else if (strEq(str, "input")) {
+                    continue :state Reading.input_object_type_definition;
                 } else if (strEq(str, "union")) {
                     continue :state Reading.union_type_definition;
                 } else if (strEq(str, "scalar")) {
@@ -238,6 +243,13 @@ pub const Parser = struct {
                 const enumTypeExtension = try parseEnumTypeExtension(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .enumTypeExtension = enumTypeExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.input_object_type_definition => {
+                const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .inputObjectTypeDefinition = inputObjectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },

@@ -92,7 +92,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
     const directiveName = try parser.getTokenValue(directiveNameToken);
     errdefer parser.allocator.free(directiveName);
 
-    const arguments = try parseInputValueDefinitions(parser, tokens);
+    const arguments = try parseInputValueDefinitions(parser, tokens, false);
 
     const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
     const onStr = try parser.getTokenValue(onToken);
