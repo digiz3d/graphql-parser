@@ -6,6 +6,7 @@ const UnionTypeDefinition = @import("union_type_definition.zig").UnionTypeDefini
 const ScalarTypeDefinition = @import("scalar_type_definition.zig").ScalarTypeDefinition;
 const DirectiveDefinition = @import("directive_definition.zig").DirectiveDefinition;
 const InterfaceTypeDefinition = @import("interface_type_definition.zig").InterfaceTypeDefinition;
+const SchemaExtension = @import("schema_extension.zig").SchemaExtension;
 
 pub const ExecutableDefinition = union(enum) {
     fragmentDefinition: FragmentDefinition,
@@ -16,6 +17,7 @@ pub const ExecutableDefinition = union(enum) {
     scalarTypeDefinition: ScalarTypeDefinition,
     directiveDefinition: DirectiveDefinition,
     interfaceTypeDefinition: InterfaceTypeDefinition,
+    schemaExtension: SchemaExtension,
 
     pub fn printAST(self: ExecutableDefinition, indent: usize) void {
         switch (self) {
@@ -27,6 +29,7 @@ pub const ExecutableDefinition = union(enum) {
             ExecutableDefinition.scalarTypeDefinition => self.scalarTypeDefinition.printAST(indent),
             ExecutableDefinition.directiveDefinition => self.directiveDefinition.printAST(indent),
             ExecutableDefinition.interfaceTypeDefinition => self.interfaceTypeDefinition.printAST(indent),
+            ExecutableDefinition.schemaExtension => self.schemaExtension.printAST(indent),
         }
     }
 
@@ -40,6 +43,7 @@ pub const ExecutableDefinition = union(enum) {
             ExecutableDefinition.scalarTypeDefinition => self.scalarTypeDefinition.deinit(),
             ExecutableDefinition.directiveDefinition => self.directiveDefinition.deinit(),
             ExecutableDefinition.interfaceTypeDefinition => self.interfaceTypeDefinition.deinit(),
+            ExecutableDefinition.schemaExtension => self.schemaExtension.deinit(),
         }
     }
 };

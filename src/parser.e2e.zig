@@ -55,6 +55,10 @@ test "e2e-parse" {
         \\   ok @field1
         \\   ...SomeFragment @field2
         \\ }
+        \\
+        \\ extend schema @someDirective {
+        \\   mutation: Mutation
+        \\ }
     ;
 
     var parser = Parser.init(testing.allocator);
@@ -62,7 +66,7 @@ test "e2e-parse" {
     const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
-    try testing.expectEqual(12, rootNode.definitions.items.len);
+    try testing.expectEqual(13, rootNode.definitions.items.len);
     try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
     try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
 }
