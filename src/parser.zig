@@ -29,6 +29,7 @@ const parseEnumTypeExtension = @import("ast/enum_type_extension.zig").parseEnumT
 const parseInputObjectTypeDefinition = @import("ast/input_object_type_defintiion.zig").parseInputObjectTypeDefinition;
 const parseInputObjectTypeExtension = @import("ast/input_object_type_extension.zig").parseInputObjectTypeExtension;
 const parseInterfaceTypeExtension = @import("ast/interface_type_extension.zig").parseInterfaceTypeExtension;
+const parseUnionTypeExtension = @import("ast/union_type_extension.zig").parseUnionTypeExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -85,6 +86,7 @@ pub const Parser = struct {
         input_object_type_definition,
         input_object_type_extension,
         interface_type_extension,
+        union_type_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -164,6 +166,8 @@ pub const Parser = struct {
                         continue :state Reading.input_object_type_extension;
                     } else if (strEq(nextTokenStr, "interface")) {
                         continue :state Reading.interface_type_extension;
+                    } else if (strEq(nextTokenStr, "union")) {
+                        continue :state Reading.union_type_extension;
                     } else {
                         return ParseError.NotImplemented;
                     }
@@ -272,6 +276,13 @@ pub const Parser = struct {
                 const interfaceTypeExtension = try parseInterfaceTypeExtension(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .interfaceTypeExtension = interfaceTypeExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.union_type_extension => {
+                const unionTypeExtension = try parseUnionTypeExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .unionTypeExtension = unionTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
@@ -467,4 +478,47 @@ test "initialize invalid fragment name after on" {
     const buffer = "fragment X on { hello }";
     const rootNode = parser.parse(buffer);
     try testing.expectError(ParseError.ExpectedName, rootNode);
+}
+
+test "initialize interface type extension" {
+    var parser = Parser.init(testing.allocator);
+
+    const buffer =
+        \\extend interface SomeInterface implements OtherInterface @someDirective {
+        \\  newField: String
+        \\  anotherField: Int!
+        \\}
+    ;
+
+    var rootNode = try parser.parse(buffer);
+    defer rootNode.deinit();
+
+    try testing.expectEqual(1, rootNode.definitions.items.len);
+    try testing.expectEqualStrings("SomeInterface", rootNode.definitions.items[0].interfaceTypeExtension.name);
+    try testing.expectEqual(1, rootNode.definitions.items[0].interfaceTypeExtension.interfaces.len);
+    try testing.expectEqualStrings("OtherInterface", rootNode.definitions.items[0].interfaceTypeExtension.interfaces[0].type.namedType.name);
+    try testing.expectEqual(1, rootNode.definitions.items[0].interfaceTypeExtension.directives.len);
+    try testing.expectEqualStrings("someDirective", rootNode.definitions.items[0].interfaceTypeExtension.directives[0].name);
+    try testing.expectEqual(2, rootNode.definitions.items[0].interfaceTypeExtension.fields.len);
+    try testing.expectEqualStrings("newField", rootNode.definitions.items[0].interfaceTypeExtension.fields[0].name);
+    try testing.expectEqualStrings("anotherField", rootNode.definitions.items[0].interfaceTypeExtension.fields[1].name);
+}
+
+test "initialize union type extension" {
+    var parser = Parser.init(testing.allocator);
+
+    const buffer =
+        \\extend union SomeUnion @someDirective = NewType | AnotherType
+    ;
+
+    var rootNode = try parser.parse(buffer);
+    defer rootNode.deinit();
+
+    try testing.expectEqual(1, rootNode.definitions.items.len);
+    try testing.expectEqualStrings("SomeUnion", rootNode.definitions.items[0].unionTypeExtension.name);
+    try testing.expectEqual(1, rootNode.definitions.items[0].unionTypeExtension.directives.len);
+    try testing.expectEqualStrings("someDirective", rootNode.definitions.items[0].unionTypeExtension.directives[0].name);
+    try testing.expectEqual(2, rootNode.definitions.items[0].unionTypeExtension.types.len);
+    try testing.expectEqualStrings("NewType", rootNode.definitions.items[0].unionTypeExtension.types[0].namedType.name);
+    try testing.expectEqualStrings("AnotherType", rootNode.definitions.items[0].unionTypeExtension.types[1].namedType.name);
 }
