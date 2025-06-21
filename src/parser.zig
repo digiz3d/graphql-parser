@@ -30,6 +30,7 @@ const parseInputObjectTypeDefinition = @import("ast/input_object_type_defintiion
 const parseInputObjectTypeExtension = @import("ast/input_object_type_extension.zig").parseInputObjectTypeExtension;
 const parseInterfaceTypeExtension = @import("ast/interface_type_extension.zig").parseInterfaceTypeExtension;
 const parseUnionTypeExtension = @import("ast/union_type_extension.zig").parseUnionTypeExtension;
+const parseScalarTypeExtension = @import("ast/scalar_type_extension.zig").parseScalarTypeExtension;
 
 const Document = @import("ast/document.zig").Document;
 const ExecutableDefinition = @import("ast/executable_definition.zig").ExecutableDefinition;
@@ -87,6 +88,7 @@ pub const Parser = struct {
         input_object_type_extension,
         interface_type_extension,
         union_type_extension,
+        scalar_type_extension,
     };
 
     pub fn init(allocator: Allocator) Parser {
@@ -168,6 +170,8 @@ pub const Parser = struct {
                         continue :state Reading.interface_type_extension;
                     } else if (strEq(nextTokenStr, "union")) {
                         continue :state Reading.union_type_extension;
+                    } else if (strEq(nextTokenStr, "scalar")) {
+                        continue :state Reading.scalar_type_extension;
                     } else {
                         return ParseError.NotImplemented;
                     }
@@ -283,6 +287,13 @@ pub const Parser = struct {
                 const unionTypeExtension = try parseUnionTypeExtension(self, tokens);
                 documentNode.definitions.append(ExecutableDefinition{
                     .unionTypeExtension = unionTypeExtension,
+                }) catch return ParseError.UnexpectedMemoryError;
+                continue :state Reading.root;
+            },
+            Reading.scalar_type_extension => {
+                const scalarTypeExtension = try parseScalarTypeExtension(self, tokens);
+                documentNode.definitions.append(ExecutableDefinition{
+                    .scalarTypeExtension = scalarTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
@@ -521,4 +532,32 @@ test "initialize union type extension" {
     try testing.expectEqual(2, rootNode.definitions.items[0].unionTypeExtension.types.len);
     try testing.expectEqualStrings("NewType", rootNode.definitions.items[0].unionTypeExtension.types[0].namedType.name);
     try testing.expectEqualStrings("AnotherType", rootNode.definitions.items[0].unionTypeExtension.types[1].namedType.name);
+}
+
+test "initialize scalar type extension" {
+    var parser = Parser.init(testing.allocator);
+
+    const buffer =
+        \\extend scalar DateTime @someDirective @anotherDirective
+    ;
+
+    var rootNode = try parser.parse(buffer);
+    defer rootNode.deinit();
+
+    try testing.expectEqual(1, rootNode.definitions.items.len);
+    try testing.expectEqualStrings("DateTime", rootNode.definitions.items[0].scalarTypeExtension.name);
+    try testing.expectEqual(2, rootNode.definitions.items[0].scalarTypeExtension.directives.len);
+    try testing.expectEqualStrings("someDirective", rootNode.definitions.items[0].scalarTypeExtension.directives[0].name);
+    try testing.expectEqualStrings("anotherDirective", rootNode.definitions.items[0].scalarTypeExtension.directives[1].name);
+}
+
+test "initialize scalar type extension without directives" {
+    var parser = Parser.init(testing.allocator);
+
+    const buffer =
+        \\extend scalar DateTime
+    ;
+
+    const rootNode = parser.parse(buffer);
+    try testing.expectError(ParseError.ExpectedAt, rootNode);
 }

@@ -103,6 +103,8 @@ test "e2e-parse" {
         \\ 
         \\ extend union SomeUnion @someDirective = NewType | AnotherType
         \\ 
+        \\ extend scalar DateTime @someDirective @anotherDirective
+        \\ 
     ;
 
     var parser = Parser.init(testing.allocator);
@@ -110,7 +112,7 @@ test "e2e-parse" {
     const rootNode = try parser.parse(doc);
     defer rootNode.deinit();
 
-    try testing.expectEqual(21, rootNode.definitions.items.len);
+    try testing.expectEqual(22, rootNode.definitions.items.len);
     try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
     try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
 
@@ -133,4 +135,10 @@ test "e2e-parse" {
     try testing.expectEqual(2, unionTypeExtension.types.len);
     try testing.expectEqualStrings("NewType", unionTypeExtension.types[0].namedType.name);
     try testing.expectEqualStrings("AnotherType", unionTypeExtension.types[1].namedType.name);
+
+    const scalarTypeExtension = rootNode.definitions.items[21].scalarTypeExtension;
+    try testing.expectEqualStrings("DateTime", scalarTypeExtension.name);
+    try testing.expectEqual(2, scalarTypeExtension.directives.len);
+    try testing.expectEqualStrings("someDirective", scalarTypeExtension.directives[0].name);
+    try testing.expectEqualStrings("anotherDirective", scalarTypeExtension.directives[1].name);
 }
