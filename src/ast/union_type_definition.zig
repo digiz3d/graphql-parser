@@ -65,7 +65,7 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Uni
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const unionNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const unionName = try parser.getTokenValue(unionNameToken);
-    defer parser.allocator.free(unionName);
+    errdefer parser.allocator.free(unionName);
 
     const directivesNodes = try parseDirectives(parser, tokens);
 
@@ -95,7 +95,7 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Uni
     return UnionTypeDefinition{
         .allocator = parser.allocator,
         .description = description,
-        .name = parser.allocator.dupe(u8, unionName) catch return ParseError.UnexpectedMemoryError,
+        .name = unionName,
         .types = types.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,
     };

@@ -89,7 +89,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
     }
 
     const directiveName = try parser.getTokenValue(directiveNameToken);
-    defer parser.allocator.free(directiveName);
+    errdefer parser.allocator.free(directiveName);
 
     const arguments = try parseInputValueDefinitions(parser, tokens);
 
@@ -127,7 +127,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
     return DirectiveDefinition{
         .allocator = parser.allocator,
         .description = description,
-        .name = parser.allocator.dupe(u8, directiveName) catch return ParseError.UnexpectedMemoryError,
+        .name = directiveName,
         .arguments = arguments,
         .locations = locations.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,

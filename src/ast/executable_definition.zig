@@ -7,6 +7,7 @@ const ScalarTypeDefinition = @import("scalar_type_definition.zig").ScalarTypeDef
 const DirectiveDefinition = @import("directive_definition.zig").DirectiveDefinition;
 const InterfaceTypeDefinition = @import("interface_type_definition.zig").InterfaceTypeDefinition;
 const SchemaExtension = @import("schema_extension.zig").SchemaExtension;
+const ObjectTypeExtension = @import("object_type_extension.zig").ObjectTypeExtension;
 
 pub const ExecutableDefinition = union(enum) {
     fragmentDefinition: FragmentDefinition,
@@ -18,6 +19,7 @@ pub const ExecutableDefinition = union(enum) {
     directiveDefinition: DirectiveDefinition,
     interfaceTypeDefinition: InterfaceTypeDefinition,
     schemaExtension: SchemaExtension,
+    objectTypeExtension: ObjectTypeExtension,
 
     pub fn printAST(self: ExecutableDefinition, indent: usize) void {
         switch (self) {

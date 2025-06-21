@@ -79,15 +79,13 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Ob
     _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const name = try parser.getTokenValue(nameToken);
-    defer parser.allocator.free(name);
-
     if (nameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
     }
+    const name = try parser.getTokenValue(nameToken);
+    errdefer parser.allocator.free(name);
 
     const interfaces = try parseInterfaces(parser, tokens);
-
     const directives = try parseDirectives(parser, tokens);
 
     const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
@@ -110,7 +108,7 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Ob
         .description = description,
         .interfaces = interfaces,
         .directives = directives,
-        .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
+        .name = name,
         .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
     };
     return objectTypeDefinition;

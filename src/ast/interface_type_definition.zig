@@ -83,7 +83,7 @@ pub fn parseInterfaceTypeDefinition(parser: *Parser, tokens: []Token) ParseError
 
     const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
     const name = try parser.getTokenValue(nameToken);
-    defer parser.allocator.free(name);
+    errdefer parser.allocator.free(name);
     const interfaces = try parseInterfaces(parser, tokens);
     const directives = try parseDirectives(parser, tokens);
 
@@ -105,7 +105,7 @@ pub fn parseInterfaceTypeDefinition(parser: *Parser, tokens: []Token) ParseError
 
     return InterfaceTypeDefinition{
         .allocator = parser.allocator,
-        .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
+        .name = name,
         .description = description,
         .interfaces = interfaces,
         .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
