@@ -25,6 +25,7 @@ const InputValueDefinition = @import("ast/input_value_definition.zig").InputValu
 const Interface = @import("ast/interface.zig").Interface;
 const InterfaceTypeDefinition = @import("ast/interface_type_definition.zig").InterfaceTypeDefinition;
 const EnumTypeDefinition = @import("ast/enum_type_definition.zig").EnumTypeDefinition;
+const InputObjectTypeDefinition = @import("ast/input_object_type_definition.zig").InputObjectTypeDefinition;
 
 pub const Printer = struct {
     allocator: Allocator,
@@ -76,6 +77,9 @@ pub const Printer = struct {
             .enumTypeDefinition => |enumTypeDefinition| {
                 return try getGqlFromEnumTypeDefinition(enumTypeDefinition, allocator);
             },
+            .inputObjectTypeDefinition => |inputObjectTypeDefinition| {
+                return try getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition, allocator);
+            },
             else => {
                 return try getNotImplementedString(allocator);
             },
@@ -84,6 +88,26 @@ pub const Printer = struct {
         try graphQLString.appendSlice(str);
 
         return try graphQLString.toOwnedSlice();
+    }
+
+    fn getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition: InputObjectTypeDefinition, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        if (inputObjectTypeDefinition.description) |description| {
+            try str.appendSlice(description);
+            try str.appendSlice(" ");
+        }
+        try str.appendSlice("input ");
+        try str.appendSlice(inputObjectTypeDefinition.name);
+        if (inputObjectTypeDefinition.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(inputObjectTypeDefinition.directives, allocator));
+        }
+        try str.appendSlice(" {");
+        for (inputObjectTypeDefinition.fields, 0..) |fieldDefinition, i| {
+            if (i > 0) try str.appendSlice("\n");
+            try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
+        }
+        try str.appendSlice("}");
+        return str.toOwnedSlice();
     }
 
     fn getGqlFromEnumTypeDefinition(enumTypeDefinition: EnumTypeDefinition, allocator: Allocator) ![]u8 {
