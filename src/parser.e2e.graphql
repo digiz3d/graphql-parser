@@ -1,5 +1,5 @@
 "schema desc"
-schema {
+schema @some {
   query: Query
 }
 
@@ -11,7 +11,7 @@ scalar Lol @lol
 """
 union desc
 """
-union SomeUnion = SomeType | SomeOtherType
+union SomeUnion @hi = SomeType | SomeOtherType
 
 "object def desc"
 type Query @lol {
@@ -19,16 +19,17 @@ type Query @lol {
   name("obj def arg desc" id: ID!, value: String = "default"): String
 }
 
-interface USBA {
-  a: A
+"some interface desc"
+interface USBA @a1 {
+  a: A @a2
 }
 
 interface USBC {
   C: C
 }
 
-type Desktop implements USBA & USBC {
-  ok: String
+type Desktop implements USBA & USBC @a1 {
+  ok: String @a2
 }
 
 type Laptop implements USBC {

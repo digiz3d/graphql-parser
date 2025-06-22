@@ -2,7 +2,6 @@ const std = @import("std");
 const testing = std.testing;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
-const allocPrint = std.fmt.allocPrint;
 
 const tok = @import("tokenizer.zig");
 const Token = tok.Token;
