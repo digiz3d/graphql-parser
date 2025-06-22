@@ -53,3 +53,17 @@ test "newLineToBackslashNMultiLine" {
     defer allocator.free(result);
     try std.testing.expectEqualStrings(expected, result);
 }
+
+pub fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]const u8 {
+    var file = try std.fs.cwd().openFile(filePath, .{});
+    defer file.close();
+
+    const stat = try file.stat();
+    const rawContent = try file.readToEndAlloc(allocator, stat.size);
+    defer allocator.free(rawContent);
+
+    const content: [:0]u8 = try allocator.allocSentinel(u8, rawContent.len, 0);
+    @memcpy(content, rawContent);
+
+    return content;
+}
