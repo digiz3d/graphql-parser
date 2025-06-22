@@ -69,7 +69,6 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
         const definition = parseOperationTypeDefinition(parser.allocator, operationType, typeName) catch return ParseError.UnexpectedMemoryError;
         definitions.append(definition) catch return ParseError.UnexpectedMemoryError;
 
-        // Peek next token: if it's '}', break; else, expect another operation type
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag == Token.Tag.punct_brace_right) {
             _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
