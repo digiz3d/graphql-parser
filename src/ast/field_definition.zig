@@ -68,7 +68,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
 
     const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
-    defer parser.allocator.free(name);
+    errdefer parser.allocator.free(name);
 
     if (nameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
@@ -85,7 +85,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
     const fieldDefinition = FieldDefinition{
         .allocator = parser.allocator,
         .description = description,
-        .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
+        .name = name,
         .type = namedType,
         .arguments = arguments,
         .directives = directives,

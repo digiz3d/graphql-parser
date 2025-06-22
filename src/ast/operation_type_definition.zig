@@ -81,7 +81,6 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
 }
 
 test "parsing operation types definitions" {
-    var parser = Parser.init(testing.allocator);
     const buffer =
         \\ {
         \\   query: Query
@@ -89,19 +88,34 @@ test "parsing operation types definitions" {
         \\ }
     ;
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const operationTypes = try parseOperationTypeDefinitions(&parser, tokens);
+    const operationTypes = try runTest(buffer);
     defer {
         for (operationTypes) |operationType| {
             operationType.deinit();
         }
         testing.allocator.free(operationTypes);
     }
+}
 
-    try testing.expectEqual(2, operationTypes.len);
+test "wrong operation type" {
+    const buffer =
+        \\ {
+        \\   queryxxx: Query
+        \\ }
+    ;
+
+    const operationTypes = runTest(buffer);
+    try testing.expectError(ParseError.InvalidOperationType, operationTypes);
+}
+
+fn runTest(buffer: [:0]const u8) ![]OperationTypeDefinition {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    return parseOperationTypeDefinitions(&parser, tokens);
 }
