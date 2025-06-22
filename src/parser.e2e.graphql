@@ -46,8 +46,8 @@ directive @example(
 "directive desc 2"
 directive @lol on FIELD
 
-fragment SomeFragment on ok {
-  id
+fragment SomeFragment on ok @ok1 {
+  id @ok2
 }
 
 query SomeQuery($id: ok) @lolok(arg: { lol: { ok: [true] } }, arg2: Ok) {

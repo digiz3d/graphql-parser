@@ -273,8 +273,17 @@ pub const Printer = struct {
         return str.toOwnedSlice();
     }
 
-    fn getGqlFomFragmentDefinition(_: FragmentDefinition, allocator: Allocator) ![]u8 {
-        return try getNotImplementedString(allocator);
+    fn getGqlFomFragmentDefinition(fragmentDefinition: FragmentDefinition, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("fragment ");
+        try str.appendSlice(fragmentDefinition.name);
+        try str.appendSlice(" on ");
+        try str.appendSlice(try getGqlFromType(fragmentDefinition.typeCondition, allocator));
+        if (fragmentDefinition.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(fragmentDefinition.directives, allocator));
+        }
+        try str.appendSlice(try getGqlFromSelectionSet(fragmentDefinition.selectionSet, allocator));
+        return str.toOwnedSlice();
     }
 
     fn getGqlFomDirective(_: Directive, allocator: Allocator) ![]u8 {
