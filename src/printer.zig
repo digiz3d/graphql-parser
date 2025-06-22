@@ -29,6 +29,7 @@ const EnumTypeExtension = @import("ast/enum_type_extension.zig").EnumTypeExtensi
 const EnumValueDefinition = @import("ast/enum_value_definition.zig").EnumValueDefinition;
 const InputObjectTypeDefinition = @import("ast/input_object_type_definition.zig").InputObjectTypeDefinition;
 const InputObjectTypeExtension = @import("ast/input_object_type_extension.zig").InputObjectTypeExtension;
+const ObjectTypeExtension = @import("ast/object_type_extension.zig").ObjectTypeExtension;
 
 pub const Printer = struct {
     allocator: Allocator,
@@ -88,6 +89,9 @@ pub const Printer = struct {
             },
             .inputObjectTypeExtension => |inputObjectTypeExtension| {
                 return try getGqlFromInputObjectTypeExtension(inputObjectTypeExtension, allocator);
+            },
+            .objectTypeExtension => |objectTypeExtension| {
+                return try getGqlFromObjectTypeExtension(objectTypeExtension, allocator);
             },
             else => {
                 return try getNotImplementedString(allocator);
@@ -193,7 +197,7 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (interfaceTypeDefinition.fields, 0..) |fieldDefinition, i| {
-            if (i > 0) try str.appendSlice("\n");
+            if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
         }
         try str.appendSlice("}");
@@ -216,7 +220,7 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (objectTypeDefinition.fields, 0..) |fieldDefinition, i| {
-            if (i > 0) try str.appendSlice("\n");
+            if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
         }
         try str.appendSlice("}");
@@ -600,6 +604,25 @@ pub const Printer = struct {
     fn getNotImplementedString(allocator: Allocator) ![]u8 {
         var str = std.ArrayList(u8).init(allocator);
         try str.appendSlice("not implemented atm");
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromObjectTypeExtension(objectTypeExtension: ObjectTypeExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("extend type ");
+        try str.appendSlice(objectTypeExtension.name);
+        if (objectTypeExtension.interfaces.len > 0) {
+            try str.appendSlice(try getGqlFromImplementedInterfaces(objectTypeExtension.interfaces, allocator));
+        }
+        if (objectTypeExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(objectTypeExtension.directives, allocator));
+        }
+        try str.appendSlice(" {");
+        for (objectTypeExtension.fields, 0..) |fieldDefinition, i| {
+            if (i > 0) try str.appendSlice("\n");
+            try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
+        }
+        try str.appendSlice("}");
         return str.toOwnedSlice();
     }
 };
