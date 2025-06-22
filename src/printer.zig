@@ -28,6 +28,7 @@ const EnumTypeDefinition = @import("ast/enum_type_definition.zig").EnumTypeDefin
 const EnumTypeExtension = @import("ast/enum_type_extension.zig").EnumTypeExtension;
 const EnumValueDefinition = @import("ast/enum_value_definition.zig").EnumValueDefinition;
 const InputObjectTypeDefinition = @import("ast/input_object_type_definition.zig").InputObjectTypeDefinition;
+const InputObjectTypeExtension = @import("ast/input_object_type_extension.zig").InputObjectTypeExtension;
 
 pub const Printer = struct {
     allocator: Allocator,
@@ -85,6 +86,9 @@ pub const Printer = struct {
             .inputObjectTypeDefinition => |inputObjectTypeDefinition| {
                 return try getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition, allocator);
             },
+            .inputObjectTypeExtension => |inputObjectTypeExtension| {
+                return try getGqlFromInputObjectTypeExtension(inputObjectTypeExtension, allocator);
+            },
             else => {
                 return try getNotImplementedString(allocator);
             },
@@ -108,6 +112,22 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (inputObjectTypeDefinition.fields, 0..) |fieldDefinition, i| {
+            if (i > 0) try str.appendSlice("\n");
+            try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
+        }
+        try str.appendSlice("}");
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromInputObjectTypeExtension(inputObjectTypeExtension: InputObjectTypeExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("extend input ");
+        try str.appendSlice(inputObjectTypeExtension.name);
+        if (inputObjectTypeExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(inputObjectTypeExtension.directives, allocator));
+        }
+        try str.appendSlice(" {");
+        for (inputObjectTypeExtension.fields, 0..) |fieldDefinition, i| {
             if (i > 0) try str.appendSlice("\n");
             try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
         }

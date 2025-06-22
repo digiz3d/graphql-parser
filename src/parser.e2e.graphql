@@ -85,7 +85,7 @@ input SomeInput @someDirective {
   field: String = "Some default"
 }
 
-extend input Oki {
+extend input Oki @a1 {
   "okidoki"
   okayyy: String!
 }
