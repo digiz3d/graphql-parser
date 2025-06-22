@@ -19,6 +19,7 @@ const ScalarTypeDefinition = @import("ast/scalar_type_definition.zig").ScalarTyp
 const SchemaDefinition = @import("ast/schema_definition.zig").SchemaDefinition;
 const OperationTypeDefinition = @import("ast/operation_type_definition.zig").OperationTypeDefinition;
 const UnionTypeDefinition = @import("ast/union_type_definition.zig").UnionTypeDefinition;
+const UnionTypeExtension = @import("ast/union_type_extension.zig").UnionTypeExtension;
 const ObjectTypeDefinition = @import("ast/object_type_definition.zig").ObjectTypeDefinition;
 const FieldDefinition = @import("ast/field_definition.zig").FieldDefinition;
 const InputValueDefinition = @import("ast/input_value_definition.zig").InputValueDefinition;
@@ -96,6 +97,9 @@ pub const Printer = struct {
             },
             .interfaceTypeExtension => |interfaceTypeExtension| {
                 return try getGqlFromInterfaceTypeExtension(interfaceTypeExtension, allocator);
+            },
+            .unionTypeExtension => |unionTypeExtension| {
+                return try getGqlFromUnionTypeExtension(unionTypeExtension, allocator);
             },
             else => {
                 return try getNotImplementedString(allocator);
@@ -646,6 +650,21 @@ pub const Printer = struct {
             try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
         }
         try str.appendSlice("}");
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromUnionTypeExtension(unionTypeExtension: UnionTypeExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("extend union ");
+        try str.appendSlice(unionTypeExtension.name);
+        if (unionTypeExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(unionTypeExtension.directives, allocator));
+        }
+        try str.appendSlice(" = ");
+        for (unionTypeExtension.types, 0..) |t, i| {
+            if (i > 0) try str.appendSlice(" | ");
+            try str.appendSlice(try getGqlFromType(t, allocator));
+        }
         return str.toOwnedSlice();
     }
 };
