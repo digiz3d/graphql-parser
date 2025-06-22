@@ -74,23 +74,16 @@ pub const InterfaceTypeDefinition = struct {
 pub fn parseInterfaceTypeDefinition(parser: *Parser, tokens: []Token) ParseError!InterfaceTypeDefinition {
     const description = try parseOptionalDescription(parser, tokens);
 
-    const interfaceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const interfaceStr = try parser.getTokenValue(interfaceToken);
-    defer parser.allocator.free(interfaceStr);
-    if (interfaceToken.tag != Token.Tag.identifier or !strEq(interfaceStr, "interface")) {
-        return ParseError.UnexpectedToken;
-    }
+    try parser.consumeSpecificIdentifier(tokens, "interface");
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const nameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
+
     const interfaces = try parseInterfaces(parser, tokens);
     const directives = try parseDirectives(parser, tokens);
 
-    const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (leftBraceToken.tag != Token.Tag.punct_brace_left) {
-        return ParseError.ExpectedBracketLeft;
-    }
+    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
@@ -101,7 +94,7 @@ pub fn parseInterfaceTypeDefinition(parser: *Parser, tokens: []Token) ParseError
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
 
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
 
     return InterfaceTypeDefinition{
         .allocator = parser.allocator,

@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
@@ -7,6 +8,7 @@ const makeIndentation = utils.makeIndentation;
 const strEq = utils.strEq;
 
 const Token = @import("../tokenizer.zig").Token;
+const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const p = @import("../parser.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
@@ -42,11 +44,8 @@ pub const SelectionSet = struct {
 };
 
 pub fn parseSelectionSet(parser: *Parser, tokens: []Token) ParseError!SelectionSet {
-    const openBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.MissingExpectedBrace;
-    if (openBraceToken.tag != Token.Tag.punct_brace_left) {
-        return ParseError.MissingExpectedBrace;
-    }
-    var currentToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
+    var currentToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
 
     var selections = ArrayList(Selection).init(parser.allocator);
 
@@ -60,8 +59,7 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token) ParseError!SelectionS
 
             var selection: Selection = undefined;
             if (strEq(onOrSpreadName, "on")) {
-                const typeConditionToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-                if (typeConditionToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+                const typeConditionToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
                 const typeCondition = try parser.getTokenValue(typeConditionToken);
                 const directives = try parseDirectives(parser, tokens);
                 const selectionSet = try parseSelectionSet(parser, tokens);
@@ -91,9 +89,8 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token) ParseError!SelectionS
         const nameOrAlias = try parser.getTokenValue(currentToken);
         const nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
         const name, const alias = if (nextToken.tag == Token.Tag.punct_colon) assign: {
-            // consume colon
-            _ = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-            const finalNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
+            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
+            const finalNameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
             const finalName = try parser.getTokenValue(finalNameToken);
             break :assign .{ finalName, nameOrAlias };
         } else .{ nameOrAlias, null };
@@ -124,4 +121,22 @@ pub fn parseSelectionSet(parser: *Parser, tokens: []Token) ParseError!SelectionS
         .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
     };
     return selectionSetNode;
+}
+
+test "basic selection set" {
+    const buffer = "{ field1 field2(id: 123) @directive }";
+    const selectionSet = try runTest(buffer);
+    defer selectionSet.deinit();
+    try testing.expectEqual(2, selectionSet.selections.len);
+}
+
+fn runTest(buffer: [:0]const u8) !SelectionSet {
+    var parser = Parser.init(testing.allocator);
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    return parseSelectionSet(&parser, tokens);
 }

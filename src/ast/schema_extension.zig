@@ -46,8 +46,8 @@ pub const SchemaExtension = struct {
 };
 
 pub fn parseSchemaExtension(parser: *Parser, tokens: []Token) ParseError!SchemaExtension {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "extend"
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "schema"
+    try parser.consumeSpecificIdentifier(tokens, "extend");
+    try parser.consumeSpecificIdentifier(tokens, "schema");
 
     const directives = try parseDirectives(parser, tokens);
     const operationTypes = try parseOperationTypeDefinitions(parser, tokens);

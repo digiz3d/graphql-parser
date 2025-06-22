@@ -50,16 +50,10 @@ fn parseOperationTypeDefinition(
 pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseError![]OperationTypeDefinition {
     var definitions = ArrayList(OperationTypeDefinition).init(parser.allocator);
 
-    const leftBrace = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBracketLeft;
-    if (leftBrace.tag != Token.Tag.punct_brace_left) {
-        return ParseError.ExpectedBracketLeft;
-    }
+    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
 
     while (true) {
-        const opTypeToken = parser.consumeNextToken(tokens) orelse break;
-        if (opTypeToken.tag != Token.Tag.identifier) {
-            return ParseError.ExpectedName;
-        }
+        const opTypeToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const operationType = try parser.getTokenValue(opTypeToken);
         defer parser.allocator.free(operationType);
 
@@ -67,16 +61,8 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
             return ParseError.InvalidOperationType;
         }
 
-        const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        if (colonToken.tag != Token.Tag.punct_colon) {
-            return ParseError.ExpectedColon;
-        }
-
-        const typeNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        if (typeNameToken.tag != Token.Tag.identifier) {
-            return ParseError.ExpectedName;
-        }
-
+        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
+        const typeNameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
         const typeName = try parser.getTokenValue(typeNameToken);
         defer parser.allocator.free(typeName);
 
@@ -86,7 +72,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
         // Peek next token: if it's '}', break; else, expect another operation type
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag == Token.Tag.punct_brace_right) {
-            _ = parser.consumeNextToken(tokens); // consume '}'
+            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
             break;
         }
     }

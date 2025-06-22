@@ -8,6 +8,8 @@ const Directive = @import("directive.zig").Directive;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseSelectionSet = @import("selection_set.zig").parseSelectionSet;
+const Type = @import("type.zig").Type;
+const parseNamedType = @import("type.zig").parseNamedType;
 
 const Parser = @import("../parser.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
@@ -20,6 +22,7 @@ pub const FragmentDefinition = struct {
     name: []const u8,
     directives: []Directive,
     selectionSet: SelectionSet,
+    typeCondition: Type,
 
     pub fn printAST(self: FragmentDefinition, indent: usize) void {
         const spaces = makeIndentation(indent, self.allocator);
@@ -32,6 +35,8 @@ pub const FragmentDefinition = struct {
         }
         std.debug.print("{s}  selectionSet: \n", .{spaces});
         self.selectionSet.printAST(indent + 1);
+        std.debug.print("{s}  typeCondition: \n", .{spaces});
+        self.typeCondition.printAST(indent + 1, self.allocator);
     }
 
     pub fn deinit(self: FragmentDefinition) void {
@@ -41,35 +46,24 @@ pub const FragmentDefinition = struct {
         }
         self.allocator.free(self.directives);
         self.selectionSet.deinit();
+        self.typeCondition.deinit();
     }
 };
 
 pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!FragmentDefinition {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    try parser.consumeSpecificIdentifier(tokens, "fragment");
 
-    const fragmentNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const fragmentNameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const fragmentName = try parser.getTokenValue(fragmentNameToken);
     errdefer parser.allocator.free(fragmentName);
 
-    if (fragmentNameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
     if (strEq(fragmentName, "on")) {
         return ParseError.ExpectedNameNotOn;
     }
 
-    const onToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const tokenName = try parser.getTokenValue(onToken);
-    defer parser.allocator.free(tokenName);
+    parser.consumeSpecificIdentifier(tokens, "on") catch return ParseError.ExpectedOn;
 
-    if (onToken.tag != Token.Tag.identifier or !strEq(tokenName, "on")) {
-        return ParseError.ExpectedOn;
-    }
-
-    const namedTypeToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (namedTypeToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    const namedType = try parseNamedType(parser, tokens, false);
 
     const directivesNodes = try parseDirectives(parser, tokens);
     const selectionSetNode = try parseSelectionSet(parser, tokens);
@@ -79,6 +73,7 @@ pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!Frag
         .name = fragmentName,
         .directives = directivesNodes,
         .selectionSet = selectionSetNode,
+        .typeCondition = namedType,
     };
 }
 

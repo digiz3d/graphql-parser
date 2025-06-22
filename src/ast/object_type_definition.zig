@@ -76,22 +76,16 @@ pub const ObjectTypeDefinition = struct {
 
 pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!ObjectTypeDefinition {
     const description = try parseOptionalDescription(parser, tokens);
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    try parser.consumeSpecificIdentifier(tokens, "type");
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (nameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    const nameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
     const interfaces = try parseInterfaces(parser, tokens);
     const directives = try parseDirectives(parser, tokens);
 
-    const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (leftBraceToken.tag != Token.Tag.punct_brace_left) {
-        return ParseError.ExpectedBracketLeft;
-    }
+    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
@@ -101,7 +95,7 @@ pub fn parseObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Ob
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
 
     const objectTypeDefinition = ObjectTypeDefinition{
         .allocator = parser.allocator,

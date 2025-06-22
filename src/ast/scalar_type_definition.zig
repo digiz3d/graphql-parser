@@ -51,12 +51,9 @@ pub const ScalarTypeDefinition = struct {
 
 pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token) ParseError!ScalarTypeDefinition {
     const description = try parseOptionalDescription(parser, tokens);
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const scalarNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (scalarNameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    try parser.consumeSpecificIdentifier(tokens, "scalar");
 
+    const scalarNameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
     const scalarName = try parser.getTokenValue(scalarNameToken);
     errdefer parser.allocator.free(scalarName);
 

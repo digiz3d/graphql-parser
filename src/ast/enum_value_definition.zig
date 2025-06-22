@@ -52,7 +52,7 @@ pub const EnumValueDefinition = struct {
 
 pub fn parseEnumValueDefinition(parser: *Parser, tokens: []Token) ParseError!EnumValueDefinition {
     const description = try parseOptionalDescription(parser, tokens);
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const nameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
