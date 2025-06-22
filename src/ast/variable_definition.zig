@@ -109,7 +109,6 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token) ParseError![]Va
         currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 
-    // consume the right parenthesis
     _ = try parser.consumeToken(tokens, Token.Tag.punct_paren_right);
 
     return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
