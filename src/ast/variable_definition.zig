@@ -69,16 +69,16 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token) ParseError![]Va
     var currentToken = parser.peekNextToken(tokens) orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     if (currentToken.tag != Token.Tag.punct_paren_left) return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_paren_left);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_paren_left);
 
     while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError) {
-        _ = parser.consumeSpecificToken(tokens, Token.Tag.punct_dollar) catch return ParseError.ExpectedDollar;
+        _ = parser.consumeToken(tokens, Token.Tag.punct_dollar) catch return ParseError.ExpectedDollar;
 
-        const variableNameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+        const variableNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const variableName = try parser.getTokenValue(variableNameToken);
         errdefer parser.allocator.free(variableName);
 
-        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
 
         const nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
@@ -91,7 +91,7 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token) ParseError![]Va
 
         var defaultValue: ?input.InputValue = null;
         if (defaultValueToken.tag == Token.Tag.punct_equal) {
-            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_equal);
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
             defaultValue = try parseInputValue(parser, tokens, false);
         }
 
@@ -110,7 +110,7 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token) ParseError![]Va
     }
 
     // consume the right parenthesis
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_paren_right);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_paren_right);
 
     return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }

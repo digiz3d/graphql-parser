@@ -53,7 +53,7 @@ pub const FragmentDefinition = struct {
 pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!FragmentDefinition {
     try parser.consumeSpecificIdentifier(tokens, "fragment");
 
-    const fragmentNameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const fragmentNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const fragmentName = try parser.getTokenValue(fragmentNameToken);
     errdefer parser.allocator.free(fragmentName);
 

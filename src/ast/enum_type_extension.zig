@@ -51,13 +51,13 @@ pub fn parseEnumTypeExtension(parser: *Parser, tokens: []Token) ParseError!EnumT
     try parser.consumeSpecificIdentifier(tokens, "extend");
     try parser.consumeSpecificIdentifier(tokens, "enum");
 
-    const nameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
     const directives = try parseDirectives(parser, tokens);
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     var values = ArrayList(EnumValueDefinition).init(parser.allocator);
     errdefer {
@@ -74,7 +74,7 @@ pub fn parseEnumTypeExtension(parser: *Parser, tokens: []Token) ParseError!EnumT
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
 
     return EnumTypeExtension{
         .allocator = parser.allocator,

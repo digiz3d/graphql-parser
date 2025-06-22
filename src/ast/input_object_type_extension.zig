@@ -53,7 +53,7 @@ pub fn parseInputObjectTypeExtension(parser: *Parser, tokens: []Token) ParseErro
     try parser.consumeSpecificIdentifier(tokens, "extend");
     try parser.consumeSpecificIdentifier(tokens, "input");
 
-    const nameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 

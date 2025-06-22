@@ -41,7 +41,7 @@ pub fn parseScalarTypeExtension(parser: *Parser, tokens: []Token) ParseError!Sca
     try parser.consumeSpecificIdentifier(tokens, "extend");
     try parser.consumeSpecificIdentifier(tokens, "scalar");
 
-    const nameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 

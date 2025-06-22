@@ -50,22 +50,22 @@ pub fn parseArguments(parser: *Parser, tokens: []Token) ParseError![]Argument {
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_paren_left);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_paren_left);
 
     while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken(tokens) orelse
         return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
     {
-        const argumentNameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+        const argumentNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const argumentName = try parser.getTokenValue(argumentNameToken);
         errdefer parser.allocator.free(argumentName);
-        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
 
         const argumentValue = try parseInputValue(parser, tokens, true);
 
         var defaultValue: ?InputValue = null;
         if (parser.peekNextToken(tokens)) |nextToken| {
             if (nextToken.tag == Token.Tag.punct_equal) {
-                _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_equal);
+                _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
                 defaultValue = try parseInputValue(parser, tokens, true);
             }
         }
@@ -81,7 +81,7 @@ pub fn parseArguments(parser: *Parser, tokens: []Token) ParseError![]Argument {
         currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_paren_right);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_paren_right);
 
     return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }

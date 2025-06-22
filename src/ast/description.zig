@@ -7,6 +7,6 @@ pub fn parseOptionalDescription(parser: *Parser, tokens: []Token) ParseError!?[]
     const firstToken = parser.peekNextToken(tokens) orelse return null;
     if (firstToken.tag != Token.Tag.string_literal and firstToken.tag != Token.Tag.string_literal_block) return null;
 
-    const description = try parser.consumeSpecificToken(tokens, firstToken.tag);
+    const description = try parser.consumeToken(tokens, firstToken.tag);
     return try parser.getTokenValue(description);
 }

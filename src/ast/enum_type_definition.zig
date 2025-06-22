@@ -64,7 +64,7 @@ pub const EnumTypeDefinition = struct {
 pub fn parseEnumTypeDefinition(parser: *Parser, tokens: []Token) ParseError!EnumTypeDefinition {
     const description = try parseOptionalDescription(parser, tokens);
     try parser.consumeSpecificIdentifier(tokens, "enum");
-    const nameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
@@ -78,7 +78,7 @@ pub fn parseEnumTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Enum
         values.deinit();
     }
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
@@ -87,7 +87,7 @@ pub fn parseEnumTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Enum
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
 
     return EnumTypeDefinition{
         .allocator = parser.allocator,

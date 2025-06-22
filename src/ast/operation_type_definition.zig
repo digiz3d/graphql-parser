@@ -50,10 +50,10 @@ fn parseOperationTypeDefinition(
 pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseError![]OperationTypeDefinition {
     var definitions = ArrayList(OperationTypeDefinition).init(parser.allocator);
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     while (true) {
-        const opTypeToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+        const opTypeToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const operationType = try parser.getTokenValue(opTypeToken);
         defer parser.allocator.free(operationType);
 
@@ -61,8 +61,8 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
             return ParseError.InvalidOperationType;
         }
 
-        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
-        const typeNameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
+        const typeNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
         const typeName = try parser.getTokenValue(typeNameToken);
         defer parser.allocator.free(typeName);
 
@@ -72,7 +72,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
         // Peek next token: if it's '}', break; else, expect another operation type
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag == Token.Tag.punct_brace_right) {
-            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
             break;
         }
     }

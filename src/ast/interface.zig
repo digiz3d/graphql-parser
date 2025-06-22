@@ -60,7 +60,7 @@ pub fn parseInterfaces(parser: *Parser, tokens: []Token) ParseError![]Interface 
         nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag != Token.Tag.punct_ampersand) break;
 
-        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_ampersand);
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_ampersand);
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 

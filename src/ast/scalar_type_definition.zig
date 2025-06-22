@@ -53,7 +53,7 @@ pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Sc
     const description = try parseOptionalDescription(parser, tokens);
     try parser.consumeSpecificIdentifier(tokens, "scalar");
 
-    const scalarNameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+    const scalarNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const scalarName = try parser.getTokenValue(scalarNameToken);
     errdefer parser.allocator.free(scalarName);
 

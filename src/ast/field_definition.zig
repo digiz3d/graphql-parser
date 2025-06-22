@@ -66,7 +66,7 @@ pub const FieldDefinition = struct {
 pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
     const description = try parseOptionalDescription(parser, tokens);
 
-    const nameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     defer parser.allocator.free(name);
 
@@ -76,7 +76,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
 
     const arguments = try parseInputValueDefinitions(parser, tokens, false);
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
 
     const namedType = try parseType(parser, tokens);
 

@@ -64,14 +64,14 @@ pub fn parseInterfaceTypeExtension(parser: *Parser, tokens: []Token) ParseError!
     try parser.consumeSpecificIdentifier(tokens, "extend");
     try parser.consumeSpecificIdentifier(tokens, "interface");
 
-    const nameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
     const interfaces = try parseInterfaces(parser, tokens);
     const directives = try parseDirectives(parser, tokens);
 
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
@@ -81,7 +81,7 @@ pub fn parseInterfaceTypeExtension(parser: *Parser, tokens: []Token) ParseError!
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
 
     return InterfaceTypeExtension{
         .allocator = parser.allocator,

@@ -222,7 +222,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
             }
         },
         Token.Tag.punct_dollar => {
-            token = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+            token = try parser.consumeToken(tokens, Token.Tag.identifier);
             parser.allocator.free(str);
             str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 
@@ -245,14 +245,14 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
 }
 
 fn parseListValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
-    var token = try parser.consumeSpecificToken(tokens, Token.Tag.punct_bracket_left);
+    var token = try parser.consumeToken(tokens, Token.Tag.punct_bracket_left);
 
     var values = ArrayList(InputValue).init(parser.allocator);
 
     while (true) {
         token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
         if (token.tag == Token.Tag.punct_bracket_right) {
-            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_bracket_right);
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_bracket_right);
             break;
         }
         const value = try parseInputValue(parser, tokens, false);
@@ -267,14 +267,14 @@ fn parseListValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
 }
 
 fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
-    var token = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_left);
+    var token = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     var fields = ArrayList(ObjectField).init(parser.allocator);
 
     while (true) {
         token = parser.peekNextToken(tokens) orelse return ParseError.ExpectedRightBrace;
         if (token.tag == Token.Tag.punct_brace_right) {
-            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_brace_right);
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
             break;
         }
         const field = try parseObjectField(parser, tokens);
@@ -289,9 +289,9 @@ fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
 }
 
 fn parseObjectField(parser: *Parser, tokens: []Token) ParseError!ObjectField {
-    var fieldNameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+    var fieldNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const fieldName = fieldNameToken.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_colon);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
     const fieldValue = try parseInputValue(parser, tokens, false);
     return ObjectField{
         .name = fieldName,

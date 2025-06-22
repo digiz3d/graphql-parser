@@ -317,7 +317,7 @@ pub const Parser = struct {
         return nextToken;
     }
 
-    pub fn consumeSpecificToken(self: *Parser, tokens: []Token, tag: Token.Tag) ParseError!Token {
+    pub fn consumeToken(self: *Parser, tokens: []Token, tag: Token.Tag) ParseError!Token {
         const nextToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
         if (nextToken.tag != tag) {
             return ParseError.UnexpectedToken;
@@ -326,7 +326,7 @@ pub const Parser = struct {
     }
 
     pub fn consumeSpecificIdentifier(self: *Parser, tokens: []Token, comptime tokenStr: []const u8) ParseError!void {
-        const nextToken = try self.consumeSpecificToken(tokens, Token.Tag.identifier);
+        const nextToken = try self.consumeToken(tokens, Token.Tag.identifier);
         const strValue = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
         defer self.allocator.free(strValue);
         if (!strEq(strValue, tokenStr)) {

@@ -74,9 +74,9 @@ pub const DirectiveDefinition = struct {
 pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!DirectiveDefinition {
     const description = try parseOptionalDescription(parser, tokens);
     try parser.consumeSpecificIdentifier(tokens, "directive");
-    _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_at);
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_at);
 
-    const directiveNameToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const directiveNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const directiveName = try parser.getTokenValue(directiveNameToken);
     errdefer parser.allocator.free(directiveName);
 
@@ -86,7 +86,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
 
     var locations = ArrayList([]const u8).init(parser.allocator);
     while (true) {
-        const locationToken = parser.consumeSpecificToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+        const locationToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const location = try parser.getTokenValue(locationToken);
         errdefer parser.allocator.free(location);
         if (!validateLocations(location)) {
@@ -96,7 +96,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
 
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag != Token.Tag.punct_pipe) break;
-        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_pipe);
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
     }
 
     if (locations.items.len == 0) {

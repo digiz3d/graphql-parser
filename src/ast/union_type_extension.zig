@@ -53,7 +53,7 @@ pub fn parseUnionTypeExtension(parser: *Parser, tokens: []Token) ParseError!Unio
     try parser.consumeSpecificIdentifier(tokens, "extend");
     try parser.consumeSpecificIdentifier(tokens, "union");
 
-    const nameToken = try parser.consumeSpecificToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
@@ -69,7 +69,7 @@ pub fn parseUnionTypeExtension(parser: *Parser, tokens: []Token) ParseError!Unio
 
     const equalToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (equalToken.tag == Token.Tag.punct_equal) {
-        _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_equal);
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
         while (true) {
             const t = try parseNamedType(parser, tokens, false);
             types.append(t) catch return ParseError.UnexpectedMemoryError;
@@ -78,7 +78,7 @@ pub fn parseUnionTypeExtension(parser: *Parser, tokens: []Token) ParseError!Unio
                 break;
             }
 
-            _ = try parser.consumeSpecificToken(tokens, Token.Tag.punct_pipe);
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
         }
     }
 
