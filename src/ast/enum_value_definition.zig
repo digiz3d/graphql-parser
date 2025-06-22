@@ -50,13 +50,13 @@ pub const EnumValueDefinition = struct {
     }
 };
 
-pub fn parseEnumValueDefinition(parser: *Parser, tokens: []Token) ParseError!EnumValueDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
-    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+pub fn parseEnumValueDefinition(parser: *Parser) ParseError!EnumValueDefinition {
+    const description = try parseOptionalDescription(parser);
+    const nameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const directives = try parseDirectives(parser, tokens);
+    const directives = try parseDirectives(parser);
 
     return EnumValueDefinition{
         .allocator = parser.allocator,
@@ -74,15 +74,10 @@ test "parseEnumValueDefinition with directives" {
 }
 
 fn runTest(buffer: [:0]const u8, len: usize) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const enumValueDefinition = try parseEnumValueDefinition(&parser, tokens);
+    const enumValueDefinition = try parseEnumValueDefinition(&parser);
     defer enumValueDefinition.deinit();
 
     try testing.expectEqual(len, enumValueDefinition.directives.len);

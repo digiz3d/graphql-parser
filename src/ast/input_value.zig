@@ -158,8 +158,8 @@ pub const ObjectField = struct {
     value: InputValue,
 };
 
-pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) ParseError!InputValue {
-    var token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+pub fn parseInputValue(parser: *Parser, acceptVariables: bool) ParseError!InputValue {
+    var token = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     if (token.tag == Token.Tag.punct_dollar and !acceptVariables) {
         return ParseError.ExpectedName;
     }
@@ -172,7 +172,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
         Token.Tag.punct_bracket_left,
         => {},
         else => {
-            token = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            token = parser.consumeNextToken() orelse return ParseError.EmptyTokenList;
         },
     }
 
@@ -222,7 +222,7 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
             }
         },
         Token.Tag.punct_dollar => {
-            token = try parser.consumeToken(tokens, Token.Tag.identifier);
+            token = try parser.consumeToken(Token.Tag.identifier);
             parser.allocator.free(str);
             str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 
@@ -234,28 +234,28 @@ pub fn parseInputValue(parser: *Parser, tokens: []Token, acceptVariables: bool) 
             };
         },
         Token.Tag.punct_brace_left => {
-            return parseObjectValue(parser, tokens);
+            return parseObjectValue(parser);
         },
         Token.Tag.punct_bracket_left => {
-            return parseListValue(parser, tokens);
+            return parseListValue(parser);
         },
         else => return ParseError.NotImplemented,
     }
     return ParseError.NotImplemented;
 }
 
-fn parseListValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
-    var token = try parser.consumeToken(tokens, Token.Tag.punct_bracket_left);
+fn parseListValue(parser: *Parser) ParseError!InputValue {
+    var token = try parser.consumeToken(Token.Tag.punct_bracket_left);
 
     var values = ArrayList(InputValue).init(parser.allocator);
 
     while (true) {
-        token = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        token = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
         if (token.tag == Token.Tag.punct_bracket_right) {
-            _ = try parser.consumeToken(tokens, Token.Tag.punct_bracket_right);
+            _ = try parser.consumeToken(Token.Tag.punct_bracket_right);
             break;
         }
-        const value = try parseInputValue(parser, tokens, false);
+        const value = try parseInputValue(parser, false);
         values.append(value) catch return ParseError.UnexpectedMemoryError;
     }
 
@@ -266,18 +266,18 @@ fn parseListValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
     };
 }
 
-fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
-    var token = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
+fn parseObjectValue(parser: *Parser) ParseError!InputValue {
+    var token = try parser.consumeToken(Token.Tag.punct_brace_left);
 
     var fields = ArrayList(ObjectField).init(parser.allocator);
 
     while (true) {
-        token = parser.peekNextToken(tokens) orelse return ParseError.ExpectedRightBrace;
+        token = parser.peekNextToken() orelse return ParseError.ExpectedRightBrace;
         if (token.tag == Token.Tag.punct_brace_right) {
-            _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
+            _ = try parser.consumeToken(Token.Tag.punct_brace_right);
             break;
         }
-        const field = try parseObjectField(parser, tokens);
+        const field = try parseObjectField(parser);
         fields.append(field) catch return ParseError.UnexpectedMemoryError;
     }
 
@@ -288,11 +288,11 @@ fn parseObjectValue(parser: *Parser, tokens: []Token) ParseError!InputValue {
     };
 }
 
-fn parseObjectField(parser: *Parser, tokens: []Token) ParseError!ObjectField {
-    var fieldNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+fn parseObjectField(parser: *Parser) ParseError!ObjectField {
+    var fieldNameToken = try parser.consumeToken(Token.Tag.identifier);
     const fieldName = fieldNameToken.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
-    const fieldValue = try parseInputValue(parser, tokens, false);
+    _ = try parser.consumeToken(Token.Tag.punct_colon);
+    const fieldValue = try parseInputValue(parser, false);
     return ObjectField{
         .name = fieldName,
         .value = fieldValue,
@@ -300,15 +300,10 @@ fn parseObjectField(parser: *Parser, tokens: []Token) ParseError!ObjectField {
 }
 
 test "parsing integer values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "42");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "42");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .int_value = IntValue{ .value = 42 } }, inputValue);
@@ -316,15 +311,10 @@ test "parsing integer values" {
 }
 
 test "parsing float values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "3.14");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "3.14");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .float_value = FloatValue{ .value = 3.14 } }, inputValue);
@@ -332,15 +322,10 @@ test "parsing float values" {
 }
 
 test "parsing string values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "\"hello world\"");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "\"hello world\"");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqualStrings("\"hello world\"", inputValue.string_value.value);
@@ -348,15 +333,10 @@ test "parsing string values" {
 }
 
 test "parsing block string values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "\"\"\"hello\nworld\"\"\"");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "\"\"\"hello\nworld\"\"\"");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqualStrings("\"\"\"hello\nworld\"\"\"", inputValue.string_value.value);
@@ -364,15 +344,10 @@ test "parsing block string values" {
 }
 
 test "parsing boolean values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "true");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "true");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .boolean_value = BooleanValue{ .value = true } }, inputValue);
@@ -380,15 +355,10 @@ test "parsing boolean values" {
 }
 
 test "parsing false boolean values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "false");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "false");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .boolean_value = BooleanValue{ .value = false } }, inputValue);
@@ -396,73 +366,48 @@ test "parsing false boolean values" {
 }
 
 test "parsing null values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "null");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "null");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .null_value = NullValue{} }, inputValue);
 }
 
 test "parsing enum values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "ENUM_VALUE");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "ENUM_VALUE");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqualStrings("ENUM_VALUE", inputValue.enum_value.name);
 }
 
 test "parsing variable values with acceptVariables true" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "$variableName");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "$variableName");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, true);
+    const inputValue = try parseInputValue(&parser, true);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqualStrings("variableName", inputValue.variable.name);
 }
 
 test "parsing variable values with acceptVariables false should fail" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "$variableName");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "$variableName");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const result = parseInputValue(&parser, tokens, false);
+    const result = parseInputValue(&parser, false);
     try testing.expectError(ParseError.ExpectedName, result);
 }
 
 test "parsing list values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "[1, 2, 3]");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "[1, 2, 3]");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(@as(usize, 3), inputValue.list_value.values.len);
@@ -472,15 +417,10 @@ test "parsing list values" {
 }
 
 test "parsing empty list values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "[]");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "[]");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .list_value = ListValue{ .values = &[_]InputValue{} } }, inputValue);
@@ -488,15 +428,10 @@ test "parsing empty list values" {
 }
 
 test "parsing object values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "{name: \"John\", age: 30}");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "{name: \"John\", age: 30}");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(@as(usize, 2), inputValue.object_value.fields.len);
@@ -507,15 +442,10 @@ test "parsing object values" {
 }
 
 test "parsing empty object values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "{}");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "{}");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(InputValue{ .object_value = ObjectValue{ .fields = &[_]ObjectField{} } }, inputValue);
@@ -523,15 +453,10 @@ test "parsing empty object values" {
 }
 
 test "parsing nested complex values" {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, "{items: [1, 2, {nested: true}], count: 3}");
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, "{items: [1, 2, {nested: true}], count: 3}");
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputValue = try parseInputValue(&parser, tokens, false);
+    const inputValue = try parseInputValue(&parser, false);
     defer inputValue.deinit(testing.allocator);
 
     try testing.expectEqual(@as(usize, 2), inputValue.object_value.fields.len);

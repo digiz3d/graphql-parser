@@ -50,10 +50,10 @@ pub const FragmentDefinition = struct {
     }
 };
 
-pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!FragmentDefinition {
-    try parser.consumeSpecificIdentifier(tokens, "fragment");
+pub fn parseFragmentDefinition(parser: *Parser) ParseError!FragmentDefinition {
+    try parser.consumeSpecificIdentifier("fragment");
 
-    const fragmentNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const fragmentNameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const fragmentName = try parser.getTokenValue(fragmentNameToken);
     errdefer parser.allocator.free(fragmentName);
 
@@ -61,12 +61,12 @@ pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!Frag
         return ParseError.ExpectedNameNotOn;
     }
 
-    parser.consumeSpecificIdentifier(tokens, "on") catch return ParseError.ExpectedOn;
+    parser.consumeSpecificIdentifier("on") catch return ParseError.ExpectedOn;
 
-    const namedType = try parseNamedType(parser, tokens, false);
+    const namedType = try parseNamedType(parser, false);
 
-    const directivesNodes = try parseDirectives(parser, tokens);
-    const selectionSetNode = try parseSelectionSet(parser, tokens);
+    const directivesNodes = try parseDirectives(parser);
+    const selectionSetNode = try parseSelectionSet(parser);
 
     return FragmentDefinition{
         .allocator = parser.allocator,
@@ -78,8 +78,6 @@ pub fn parseFragmentDefinition(parser: *Parser, tokens: []Token) ParseError!Frag
 }
 
 test "initialize fragment" {
-    var parser = Parser.init(testing.allocator);
-
     const buffer =
         \\fragment Profile on User @SomeDecorator
         \\  @AnotherOne(v: $var, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
@@ -91,13 +89,10 @@ test "initialize fragment" {
         \\}
     ;
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const fragmentDefinition = try parseFragmentDefinition(&parser, tokens);
+    const fragmentDefinition = try parseFragmentDefinition(&parser);
     defer fragmentDefinition.deinit();
 
     try testing.expectEqualStrings(fragmentDefinition.name, "Profile");
@@ -105,22 +100,25 @@ test "initialize fragment" {
 
 // error cases
 test "initialize invalid fragment no name" {
-    var parser = Parser.init(testing.allocator);
     const buffer = "fragment { hello }";
-    const rootNode = parser.parse(buffer);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const rootNode = parser.parse();
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }
 
 test "initialize invalid fragment name is on" {
-    var parser = Parser.init(testing.allocator);
     const buffer = "fragment on on User { hello }";
-    const rootNode = parser.parse(buffer);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const rootNode = parser.parse();
     try testing.expectError(ParseError.ExpectedNameNotOn, rootNode);
 }
 
 test "initialize invalid fragment name after on" {
-    var parser = Parser.init(testing.allocator);
     const buffer = "fragment X on { hello }";
-    const rootNode = parser.parse(buffer);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const rootNode = parser.parse();
     try testing.expectError(ParseError.ExpectedName, rootNode);
 }

@@ -37,15 +37,15 @@ pub const ScalarTypeExtension = struct {
     }
 };
 
-pub fn parseScalarTypeExtension(parser: *Parser, tokens: []Token) ParseError!ScalarTypeExtension {
-    try parser.consumeSpecificIdentifier(tokens, "extend");
-    try parser.consumeSpecificIdentifier(tokens, "scalar");
+pub fn parseScalarTypeExtension(parser: *Parser) ParseError!ScalarTypeExtension {
+    try parser.consumeSpecificIdentifier("extend");
+    try parser.consumeSpecificIdentifier("scalar");
 
-    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const directives = try parseDirectives(parser, tokens);
+    const directives = try parseDirectives(parser);
 
     if (directives.len == 0) {
         return ParseError.ExpectedAt;
@@ -77,29 +77,19 @@ test "parseScalarTypeExtension without directives" {
 }
 
 fn runTest(buffer: [:0]const u8) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const scalarTypeExtension = try parseScalarTypeExtension(&parser, tokens);
+    const scalarTypeExtension = try parseScalarTypeExtension(&parser);
     defer scalarTypeExtension.deinit();
 
     try testing.expectEqualStrings("DateTime", scalarTypeExtension.name);
 }
 
 fn runTestWithoutDirectives(buffer: [:0]const u8) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const scalarTypeExtension = parseScalarTypeExtension(&parser, tokens);
+    const scalarTypeExtension = parseScalarTypeExtension(&parser);
     try testing.expectError(ParseError.ExpectedAt, scalarTypeExtension);
 }

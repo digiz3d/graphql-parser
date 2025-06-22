@@ -63,10 +63,10 @@ pub const FieldDefinition = struct {
     }
 };
 
-pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
+pub fn parseFieldDefinition(parser: *Parser) !FieldDefinition {
+    const description = try parseOptionalDescription(parser);
 
-    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const nameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
@@ -74,13 +74,13 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
         return ParseError.ExpectedName;
     }
 
-    const arguments = try parseInputValueDefinitions(parser, tokens, false);
+    const arguments = try parseInputValueDefinitions(parser, false);
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
+    _ = try parser.consumeToken(Token.Tag.punct_colon);
 
-    const namedType = try parseType(parser, tokens);
+    const namedType = try parseType(parser);
 
-    const directives = try parseDirectives(parser, tokens);
+    const directives = try parseDirectives(parser);
 
     const fieldDefinition = FieldDefinition{
         .allocator = parser.allocator,
@@ -96,7 +96,9 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
 
 test "parsing simple field definition" {
     const buffer = "name: String";
-    const field = try runTest(buffer, testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const field = try parseFieldDefinition(&parser);
     defer field.deinit();
 
     try testing.expectEqualStrings("name", field.name);
@@ -107,7 +109,9 @@ test "parsing simple field definition" {
 
 test "parsing field definition with description" {
     const buffer = "\"field description\" name: String";
-    const field = try runTest(buffer, testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const field = try parseFieldDefinition(&parser);
     defer field.deinit();
 
     try testing.expectEqualStrings("name", field.name);
@@ -118,7 +122,9 @@ test "parsing field definition with description" {
 
 test "parsing field definition with arguments" {
     const buffer = "name(id: ID!, value: String = \"default\"): String";
-    const field = try runTest(buffer, testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const field = try parseFieldDefinition(&parser);
     defer field.deinit();
 
     try testing.expectEqualStrings("name", field.name);
@@ -128,7 +134,9 @@ test "parsing field definition with arguments" {
 
 test "parsing field definition with directives" {
     const buffer = "name: String @deprecated(reason: \"no longer used\")";
-    const field = try runTest(buffer, testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const field = try parseFieldDefinition(&parser);
     defer field.deinit();
 
     try testing.expectEqualStrings("name", field.name);
@@ -138,17 +146,8 @@ test "parsing field definition with directives" {
 
 test "parsing field definition with unexpected token" {
     const buffer = "123: String";
-    const field = runTest(buffer, testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const field = parseFieldDefinition(&parser);
     try testing.expectError(ParseError.ExpectedName, field);
-}
-
-fn runTest(buffer: [:0]const u8, testing_allocator: Allocator) !FieldDefinition {
-    var parser = Parser.init(testing.allocator);
-    var tokenizer = Tokenizer.init(testing_allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing_allocator.free(tokens);
-
-    return parseFieldDefinition(&parser, tokens);
 }

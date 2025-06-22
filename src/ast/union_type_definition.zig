@@ -61,14 +61,14 @@ pub const UnionTypeDefinition = struct {
     }
 };
 
-pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!UnionTypeDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
-    try parser.consumeSpecificIdentifier(tokens, "union");
-    const unionNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+pub fn parseUnionTypeDefinition(parser: *Parser) ParseError!UnionTypeDefinition {
+    const description = try parseOptionalDescription(parser);
+    try parser.consumeSpecificIdentifier("union");
+    const unionNameToken = try parser.consumeToken(Token.Tag.identifier);
     const unionName = try parser.getTokenValue(unionNameToken);
     errdefer parser.allocator.free(unionName);
 
-    const directivesNodes = try parseDirectives(parser, tokens);
+    const directivesNodes = try parseDirectives(parser);
 
     var types = ArrayList(Type).init(parser.allocator);
     errdefer {
@@ -78,18 +78,18 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Uni
         types.deinit();
     }
 
-    const equalToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const equalToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     if (equalToken.tag == Token.Tag.punct_equal) {
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
+        _ = try parser.consumeToken(Token.Tag.punct_equal);
         while (true) {
-            const t = try parseNamedType(parser, tokens, false);
+            const t = try parseNamedType(parser, false);
             types.append(t) catch return ParseError.UnexpectedMemoryError;
-            const pipeToken = parser.peekNextToken(tokens) orelse break;
+            const pipeToken = parser.peekNextToken() orelse break;
             if (pipeToken.tag != Token.Tag.punct_pipe) {
                 break;
             }
 
-            _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
+            _ = try parser.consumeToken(Token.Tag.punct_pipe);
         }
     }
 
@@ -135,20 +135,16 @@ fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
     len: usize,
     parseError: ParseError,
 }) !void {
-    var parser = Parser.init(testing.allocator);
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
     switch (expectedLenOrError) {
         .parseError => |expectedError| {
-            const unionTypeDefinition = parseUnionTypeDefinition(&parser, tokens);
+            const unionTypeDefinition = parseUnionTypeDefinition(&parser);
             try testing.expectError(expectedError, unionTypeDefinition);
         },
         .len => |length| {
-            const unionTypeDefinition = try parseUnionTypeDefinition(&parser, tokens);
+            const unionTypeDefinition = try parseUnionTypeDefinition(&parser);
             defer unionTypeDefinition.deinit();
 
             try testing.expectEqual(length, unionTypeDefinition.types.len);

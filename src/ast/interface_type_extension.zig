@@ -60,28 +60,28 @@ pub const InterfaceTypeExtension = struct {
     }
 };
 
-pub fn parseInterfaceTypeExtension(parser: *Parser, tokens: []Token) ParseError!InterfaceTypeExtension {
-    try parser.consumeSpecificIdentifier(tokens, "extend");
-    try parser.consumeSpecificIdentifier(tokens, "interface");
+pub fn parseInterfaceTypeExtension(parser: *Parser) ParseError!InterfaceTypeExtension {
+    try parser.consumeSpecificIdentifier("extend");
+    try parser.consumeSpecificIdentifier("interface");
 
-    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const interfaces = try parseInterfaces(parser, tokens);
-    const directives = try parseDirectives(parser, tokens);
+    const interfaces = try parseInterfaces(parser);
+    const directives = try parseDirectives(parser);
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
-    var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
-        const fieldDefinition = try parseFieldDefinition(parser, tokens);
+        const fieldDefinition = try parseFieldDefinition(parser);
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
-        nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_right);
 
     return InterfaceTypeExtension{
         .allocator = parser.allocator,
@@ -102,15 +102,10 @@ test "parseInterfaceTypeExtension" {
 }
 
 fn runTest(buffer: [:0]const u8, len: usize) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const interfaceTypeExtension = try parseInterfaceTypeExtension(&parser, tokens);
+    const interfaceTypeExtension = try parseInterfaceTypeExtension(&parser);
     defer interfaceTypeExtension.deinit();
 
     try testing.expectEqual(len, interfaceTypeExtension.fields.len);

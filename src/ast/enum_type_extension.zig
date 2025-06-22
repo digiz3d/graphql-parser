@@ -47,17 +47,17 @@ pub const EnumTypeExtension = struct {
     }
 };
 
-pub fn parseEnumTypeExtension(parser: *Parser, tokens: []Token) ParseError!EnumTypeExtension {
-    try parser.consumeSpecificIdentifier(tokens, "extend");
-    try parser.consumeSpecificIdentifier(tokens, "enum");
+pub fn parseEnumTypeExtension(parser: *Parser) ParseError!EnumTypeExtension {
+    try parser.consumeSpecificIdentifier("extend");
+    try parser.consumeSpecificIdentifier("enum");
 
-    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const nameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const directives = try parseDirectives(parser, tokens);
+    const directives = try parseDirectives(parser);
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
     var values = ArrayList(EnumValueDefinition).init(parser.allocator);
     errdefer {
@@ -67,14 +67,14 @@ pub fn parseEnumTypeExtension(parser: *Parser, tokens: []Token) ParseError!EnumT
         values.deinit();
     }
 
-    var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
-        const value = try parseEnumValueDefinition(parser, tokens);
+        const value = try parseEnumValueDefinition(parser);
         values.append(value) catch return ParseError.UnexpectedMemoryError;
-        nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_right);
 
     return EnumTypeExtension{
         .allocator = parser.allocator,
@@ -94,15 +94,10 @@ test "parseEnumTypeExtension" {
 }
 
 fn runTest(buffer: [:0]const u8, valuesCount: usize, directivesCount: usize) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const enumTypeExtension = try parseEnumTypeExtension(&parser, tokens);
+    const enumTypeExtension = try parseEnumTypeExtension(&parser);
     defer enumTypeExtension.deinit();
 
     try testing.expectEqual(valuesCount, enumTypeExtension.values.len);

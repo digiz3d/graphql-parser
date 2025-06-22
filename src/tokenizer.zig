@@ -73,6 +73,7 @@ pub const Token = struct {
 };
 
 const TokenizerError = error{UnexpectedRuneError};
+const Utf8Bom = "\xEF\xBB\xBF";
 
 pub const Tokenizer = struct {
     buffer: [:0]const u8,
@@ -95,7 +96,7 @@ pub const Tokenizer = struct {
         return Tokenizer{
             .buffer = buffer,
             // Skip the UTF-8 BOM if present
-            .index = if (std.mem.startsWith(u8, buffer, "\xEF\xBB\xBF")) 3 else 0,
+            .index = if (std.mem.startsWith(u8, buffer, Utf8Bom)) 3 else 0,
             .tokensList = ArrayList(Token).init(allocator),
         };
     }

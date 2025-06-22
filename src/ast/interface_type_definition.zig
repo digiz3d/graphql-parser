@@ -71,30 +71,30 @@ pub const InterfaceTypeDefinition = struct {
     }
 };
 
-pub fn parseInterfaceTypeDefinition(parser: *Parser, tokens: []Token) ParseError!InterfaceTypeDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
+pub fn parseInterfaceTypeDefinition(parser: *Parser) ParseError!InterfaceTypeDefinition {
+    const description = try parseOptionalDescription(parser);
 
-    try parser.consumeSpecificIdentifier(tokens, "interface");
+    try parser.consumeSpecificIdentifier("interface");
 
-    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const interfaces = try parseInterfaces(parser, tokens);
-    const directives = try parseDirectives(parser, tokens);
+    const interfaces = try parseInterfaces(parser);
+    const directives = try parseDirectives(parser);
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
-    var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
-        const fieldDefinition = try parseFieldDefinition(parser, tokens);
+        const fieldDefinition = try parseFieldDefinition(parser);
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
-        nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_right);
 
     return InterfaceTypeDefinition{
         .allocator = parser.allocator,
@@ -112,7 +112,9 @@ test "parseInterfaceTypeDefinition simple" {
         \\   id: ID!
         \\ }
     ;
-    const interfaceTypeDefinition = try runTest(buffer);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const interfaceTypeDefinition = try parseInterfaceTypeDefinition(&parser);
     defer interfaceTypeDefinition.deinit();
 
     try std.testing.expectEqualStrings("X", interfaceTypeDefinition.name);
@@ -125,24 +127,13 @@ test "parseInterfaceTypeDefinition composed of other interfaces" {
         \\   id: ID!
         \\ }
     ;
-    const interfaceTypeDefinition = try runTest(buffer);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const interfaceTypeDefinition = try parseInterfaceTypeDefinition(&parser);
     defer interfaceTypeDefinition.deinit();
 
     try std.testing.expectEqualStrings("A", interfaceTypeDefinition.name);
     try std.testing.expectEqualStrings("B", interfaceTypeDefinition.interfaces[0].type.namedType.name);
     try std.testing.expectEqualStrings("C", interfaceTypeDefinition.interfaces[1].type.namedType.name);
     try std.testing.expectEqualStrings("id", interfaceTypeDefinition.fields[0].name);
-}
-
-fn runTest(buffer: [:0]const u8) !InterfaceTypeDefinition {
-    var parser = Parser.init(std.testing.allocator);
-
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const interfaceTypeDefinition = try parseInterfaceTypeDefinition(&parser, tokens);
-    return interfaceTypeDefinition;
 }

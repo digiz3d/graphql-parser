@@ -121,8 +121,8 @@ pub const Type = union(enum) {
     }
 };
 
-pub fn parseNamedType(parser: *Parser, tokens: []Token, allowNonNull: bool) ParseError!Type {
-    const typeNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+pub fn parseNamedType(parser: *Parser, allowNonNull: bool) ParseError!Type {
+    const typeNameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(typeNameToken);
     errdefer parser.allocator.free(name);
 
@@ -133,26 +133,26 @@ pub fn parseNamedType(parser: *Parser, tokens: []Token, allowNonNull: bool) Pars
         },
     };
 
-    const nextToken = parser.peekNextToken(tokens) orelse return temporaryType;
+    const nextToken = parser.peekNextToken() orelse return temporaryType;
     if (nextToken.tag == Token.Tag.punct_excl) {
         if (!allowNonNull) {
             return ParseError.UnexpectedExclamationMark;
         }
 
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_excl);
+        _ = try parser.consumeToken(Token.Tag.punct_excl);
         temporaryType = wrapNonNullType(temporaryType);
     }
 
     return temporaryType;
 }
 
-fn parseListType(parser: *Parser, tokens: []Token) ParseError!Type {
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_bracket_left);
+fn parseListType(parser: *Parser) ParseError!Type {
+    _ = try parser.consumeToken(Token.Tag.punct_bracket_left);
 
     const elementType: *Type = parser.allocator.create(Type) catch return ParseError.UnexpectedMemoryError;
-    elementType.* = try parseType(parser, tokens);
+    elementType.* = try parseType(parser);
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_bracket_right);
+    _ = try parser.consumeToken(Token.Tag.punct_bracket_right);
 
     var temporaryType = Type{
         .listType = ListType{
@@ -161,9 +161,9 @@ fn parseListType(parser: *Parser, tokens: []Token) ParseError!Type {
         },
     };
 
-    const nextToken = parser.peekNextToken(tokens) orelse return temporaryType;
+    const nextToken = parser.peekNextToken() orelse return temporaryType;
     if (nextToken.tag == Token.Tag.punct_excl) {
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_excl);
+        _ = try parser.consumeToken(Token.Tag.punct_excl);
         temporaryType = wrapNonNullType(temporaryType);
     }
 
@@ -186,13 +186,13 @@ fn wrapNonNullType(tempType: Type) Type {
     }
 }
 
-pub fn parseType(parser: *Parser, tokens: []Token) ParseError!Type {
-    const typeNameOrListToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+pub fn parseType(parser: *Parser) ParseError!Type {
+    const typeNameOrListToken = parser.peekNextToken() orelse return ParseError.UnexpectedMemoryError;
 
     if (typeNameOrListToken.tag == Token.Tag.identifier) {
-        return parseNamedType(parser, tokens, true);
+        return parseNamedType(parser, true);
     } else if (typeNameOrListToken.tag == Token.Tag.punct_bracket_left) {
-        return parseListType(parser, tokens);
+        return parseListType(parser);
     }
 
     return ParseError.ExpectedName;
@@ -304,16 +304,10 @@ test "parsing mandatory array of array of mandatory simple type" {
 }
 
 fn runTest(buffer: [:0]const u8, comparison: Type) !void {
-    var parser = Parser.init(testing.allocator);
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const ok = try parseType(&parser, tokens);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const ok = try parseType(&parser);
     defer ok.deinit();
-
     try expectDeepEqual(ok, comparison);
 }
 

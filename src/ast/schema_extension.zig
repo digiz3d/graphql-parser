@@ -45,12 +45,12 @@ pub const SchemaExtension = struct {
     }
 };
 
-pub fn parseSchemaExtension(parser: *Parser, tokens: []Token) ParseError!SchemaExtension {
-    try parser.consumeSpecificIdentifier(tokens, "extend");
-    try parser.consumeSpecificIdentifier(tokens, "schema");
+pub fn parseSchemaExtension(parser: *Parser) ParseError!SchemaExtension {
+    try parser.consumeSpecificIdentifier("extend");
+    try parser.consumeSpecificIdentifier("schema");
 
-    const directives = try parseDirectives(parser, tokens);
-    const operationTypes = try parseOperationTypeDefinitions(parser, tokens);
+    const directives = try parseDirectives(parser);
+    const operationTypes = try parseOperationTypeDefinitions(parser);
     return SchemaExtension{
         .allocator = parser.allocator,
         .directives = directives,
@@ -59,22 +59,16 @@ pub fn parseSchemaExtension(parser: *Parser, tokens: []Token) ParseError!SchemaE
 }
 
 test "parsing schema extension" {
-    var parser = Parser.init(testing.allocator);
     const buffer =
         \\ extend schema @someDirective {
         \\   mutation: Mutation
         \\   subscription: Subscription
         \\ }
-        \\
     ;
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const schema = try parseSchemaExtension(&parser, tokens);
+    const schema = try parseSchemaExtension(&parser);
     defer schema.deinit();
 
     try testing.expectEqual(2, schema.operationTypes.len);

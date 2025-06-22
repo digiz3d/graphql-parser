@@ -69,8 +69,8 @@ pub const OperationDefinition = struct {
     }
 };
 
-pub fn parseOperationDefinition(parser: *Parser, tokens: []Token) ParseError!OperationDefinition {
-    const operationTypeToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+pub fn parseOperationDefinition(parser: *Parser) ParseError!OperationDefinition {
+    const operationTypeToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
 
     const str = try parser.getTokenValue(operationTypeToken);
     defer parser.allocator.free(str);
@@ -85,15 +85,15 @@ pub fn parseOperationDefinition(parser: *Parser, tokens: []Token) ParseError!Ope
         return ParseError.InvalidOperationType;
 
     var operationName: ?[]const u8 = null;
-    if (parser.peekNextToken(tokens).?.tag == Token.Tag.identifier) {
-        const operationNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    if (parser.peekNextToken().?.tag == Token.Tag.identifier) {
+        const operationNameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
         const name: ?[]const u8 = try parser.getTokenValue(operationNameToken);
         operationName = name;
     }
 
-    const variablesNodes = try parseVariableDefinition(parser, tokens);
-    const directivesNodes = try parseDirectives(parser, tokens);
-    const selectionSetNode = try parseSelectionSet(parser, tokens);
+    const variablesNodes = try parseVariableDefinition(parser);
+    const directivesNodes = try parseDirectives(parser);
+    const selectionSetNode = try parseSelectionSet(parser);
 
     return OperationDefinition{
         .allocator = parser.allocator,
@@ -106,8 +106,6 @@ pub fn parseOperationDefinition(parser: *Parser, tokens: []Token) ParseError!Ope
 }
 
 test "initialize query" {
-    var parser = Parser.init(testing.allocator);
-
     const buffer =
         \\query SomeQuery($someParams: [String!]!) @SomeDecorator
         \\  @AnotherOne(v: $someParams, i: 42, f: 0.1234e3 , s: "oui", b: true, n: null e: SOME_ENUM) {
@@ -124,13 +122,10 @@ test "initialize query" {
         \\}
     ;
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const operationDefinition = try parseOperationDefinition(&parser, tokens);
+    const operationDefinition = try parseOperationDefinition(&parser);
     defer operationDefinition.deinit();
 
     try testing.expectEqualStrings(operationDefinition.name orelse "", "SomeQuery");
@@ -138,21 +133,15 @@ test "initialize query" {
 }
 
 test "initialize query without name" {
-    var parser = Parser.init(testing.allocator);
-
     const buffer =
         \\query {
         \\  nickname: username
         \\}
     ;
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const operationDefinition = try parseOperationDefinition(&parser, tokens);
+    const operationDefinition = try parseOperationDefinition(&parser);
     defer operationDefinition.deinit();
 
     try testing.expectEqual(null, operationDefinition.name);
@@ -160,8 +149,6 @@ test "initialize query without name" {
 }
 
 test "initialize mutation" {
-    var parser = Parser.init(testing.allocator);
-
     const buffer =
         \\mutation SomeMutation($param: String = "123" @tolowercase) @SomeDecorator {
         \\  nickname: username
@@ -171,14 +158,10 @@ test "initialize mutation" {
         \\  }
         \\}
     ;
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const operationDefinition = try parseOperationDefinition(&parser, tokens);
+    const operationDefinition = try parseOperationDefinition(&parser);
     defer operationDefinition.deinit();
 
     try testing.expectEqualStrings("SomeMutation", operationDefinition.name orelse "");
@@ -186,8 +169,6 @@ test "initialize mutation" {
 }
 
 test "initialize subscription" {
-    var parser = Parser.init(testing.allocator);
-
     const buffer =
         \\subscription SomeSubscription @SomeDecorator #some comment
         \\{
@@ -198,14 +179,10 @@ test "initialize subscription" {
         \\  }
         \\}
     ;
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const operationDefinition = try parseOperationDefinition(&parser, tokens);
+    const operationDefinition = try parseOperationDefinition(&parser);
     defer operationDefinition.deinit();
 
     try testing.expectEqualStrings("SomeSubscription", operationDefinition.name orelse "");
