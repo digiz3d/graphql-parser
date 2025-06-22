@@ -25,6 +25,8 @@ const InputValueDefinition = @import("ast/input_value_definition.zig").InputValu
 const Interface = @import("ast/interface.zig").Interface;
 const InterfaceTypeDefinition = @import("ast/interface_type_definition.zig").InterfaceTypeDefinition;
 const EnumTypeDefinition = @import("ast/enum_type_definition.zig").EnumTypeDefinition;
+const EnumTypeExtension = @import("ast/enum_type_extension.zig").EnumTypeExtension;
+const EnumValueDefinition = @import("ast/enum_value_definition.zig").EnumValueDefinition;
 const InputObjectTypeDefinition = @import("ast/input_object_type_definition.zig").InputObjectTypeDefinition;
 
 pub const Printer = struct {
@@ -77,6 +79,9 @@ pub const Printer = struct {
             .enumTypeDefinition => |enumTypeDefinition| {
                 return try getGqlFromEnumTypeDefinition(enumTypeDefinition, allocator);
             },
+            .enumTypeExtension => |enumTypeExtension| {
+                return try getGqlFromEnumTypeExtension(enumTypeExtension, allocator);
+            },
             .inputObjectTypeDefinition => |inputObjectTypeDefinition| {
                 return try getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition, allocator);
             },
@@ -123,6 +128,25 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (enumTypeDefinition.values, 0..) |value, i| {
+            if (i > 0) try str.append(' ');
+            try str.appendSlice(value.name);
+            if (value.directives.len > 0) {
+                try str.appendSlice(try getGqlFromDirectiveList(value.directives, allocator));
+            }
+        }
+        try str.appendSlice("}");
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromEnumTypeExtension(enumTypeExtension: EnumTypeExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("extend enum ");
+        try str.appendSlice(enumTypeExtension.name);
+        if (enumTypeExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(enumTypeExtension.directives, allocator));
+        }
+        try str.appendSlice(" {");
+        for (enumTypeExtension.values, 0..) |value, i| {
             if (i > 0) try str.append(' ');
             try str.appendSlice(value.name);
             if (value.directives.len > 0) {
