@@ -24,7 +24,7 @@ interface USBA @a1 {
   a: A @a2
 }
 
-interface USBC {
+interface USBC implements USBA {
   C: C
 }
 

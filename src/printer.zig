@@ -24,6 +24,7 @@ const FieldDefinition = @import("ast/field_definition.zig").FieldDefinition;
 const InputValueDefinition = @import("ast/input_value_definition.zig").InputValueDefinition;
 const Interface = @import("ast/interface.zig").Interface;
 const InterfaceTypeDefinition = @import("ast/interface_type_definition.zig").InterfaceTypeDefinition;
+const InterfaceTypeExtension = @import("ast/interface_type_extension.zig").InterfaceTypeExtension;
 const EnumTypeDefinition = @import("ast/enum_type_definition.zig").EnumTypeDefinition;
 const EnumTypeExtension = @import("ast/enum_type_extension.zig").EnumTypeExtension;
 const EnumValueDefinition = @import("ast/enum_value_definition.zig").EnumValueDefinition;
@@ -92,6 +93,9 @@ pub const Printer = struct {
             },
             .objectTypeExtension => |objectTypeExtension| {
                 return try getGqlFromObjectTypeExtension(objectTypeExtension, allocator);
+            },
+            .interfaceTypeExtension => |interfaceTypeExtension| {
+                return try getGqlFromInterfaceTypeExtension(interfaceTypeExtension, allocator);
             },
             else => {
                 return try getNotImplementedString(allocator);
@@ -619,6 +623,25 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (objectTypeExtension.fields, 0..) |fieldDefinition, i| {
+            if (i > 0) try str.append(' ');
+            try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
+        }
+        try str.appendSlice("}");
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromInterfaceTypeExtension(interfaceTypeExtension: InterfaceTypeExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("extend interface ");
+        try str.appendSlice(interfaceTypeExtension.name);
+        if (interfaceTypeExtension.interfaces.len > 0) {
+            try str.appendSlice(try getGqlFromImplementedInterfaces(interfaceTypeExtension.interfaces, allocator));
+        }
+        if (interfaceTypeExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(interfaceTypeExtension.directives, allocator));
+        }
+        try str.appendSlice(" {");
+        for (interfaceTypeExtension.fields, 0..) |fieldDefinition, i| {
             if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
         }
