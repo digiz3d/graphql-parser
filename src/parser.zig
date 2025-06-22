@@ -45,6 +45,7 @@ const strEq = @import("utils/utils.zig").strEq;
 pub const ParseError = error{
     EmptyTokenList,
     ExpectedAt,
+    ExpectedColon,
     ExpectedDollar,
     ExpectedName,
     ExpectedNameNotOn,

@@ -78,7 +78,7 @@ pub fn parseVariableDefinition(parser: *Parser, tokens: []Token) ParseError![]Va
         const variableName = try parser.getTokenValue(variableNameToken);
         errdefer parser.allocator.free(variableName);
 
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
+        _ = parser.consumeToken(tokens, Token.Tag.punct_colon) catch return ParseError.ExpectedColon;
 
         const nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
 
@@ -140,6 +140,10 @@ test "default value" {
 
 test "default value not variable" {
     try runTest("($name: String = $default)", .{ .parseError = ParseError.ExpectedName });
+}
+
+test "missing colon" {
+    try runTest("($name String = $default)", .{ .parseError = ParseError.ExpectedColon });
 }
 
 fn runTest(buffer: [:0]const u8, expectedLenOrError: union(enum) {
