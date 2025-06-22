@@ -58,14 +58,14 @@ pub const SchemaDefinition = struct {
     }
 };
 
-pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token) ParseError!SchemaDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
+pub fn parseSchemaDefinition(parser: *Parser) ParseError!SchemaDefinition {
+    const description = try parseOptionalDescription(parser);
 
-    try parser.consumeSpecificIdentifier(tokens, "schema");
+    try parser.consumeSpecificIdentifier("schema");
 
-    const directivesNodes = try parseDirectives(parser, tokens);
+    const directivesNodes = try parseDirectives(parser);
 
-    const operationTypes = try parseOperationTypeDefinitions(parser, tokens);
+    const operationTypes = try parseOperationTypeDefinitions(parser);
 
     return SchemaDefinition{
         .allocator = parser.allocator,
@@ -76,36 +76,26 @@ pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token) ParseError!Schema
 }
 
 test "initialize schema without anything" {
-    var parser = Parser.init(testing.allocator);
     const buffer = "schema {}";
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const schema = parseSchemaDefinition(&parser, tokens);
+    const schema = parseSchemaDefinition(&parser);
 
     try testing.expectError(ParseError.ExpectedName, schema);
 }
 
 test "parsing schema" {
-    var parser = Parser.init(testing.allocator);
     const buffer =
         \\ schema {
         \\   query: Query
         \\   mutation: Mutation
         \\ }
     ;
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const schema = try parseSchemaDefinition(&parser, tokens);
+    const schema = try parseSchemaDefinition(&parser);
     defer schema.deinit();
 
     try testing.expectEqual(2, schema.operationTypes.len);

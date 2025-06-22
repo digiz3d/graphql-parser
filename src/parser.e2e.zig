@@ -107,9 +107,10 @@ test "e2e-parse" {
         \\ 
     ;
 
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, doc);
+    defer parser.deinit();
 
-    const rootNode = try parser.parse(doc);
+    const rootNode = try parser.parse();
     defer rootNode.deinit();
 
     try testing.expectEqual(22, rootNode.definitions.items.len);

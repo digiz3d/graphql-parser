@@ -49,15 +49,15 @@ pub const UnionTypeExtension = struct {
     }
 };
 
-pub fn parseUnionTypeExtension(parser: *Parser, tokens: []Token) ParseError!UnionTypeExtension {
-    try parser.consumeSpecificIdentifier(tokens, "extend");
-    try parser.consumeSpecificIdentifier(tokens, "union");
+pub fn parseUnionTypeExtension(parser: *Parser) ParseError!UnionTypeExtension {
+    try parser.consumeSpecificIdentifier("extend");
+    try parser.consumeSpecificIdentifier("union");
 
-    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const directives = try parseDirectives(parser, tokens);
+    const directives = try parseDirectives(parser);
 
     var types = ArrayList(Type).init(parser.allocator);
     errdefer {
@@ -67,18 +67,18 @@ pub fn parseUnionTypeExtension(parser: *Parser, tokens: []Token) ParseError!Unio
         types.deinit();
     }
 
-    const equalToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const equalToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     if (equalToken.tag == Token.Tag.punct_equal) {
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
+        _ = try parser.consumeToken(Token.Tag.punct_equal);
         while (true) {
-            const t = try parseNamedType(parser, tokens, false);
+            const t = try parseNamedType(parser, false);
             types.append(t) catch return ParseError.UnexpectedMemoryError;
-            const pipeToken = parser.peekNextToken(tokens) orelse break;
+            const pipeToken = parser.peekNextToken() orelse break;
             if (pipeToken.tag != Token.Tag.punct_pipe) {
                 break;
             }
 
-            _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
+            _ = try parser.consumeToken(Token.Tag.punct_pipe);
         }
     }
 
@@ -103,15 +103,10 @@ test "parseUnionTypeExtension with directives" {
 }
 
 fn runTest(buffer: [:0]const u8, len: usize) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const unionTypeExtension = try parseUnionTypeExtension(&parser, tokens);
+    const unionTypeExtension = try parseUnionTypeExtension(&parser);
     defer unionTypeExtension.deinit();
 
     try testing.expectEqual(len, unionTypeExtension.types.len);

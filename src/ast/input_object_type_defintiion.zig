@@ -61,15 +61,15 @@ pub const InputObjectTypeDefinition = struct {
     }
 };
 
-pub fn parseInputObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!InputObjectTypeDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
-    try parser.consumeSpecificIdentifier(tokens, "input");
-    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+pub fn parseInputObjectTypeDefinition(parser: *Parser) ParseError!InputObjectTypeDefinition {
+    const description = try parseOptionalDescription(parser);
+    try parser.consumeSpecificIdentifier("input");
+    const nameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const directives = try parseDirectives(parser, tokens);
-    const fields = try parseInputValueDefinitions(parser, tokens, true);
+    const directives = try parseDirectives(parser);
+    const fields = try parseInputValueDefinitions(parser, true);
 
     return InputObjectTypeDefinition{
         .allocator = parser.allocator,
@@ -90,15 +90,10 @@ test "parseInputObjectTypeDefinition" {
 }
 
 fn runTest(buffer: [:0]const u8) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(&parser, tokens);
+    const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(&parser);
     defer inputObjectTypeDefinition.deinit();
 
     try testing.expectEqualStrings("SomeInput", inputObjectTypeDefinition.name);

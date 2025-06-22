@@ -49,15 +49,15 @@ pub const ScalarTypeDefinition = struct {
     }
 };
 
-pub fn parseScalarTypeDefinition(parser: *Parser, tokens: []Token) ParseError!ScalarTypeDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
-    try parser.consumeSpecificIdentifier(tokens, "scalar");
+pub fn parseScalarTypeDefinition(parser: *Parser) ParseError!ScalarTypeDefinition {
+    const description = try parseOptionalDescription(parser);
+    try parser.consumeSpecificIdentifier("scalar");
 
-    const scalarNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+    const scalarNameToken = try parser.consumeToken(Token.Tag.identifier);
     const scalarName = try parser.getTokenValue(scalarNameToken);
     errdefer parser.allocator.free(scalarName);
 
-    const directivesNodes = try parseDirectives(parser, tokens);
+    const directivesNodes = try parseDirectives(parser);
 
     return ScalarTypeDefinition{
         .allocator = parser.allocator,
@@ -82,14 +82,10 @@ test "parse scalar type definition with directive" {
 }
 
 fn runTest(buffer: [:0]const u8, expected: struct { name: []const u8 }) !void {
-    var parser = Parser.init(testing.allocator);
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const scalarTypeDefinition = try parseScalarTypeDefinition(&parser, tokens);
+    const scalarTypeDefinition = try parseScalarTypeDefinition(&parser);
     defer scalarTypeDefinition.deinit();
 
     try testing.expectEqualStrings(expected.name, scalarTypeDefinition.name);

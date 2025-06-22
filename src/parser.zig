@@ -63,6 +63,7 @@ pub const ParseError = error{
 pub const Parser = struct {
     allocator: Allocator,
     index: usize = 0,
+    tokens: []Token,
 
     const Reading = enum {
         root,
@@ -85,20 +86,23 @@ pub const Parser = struct {
         scalar_type_extension,
     };
 
-    pub fn init(allocator: Allocator) Parser {
-        return Parser{ .allocator = allocator };
-    }
-
-    pub fn parse(self: *Parser, buffer: [:0]const u8) ParseError!Document {
-        var tokenizer = Tokenizer.init(self.allocator, buffer);
+    pub fn initFromBuffer(allocator: Allocator, buffer: [:0]const u8) ParseError!Parser {
+        var tokenizer = Tokenizer.init(allocator, buffer);
         defer tokenizer.deinit();
         const tokens = tokenizer.getAllTokens() catch return ParseError.UnexpectedMemoryError;
-        defer self.allocator.free(tokens);
-        const token = try self.processTokens(tokens);
+        return Parser{ .allocator = allocator, .tokens = tokens };
+    }
+
+    pub fn deinit(self: *Parser) void {
+        self.allocator.free(self.tokens);
+    }
+
+    pub fn parse(self: *Parser) ParseError!Document {
+        const token = try self.processTokens();
         return token;
     }
 
-    fn processTokens(self: *Parser, tokens: []Token) ParseError!Document {
+    fn processTokens(self: *Parser) ParseError!Document {
         var documentNode = Document{
             .allocator = self.allocator,
             .definitions = ArrayList(ExecutableDefinition).init(self.allocator),
@@ -107,7 +111,7 @@ pub const Parser = struct {
 
         state: switch (Reading.root) {
             Reading.root => {
-                var token = self.peekNextToken(tokens) orelse break :state;
+                var token = self.peekNextToken() orelse break :state;
 
                 if (token.tag == Token.Tag.eof) {
                     break :state;
@@ -115,7 +119,7 @@ pub const Parser = struct {
 
                 const isDescription = token.tag == Token.Tag.string_literal or token.tag == Token.Tag.string_literal_block;
                 if (isDescription) {
-                    token = self.peekNextNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                    token = self.peekNextNextToken() orelse return ParseError.EmptyTokenList;
                 }
                 if (token.tag != Token.Tag.identifier) {
                     std.debug.print("expected name {}\n", .{token.tag});
@@ -148,7 +152,7 @@ pub const Parser = struct {
                 } else if (strEq(str, "interface")) {
                     continue :state Reading.interface_type_definition;
                 } else if (strEq(str, "extend")) {
-                    const nextToken = self.peekNextNextToken(tokens) orelse return ParseError.EmptyTokenList;
+                    const nextToken = self.peekNextNextToken() orelse return ParseError.EmptyTokenList;
                     const nextTokenStr = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
                     defer self.allocator.free(nextTokenStr);
 
@@ -173,119 +177,119 @@ pub const Parser = struct {
                 return ParseError.InvalidOperationType;
             },
             Reading.fragment_definition => {
-                const fragmentDefinition = try parseFragmentDefinition(self, tokens);
+                const fragmentDefinition = try parseFragmentDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .fragmentDefinition = fragmentDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.operation_definition => {
-                const operationDefinition = try parseOperationDefinition(self, tokens);
+                const operationDefinition = try parseOperationDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .operationDefinition = operationDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.schema_definition => {
-                const schemaDefinition = try parseSchemaDefinition(self, tokens);
+                const schemaDefinition = try parseSchemaDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .schemaDefinition = schemaDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.object_type_definition => {
-                const objectTypeDefinition = try parseObjectTypeDefinition(self, tokens);
+                const objectTypeDefinition = try parseObjectTypeDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .objectTypeDefinition = objectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.union_type_definition => {
-                const unionTypeDefinition = try parseUnionTypeDefinition(self, tokens);
+                const unionTypeDefinition = try parseUnionTypeDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .unionTypeDefinition = unionTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.scalar_type_definition => {
-                const scalarTypeDefinition = try parseScalarTypeDefinition(self, tokens);
+                const scalarTypeDefinition = try parseScalarTypeDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .scalarTypeDefinition = scalarTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.directive_definition => {
-                const directiveDefinition = try parseDirectiveDefinition(self, tokens);
+                const directiveDefinition = try parseDirectiveDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .directiveDefinition = directiveDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.interface_type_definition => {
-                const interfaceTypeDefinition = try parseInterfaceTypeDefinition(self, tokens);
+                const interfaceTypeDefinition = try parseInterfaceTypeDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .interfaceTypeDefinition = interfaceTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.schema_extension => {
-                const schemaExtension = try parseSchemaExtension(self, tokens);
+                const schemaExtension = try parseSchemaExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .schemaExtension = schemaExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.object_type_extension => {
-                const objectTypeExtension = try parseObjectTypeExtension(self, tokens);
+                const objectTypeExtension = try parseObjectTypeExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .objectTypeExtension = objectTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.enum_type_definition => {
-                const enumTypeDefinition = try parseEnumTypeDefinition(self, tokens);
+                const enumTypeDefinition = try parseEnumTypeDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .enumTypeDefinition = enumTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.enum_type_extension => {
-                const enumTypeExtension = try parseEnumTypeExtension(self, tokens);
+                const enumTypeExtension = try parseEnumTypeExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .enumTypeExtension = enumTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.input_object_type_definition => {
-                const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(self, tokens);
+                const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .inputObjectTypeDefinition = inputObjectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.input_object_type_extension => {
-                const inputObjectTypeExtension = try parseInputObjectTypeExtension(self, tokens);
+                const inputObjectTypeExtension = try parseInputObjectTypeExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .inputObjectTypeExtension = inputObjectTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.interface_type_extension => {
-                const interfaceTypeExtension = try parseInterfaceTypeExtension(self, tokens);
+                const interfaceTypeExtension = try parseInterfaceTypeExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .interfaceTypeExtension = interfaceTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.union_type_extension => {
-                const unionTypeExtension = try parseUnionTypeExtension(self, tokens);
+                const unionTypeExtension = try parseUnionTypeExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .unionTypeExtension = unionTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.scalar_type_extension => {
-                const scalarTypeExtension = try parseScalarTypeExtension(self, tokens);
+                const scalarTypeExtension = try parseScalarTypeExtension(self);
                 documentNode.definitions.append(ExecutableDefinition{
                     .scalarTypeExtension = scalarTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
@@ -295,39 +299,39 @@ pub const Parser = struct {
         return documentNode;
     }
 
-    pub fn peekNextToken(self: *Parser, tokens: []Token) ?Token {
-        if (self.index >= tokens.len) {
+    pub fn peekNextToken(self: *Parser) ?Token {
+        if (self.index >= self.tokens.len) {
             return null;
         }
-        return tokens[self.index];
+        return self.tokens[self.index];
     }
 
-    pub fn peekNextNextToken(self: *Parser, tokens: []Token) ?Token {
-        if (self.index + 1 >= tokens.len) {
+    pub fn peekNextNextToken(self: *Parser) ?Token {
+        if (self.index + 1 >= self.tokens.len) {
             return null;
         }
-        return tokens[self.index + 1];
+        return self.tokens[self.index + 1];
     }
 
-    pub fn consumeNextToken(self: *Parser, tokens: []Token) ?Token {
-        if (self.index >= tokens.len) {
+    pub fn consumeNextToken(self: *Parser) ?Token {
+        if (self.index >= self.tokens.len) {
             return null;
         }
-        const nextToken = tokens[self.index];
+        const nextToken = self.tokens[self.index];
         self.index += 1;
         return nextToken;
     }
 
-    pub fn consumeToken(self: *Parser, tokens: []Token, tag: Token.Tag) ParseError!Token {
-        const nextToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    pub fn consumeToken(self: *Parser, tag: Token.Tag) ParseError!Token {
+        const nextToken = self.consumeNextToken() orelse return ParseError.EmptyTokenList;
         if (nextToken.tag != tag) {
             return ParseError.UnexpectedToken;
         }
         return nextToken;
     }
 
-    pub fn consumeSpecificIdentifier(self: *Parser, tokens: []Token, comptime tokenStr: []const u8) ParseError!void {
-        const nextToken = try self.consumeToken(tokens, Token.Tag.identifier);
+    pub fn consumeSpecificIdentifier(self: *Parser, comptime tokenStr: []const u8) ParseError!void {
+        const nextToken = try self.consumeToken(Token.Tag.identifier);
         const strValue = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
         defer self.allocator.free(strValue);
         if (!strEq(strValue, tokenStr)) {
@@ -344,8 +348,9 @@ pub const Parser = struct {
 
 // error cases
 test "initialize invalid document " {
-    var parser = Parser.init(testing.allocator);
     const buffer = "test { hello }";
-    const rootNode = parser.parse(buffer);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
+    const rootNode = parser.parse();
     try testing.expectError(ParseError.InvalidOperationType, rootNode);
 }

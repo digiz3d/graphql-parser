@@ -71,22 +71,22 @@ pub const DirectiveDefinition = struct {
     }
 };
 
-pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!DirectiveDefinition {
-    const description = try parseOptionalDescription(parser, tokens);
-    try parser.consumeSpecificIdentifier(tokens, "directive");
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_at);
+pub fn parseDirectiveDefinition(parser: *Parser) ParseError!DirectiveDefinition {
+    const description = try parseOptionalDescription(parser);
+    try parser.consumeSpecificIdentifier("directive");
+    _ = try parser.consumeToken(Token.Tag.punct_at);
 
-    const directiveNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+    const directiveNameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
     const directiveName = try parser.getTokenValue(directiveNameToken);
     errdefer parser.allocator.free(directiveName);
 
-    const arguments = try parseInputValueDefinitions(parser, tokens, false);
+    const arguments = try parseInputValueDefinitions(parser, false);
 
-    parser.consumeSpecificIdentifier(tokens, "on") catch return ParseError.ExpectedOn;
+    parser.consumeSpecificIdentifier("on") catch return ParseError.ExpectedOn;
 
     var locations = ArrayList([]const u8).init(parser.allocator);
     while (true) {
-        const locationToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+        const locationToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
         const location = try parser.getTokenValue(locationToken);
         errdefer parser.allocator.free(location);
         if (!validateLocations(location)) {
@@ -94,16 +94,16 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
         }
         locations.append(location) catch return ParseError.UnexpectedMemoryError;
 
-        const nextToken = parser.peekNextToken(tokens) orelse break;
+        const nextToken = parser.peekNextToken() orelse break;
         if (nextToken.tag != Token.Tag.punct_pipe) break;
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
+        _ = try parser.consumeToken(Token.Tag.punct_pipe);
     }
 
     if (locations.items.len == 0) {
         return ParseError.ExpectedName;
     }
 
-    const directivesNodes = try parseDirectives(parser, tokens);
+    const directivesNodes = try parseDirectives(parser);
 
     return DirectiveDefinition{
         .allocator = parser.allocator,
@@ -212,16 +212,12 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
     },
     parseError: ParseError,
 }) !void {
-    var parser = Parser.init(testing.allocator);
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
     switch (expected) {
         .success => |expectedSuccess| {
-            const directiveDefinition = try parseDirectiveDefinition(&parser, tokens);
+            const directiveDefinition = try parseDirectiveDefinition(&parser);
             defer directiveDefinition.deinit();
 
             try testing.expectEqualStrings(expectedSuccess.name, directiveDefinition.name);
@@ -229,7 +225,7 @@ fn runTest(buffer: [:0]const u8, expected: union(enum) {
             try testing.expectEqual(expectedSuccess.onsLen, directiveDefinition.locations.len);
         },
         .parseError => |expectedError| {
-            const directiveDefinition = parseDirectiveDefinition(&parser, tokens);
+            const directiveDefinition = parseDirectiveDefinition(&parser);
             try testing.expectError(expectedError, directiveDefinition);
         },
     }

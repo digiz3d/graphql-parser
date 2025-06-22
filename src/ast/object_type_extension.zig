@@ -56,28 +56,28 @@ pub const ObjectTypeExtension = struct {
     }
 };
 
-pub fn parseObjectTypeExtension(parser: *Parser, tokens: []Token) ParseError!ObjectTypeExtension {
-    try parser.consumeSpecificIdentifier(tokens, "extend");
-    try parser.consumeSpecificIdentifier(tokens, "type");
+pub fn parseObjectTypeExtension(parser: *Parser) ParseError!ObjectTypeExtension {
+    try parser.consumeSpecificIdentifier("extend");
+    try parser.consumeSpecificIdentifier("type");
 
-    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
+    const nameToken = try parser.consumeToken(Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
-    const interfaces = try parseInterfaces(parser, tokens);
-    const directives = try parseDirectives(parser, tokens);
+    const interfaces = try parseInterfaces(parser);
+    const directives = try parseDirectives(parser);
 
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
-    var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
-        const fieldDefinition = try parseFieldDefinition(parser, tokens);
+        const fieldDefinition = try parseFieldDefinition(parser);
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
-        nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
-    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
+    _ = try parser.consumeToken(Token.Tag.punct_brace_right);
 
     return ObjectTypeExtension{
         .allocator = parser.allocator,
@@ -97,15 +97,10 @@ test "parseObjectTypeDefinition" {
 }
 
 fn runTest(buffer: [:0]const u8, len: usize) !void {
-    var parser = Parser.init(testing.allocator);
+    var parser = try Parser.initFromBuffer(testing.allocator, buffer);
+    defer parser.deinit();
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const objectTypeExtension = try parseObjectTypeExtension(&parser, tokens);
+    const objectTypeExtension = try parseObjectTypeExtension(&parser);
     defer objectTypeExtension.deinit();
 
     try testing.expectEqual(len, objectTypeExtension.fields.len);
