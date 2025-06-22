@@ -116,7 +116,7 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (inputObjectTypeDefinition.fields, 0..) |fieldDefinition, i| {
-            if (i > 0) try str.appendSlice("\n");
+            if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
         }
         try str.appendSlice("}");
@@ -132,7 +132,7 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (inputObjectTypeExtension.fields, 0..) |fieldDefinition, i| {
-            if (i > 0) try str.appendSlice("\n");
+            if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
         }
         try str.appendSlice("}");
@@ -300,7 +300,7 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (schemaDefinition.operationTypes, 0..) |operationType, i| {
-            if (i > 0) try str.appendSlice("\n");
+            if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromOperationTypeDefinition(operationType, allocator));
         }
         try str.appendSlice("}");
@@ -619,7 +619,7 @@ pub const Printer = struct {
         }
         try str.appendSlice(" {");
         for (objectTypeExtension.fields, 0..) |fieldDefinition, i| {
-            if (i > 0) try str.appendSlice("\n");
+            if (i > 0) try str.append(' ');
             try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
         }
         try str.appendSlice("}");
