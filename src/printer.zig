@@ -16,6 +16,7 @@ const InputValue = @import("ast/input_value.zig").InputValue;
 const Selection = @import("ast/selection.zig").Selection;
 const Field = @import("ast/field.zig").Field;
 const ScalarTypeDefinition = @import("ast/scalar_type_definition.zig").ScalarTypeDefinition;
+const ScalarTypeExtension = @import("ast/scalar_type_extension.zig").ScalarTypeExtension;
 const SchemaDefinition = @import("ast/schema_definition.zig").SchemaDefinition;
 const OperationTypeDefinition = @import("ast/operation_type_definition.zig").OperationTypeDefinition;
 const UnionTypeDefinition = @import("ast/union_type_definition.zig").UnionTypeDefinition;
@@ -100,6 +101,9 @@ pub const Printer = struct {
             },
             .unionTypeExtension => |unionTypeExtension| {
                 return try getGqlFromUnionTypeExtension(unionTypeExtension, allocator);
+            },
+            .scalarTypeExtension => |scalarTypeExtension| {
+                return try getGqlFromScalarTypeExtension(scalarTypeExtension, allocator);
             },
             else => {
                 return try getNotImplementedString(allocator);
@@ -664,6 +668,16 @@ pub const Printer = struct {
         for (unionTypeExtension.types, 0..) |t, i| {
             if (i > 0) try str.appendSlice(" | ");
             try str.appendSlice(try getGqlFromType(t, allocator));
+        }
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromScalarTypeExtension(scalarTypeExtension: ScalarTypeExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("scalar ");
+        try str.appendSlice(scalarTypeExtension.name);
+        if (scalarTypeExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(scalarTypeExtension.directives, allocator));
         }
         return str.toOwnedSlice();
     }
