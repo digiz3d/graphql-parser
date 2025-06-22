@@ -98,9 +98,9 @@ pub const Type = union(enum) {
 
     pub fn printAST(self: Type, indent: usize, allocator: Allocator) void {
         switch (self) {
-            .namedType => |n| n.printAST(indent + 1),
-            .listType => |n| n.printAST(indent + 1),
-            .nonNullType => |n| n.printAST(indent + 1, allocator),
+            .namedType => |n| n.printAST(indent),
+            .listType => |n| n.printAST(indent),
+            .nonNullType => |n| n.printAST(indent, allocator),
         }
     }
 
@@ -122,8 +122,7 @@ pub const Type = union(enum) {
 };
 
 pub fn parseNamedType(parser: *Parser, tokens: []Token, allowNonNull: bool) ParseError!Type {
-    const typeNameToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-    if (typeNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+    const typeNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(typeNameToken);
     errdefer parser.allocator.free(name);
 
@@ -140,7 +139,7 @@ pub fn parseNamedType(parser: *Parser, tokens: []Token, allowNonNull: bool) Pars
             return ParseError.UnexpectedExclamationMark;
         }
 
-        _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_excl);
         temporaryType = wrapNonNullType(temporaryType);
     }
 
@@ -148,14 +147,12 @@ pub fn parseNamedType(parser: *Parser, tokens: []Token, allowNonNull: bool) Pars
 }
 
 fn parseListType(parser: *Parser, tokens: []Token) ParseError!Type {
-    const bracketLeftToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-    if (bracketLeftToken.tag != Token.Tag.punct_bracket_left) return ParseError.ExpectedBracketLeft;
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_bracket_left);
 
     const elementType: *Type = parser.allocator.create(Type) catch return ParseError.UnexpectedMemoryError;
     elementType.* = try parseType(parser, tokens);
 
-    const bracketRightToken = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
-    if (bracketRightToken.tag != Token.Tag.punct_bracket_right) return ParseError.ExpectedBracketRight;
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_bracket_right);
 
     var temporaryType = Type{
         .listType = ListType{
@@ -166,7 +163,7 @@ fn parseListType(parser: *Parser, tokens: []Token) ParseError!Type {
 
     const nextToken = parser.peekNextToken(tokens) orelse return temporaryType;
     if (nextToken.tag == Token.Tag.punct_excl) {
-        _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_excl);
         temporaryType = wrapNonNullType(temporaryType);
     }
 

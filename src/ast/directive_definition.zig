@@ -73,40 +73,20 @@ pub const DirectiveDefinition = struct {
 
 pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!DirectiveDefinition {
     const description = try parseOptionalDescription(parser, tokens);
+    try parser.consumeSpecificIdentifier(tokens, "directive");
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_at);
 
-    const directiveToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (directiveToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
-
-    const atToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (atToken.tag != Token.Tag.punct_at) {
-        return ParseError.ExpectedAt;
-    }
-
-    const directiveNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (directiveNameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
-
+    const directiveNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const directiveName = try parser.getTokenValue(directiveNameToken);
     errdefer parser.allocator.free(directiveName);
 
     const arguments = try parseInputValueDefinitions(parser, tokens, false);
 
-    const onToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedOn;
-    const onStr = try parser.getTokenValue(onToken);
-    defer parser.allocator.free(onStr);
-    if (onToken.tag != Token.Tag.identifier or !strEq(onStr, "on")) {
-        return ParseError.ExpectedOn;
-    }
+    parser.consumeSpecificIdentifier(tokens, "on") catch return ParseError.ExpectedOn;
 
     var locations = ArrayList([]const u8).init(parser.allocator);
     while (true) {
-        const locationToken = parser.consumeNextToken(tokens) orelse break;
-        if (locationToken.tag != Token.Tag.identifier) {
-            return ParseError.ExpectedName;
-        }
+        const locationToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const location = try parser.getTokenValue(locationToken);
         errdefer parser.allocator.free(location);
         if (!validateLocations(location)) {
@@ -116,7 +96,7 @@ pub fn parseDirectiveDefinition(parser: *Parser, tokens: []Token) ParseError!Dir
 
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag != Token.Tag.punct_pipe) break;
-        _ = parser.consumeNextToken(tokens) orelse break;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
     }
 
     if (locations.items.len == 0) {

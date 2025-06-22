@@ -38,13 +38,10 @@ pub const ScalarTypeExtension = struct {
 };
 
 pub fn parseScalarTypeExtension(parser: *Parser, tokens: []Token) ParseError!ScalarTypeExtension {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "extend"
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "scalar"
+    try parser.consumeSpecificIdentifier(tokens, "extend");
+    try parser.consumeSpecificIdentifier(tokens, "scalar");
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (nameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 

@@ -63,8 +63,8 @@ pub const UnionTypeDefinition = struct {
 
 pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!UnionTypeDefinition {
     const description = try parseOptionalDescription(parser, tokens);
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    const unionNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    try parser.consumeSpecificIdentifier(tokens, "union");
+    const unionNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const unionName = try parser.getTokenValue(unionNameToken);
     errdefer parser.allocator.free(unionName);
 
@@ -80,7 +80,7 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Uni
 
     const equalToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     if (equalToken.tag == Token.Tag.punct_equal) {
-        _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
         while (true) {
             const t = try parseNamedType(parser, tokens, false);
             types.append(t) catch return ParseError.UnexpectedMemoryError;
@@ -89,7 +89,7 @@ pub fn parseUnionTypeDefinition(parser: *Parser, tokens: []Token) ParseError!Uni
                 break;
             }
 
-            _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_pipe);
         }
     }
 

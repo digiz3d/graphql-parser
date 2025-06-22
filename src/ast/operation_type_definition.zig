@@ -50,16 +50,10 @@ fn parseOperationTypeDefinition(
 pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseError![]OperationTypeDefinition {
     var definitions = ArrayList(OperationTypeDefinition).init(parser.allocator);
 
-    const leftBrace = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedBracketLeft;
-    if (leftBrace.tag != Token.Tag.punct_brace_left) {
-        return ParseError.ExpectedBracketLeft;
-    }
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     while (true) {
-        const opTypeToken = parser.consumeNextToken(tokens) orelse break;
-        if (opTypeToken.tag != Token.Tag.identifier) {
-            return ParseError.ExpectedName;
-        }
+        const opTypeToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const operationType = try parser.getTokenValue(opTypeToken);
         defer parser.allocator.free(operationType);
 
@@ -67,26 +61,17 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
             return ParseError.InvalidOperationType;
         }
 
-        const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        if (colonToken.tag != Token.Tag.punct_colon) {
-            return ParseError.ExpectedColon;
-        }
-
-        const typeNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        if (typeNameToken.tag != Token.Tag.identifier) {
-            return ParseError.ExpectedName;
-        }
-
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
+        const typeNameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
         const typeName = try parser.getTokenValue(typeNameToken);
         defer parser.allocator.free(typeName);
 
         const definition = parseOperationTypeDefinition(parser.allocator, operationType, typeName) catch return ParseError.UnexpectedMemoryError;
         definitions.append(definition) catch return ParseError.UnexpectedMemoryError;
 
-        // Peek next token: if it's '}', break; else, expect another operation type
         const nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag == Token.Tag.punct_brace_right) {
-            _ = parser.consumeNextToken(tokens); // consume '}'
+            _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
             break;
         }
     }
@@ -95,7 +80,6 @@ pub fn parseOperationTypeDefinitions(parser: *Parser, tokens: []Token) ParseErro
 }
 
 test "parsing operation types definitions" {
-    var parser = Parser.init(testing.allocator);
     const buffer =
         \\ {
         \\   query: Query
@@ -103,19 +87,34 @@ test "parsing operation types definitions" {
         \\ }
     ;
 
-    var tokenizer = Tokenizer.init(testing.allocator, buffer);
-    defer tokenizer.deinit();
-
-    const tokens = try tokenizer.getAllTokens();
-    defer testing.allocator.free(tokens);
-
-    const operationTypes = try parseOperationTypeDefinitions(&parser, tokens);
+    const operationTypes = try runTest(buffer);
     defer {
         for (operationTypes) |operationType| {
             operationType.deinit();
         }
         testing.allocator.free(operationTypes);
     }
+}
 
-    try testing.expectEqual(2, operationTypes.len);
+test "wrong operation type" {
+    const buffer =
+        \\ {
+        \\   queryxxx: Query
+        \\ }
+    ;
+
+    const operationTypes = runTest(buffer);
+    try testing.expectError(ParseError.InvalidOperationType, operationTypes);
+}
+
+fn runTest(buffer: [:0]const u8) ![]OperationTypeDefinition {
+    var parser = Parser.init(testing.allocator);
+
+    var tokenizer = Tokenizer.init(testing.allocator, buffer);
+    defer tokenizer.deinit();
+
+    const tokens = try tokenizer.getAllTokens();
+    defer testing.allocator.free(tokens);
+
+    return parseOperationTypeDefinitions(&parser, tokens);
 }

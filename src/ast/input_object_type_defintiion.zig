@@ -63,8 +63,8 @@ pub const InputObjectTypeDefinition = struct {
 
 pub fn parseInputObjectTypeDefinition(parser: *Parser, tokens: []Token) ParseError!InputObjectTypeDefinition {
     const description = try parseOptionalDescription(parser, tokens);
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // input
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    try parser.consumeSpecificIdentifier(tokens, "input");
+    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 

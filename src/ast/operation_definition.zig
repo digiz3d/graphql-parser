@@ -70,11 +70,7 @@ pub const OperationDefinition = struct {
 };
 
 pub fn parseOperationDefinition(parser: *Parser, tokens: []Token) ParseError!OperationDefinition {
-    const operationTypeToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-
-    if (operationTypeToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    const operationTypeToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
 
     const str = try parser.getTokenValue(operationTypeToken);
     defer parser.allocator.free(str);
@@ -90,8 +86,8 @@ pub fn parseOperationDefinition(parser: *Parser, tokens: []Token) ParseError!Ope
 
     var operationName: ?[]const u8 = null;
     if (parser.peekNextToken(tokens).?.tag == Token.Tag.identifier) {
-        const operationNameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-        const name: ?[]const u8 = parser.getTokenValue(operationNameToken) catch null;
+        const operationNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
+        const name: ?[]const u8 = try parser.getTokenValue(operationNameToken);
         operationName = name;
     }
 

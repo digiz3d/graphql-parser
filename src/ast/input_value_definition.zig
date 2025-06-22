@@ -82,27 +82,24 @@ pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, isInputObjec
         return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
-    // consume the begin token
-    _ = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    _ = try parser.consumeToken(tokens, beginToken);
 
     while (currentToken.tag != endToken) : (currentToken = parser.peekNextToken(tokens) orelse
         return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
     {
         const description = try parseOptionalDescription(parser, tokens);
-        const nameToken = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        if (nameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+        const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
 
         const name = try parser.getTokenValue(nameToken);
         errdefer parser.allocator.free(name);
-        const colonToken = parser.consumeNextToken(tokens) orelse return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-        if (colonToken.tag != Token.Tag.punct_colon) return ParseError.ExpectedColon;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
 
         const value = try parseType(parser, tokens);
 
         var defaultValue: ?InputValue = null;
         if (parser.peekNextToken(tokens)) |nextToken| {
             if (nextToken.tag == Token.Tag.punct_equal) {
-                _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+                _ = try parser.consumeToken(tokens, Token.Tag.punct_equal);
                 defaultValue = try parseInputValue(parser, tokens, false);
             }
         }
@@ -122,8 +119,7 @@ pub fn parseInputValueDefinitions(parser: *Parser, tokens: []Token, isInputObjec
         currentToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 
-    // consume the end token
-    _ = parser.consumeNextToken(tokens) orelse return if (isInputObjectTypeDefinition) ParseError.ExpectedRightBrace else ParseError.ExpectedRightParenthesis;
+    _ = try parser.consumeToken(tokens, endToken);
 
     return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
 }

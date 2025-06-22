@@ -45,7 +45,7 @@ pub fn parseInterfaces(parser: *Parser, tokens: []Token) ParseError![]Interface 
         return interfaces.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     }
 
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    try parser.consumeSpecificIdentifier(tokens, "implements");
 
     var nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
 
@@ -60,7 +60,7 @@ pub fn parseInterfaces(parser: *Parser, tokens: []Token) ParseError![]Interface 
         nextToken = parser.peekNextToken(tokens) orelse break;
         if (nextToken.tag != Token.Tag.punct_ampersand) break;
 
-        _ = parser.consumeNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_ampersand);
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.UnexpectedMemoryError;
     }
 

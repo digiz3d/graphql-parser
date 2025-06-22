@@ -57,23 +57,17 @@ pub const ObjectTypeExtension = struct {
 };
 
 pub fn parseObjectTypeExtension(parser: *Parser, tokens: []Token) ParseError!ObjectTypeExtension {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "extend"
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "type"
+    try parser.consumeSpecificIdentifier(tokens, "extend");
+    try parser.consumeSpecificIdentifier(tokens, "type");
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (nameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
     const interfaces = try parseInterfaces(parser, tokens);
     const directives = try parseDirectives(parser, tokens);
 
-    const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (leftBraceToken.tag != Token.Tag.punct_brace_left) {
-        return ParseError.ExpectedBracketLeft;
-    }
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     var fields = ArrayList(FieldDefinition).init(parser.allocator);
 
@@ -83,7 +77,7 @@ pub fn parseObjectTypeExtension(parser: *Parser, tokens: []Token) ParseError!Obj
         fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
 
     return ObjectTypeExtension{
         .allocator = parser.allocator,

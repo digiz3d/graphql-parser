@@ -50,13 +50,10 @@ pub const InputObjectTypeExtension = struct {
 };
 
 pub fn parseInputObjectTypeExtension(parser: *Parser, tokens: []Token) ParseError!InputObjectTypeExtension {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "extend"
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // "input"
+    try parser.consumeSpecificIdentifier(tokens, "extend");
+    try parser.consumeSpecificIdentifier(tokens, "input");
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (nameToken.tag != Token.Tag.identifier) {
-        return ParseError.ExpectedName;
-    }
+    const nameToken = try parser.consumeToken(tokens, Token.Tag.identifier);
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 

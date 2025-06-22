@@ -42,11 +42,9 @@ pub fn parseDirectives(parser: *Parser, tokens: []Token) ParseError![]Directive 
     var directives = ArrayList(Directive).init(parser.allocator);
     var currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
     while (currentToken.tag == Token.Tag.punct_at) : (currentToken = parser.peekNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
-        _ = parser.consumeNextToken(tokens) orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        _ = try parser.consumeToken(tokens, Token.Tag.punct_at);
 
-        const directiveNameToken = parser.consumeNextToken(tokens) orelse return ParseError.ExpectedName;
-
-        if (directiveNameToken.tag != Token.Tag.identifier) return ParseError.ExpectedName;
+        const directiveNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const directiveName = try parser.getTokenValue(directiveNameToken);
         const arguments = try parseArguments(parser, tokens);
         const directiveNode = Directive{

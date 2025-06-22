@@ -66,9 +66,9 @@ pub const FieldDefinition = struct {
 pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
     const description = try parseOptionalDescription(parser, tokens);
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
-    defer parser.allocator.free(name);
+    errdefer parser.allocator.free(name);
 
     if (nameToken.tag != Token.Tag.identifier) {
         return ParseError.ExpectedName;
@@ -76,10 +76,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
 
     const arguments = try parseInputValueDefinitions(parser, tokens, false);
 
-    const colonToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (colonToken.tag != Token.Tag.punct_colon) {
-        return ParseError.ExpectedColon;
-    }
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
 
     const namedType = try parseType(parser, tokens);
 
@@ -88,7 +85,7 @@ pub fn parseFieldDefinition(parser: *Parser, tokens: []Token) !FieldDefinition {
     const fieldDefinition = FieldDefinition{
         .allocator = parser.allocator,
         .description = description,
-        .name = parser.allocator.dupe(u8, name) catch return ParseError.UnexpectedMemoryError,
+        .name = name,
         .type = namedType,
         .arguments = arguments,
         .directives = directives,

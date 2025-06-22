@@ -48,19 +48,16 @@ pub const EnumTypeExtension = struct {
 };
 
 pub fn parseEnumTypeExtension(parser: *Parser, tokens: []Token) ParseError!EnumTypeExtension {
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // extend
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList; // enum
+    try parser.consumeSpecificIdentifier(tokens, "extend");
+    try parser.consumeSpecificIdentifier(tokens, "enum");
 
-    const nameToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    const nameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
     const name = try parser.getTokenValue(nameToken);
     errdefer parser.allocator.free(name);
 
     const directives = try parseDirectives(parser, tokens);
 
-    const leftBraceToken = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
-    if (leftBraceToken.tag != Token.Tag.punct_brace_left) {
-        return ParseError.ExpectedBracketLeft;
-    }
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_left);
 
     var values = ArrayList(EnumValueDefinition).init(parser.allocator);
     errdefer {
@@ -77,7 +74,7 @@ pub fn parseEnumTypeExtension(parser: *Parser, tokens: []Token) ParseError!EnumT
         nextToken = parser.peekNextToken(tokens) orelse return ParseError.EmptyTokenList;
     }
 
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    _ = try parser.consumeToken(tokens, Token.Tag.punct_brace_right);
 
     return EnumTypeExtension{
         .allocator = parser.allocator,

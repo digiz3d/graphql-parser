@@ -61,7 +61,7 @@ pub const SchemaDefinition = struct {
 pub fn parseSchemaDefinition(parser: *Parser, tokens: []Token) ParseError!SchemaDefinition {
     const description = try parseOptionalDescription(parser, tokens);
 
-    _ = parser.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+    try parser.consumeSpecificIdentifier(tokens, "schema");
 
     const directivesNodes = try parseDirectives(parser, tokens);
 

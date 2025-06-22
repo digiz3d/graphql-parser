@@ -45,17 +45,12 @@ const strEq = @import("utils/utils.zig").strEq;
 pub const ParseError = error{
     EmptyTokenList,
     ExpectedAt,
-    ExpectedBracketLeft,
-    ExpectedBracketRight,
     ExpectedColon,
     ExpectedDollar,
-    ExpectedLeftParenthesis,
     ExpectedName,
     ExpectedNameNotOn,
     ExpectedOn,
     ExpectedRightBrace,
-    ExpectedRightParenthesis,
-    ExpectedString,
     InvalidLocation,
     InvalidOperationType,
     MissingExpectedBrace,
@@ -63,7 +58,6 @@ pub const ParseError = error{
     UnexpectedExclamationMark,
     UnexpectedMemoryError,
     UnexpectedToken,
-    WrongParentNode,
 };
 
 pub const Parser = struct {
@@ -322,6 +316,24 @@ pub const Parser = struct {
         const nextToken = tokens[self.index];
         self.index += 1;
         return nextToken;
+    }
+
+    pub fn consumeToken(self: *Parser, tokens: []Token, tag: Token.Tag) ParseError!Token {
+        const nextToken = self.consumeNextToken(tokens) orelse return ParseError.EmptyTokenList;
+        if (nextToken.tag != tag) {
+            return ParseError.UnexpectedToken;
+        }
+        return nextToken;
+    }
+
+    pub fn consumeSpecificIdentifier(self: *Parser, tokens: []Token, comptime tokenStr: []const u8) ParseError!void {
+        const nextToken = try self.consumeToken(tokens, Token.Tag.identifier);
+        const strValue = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
+        defer self.allocator.free(strValue);
+        if (!strEq(strValue, tokenStr)) {
+            return ParseError.UnexpectedToken;
+        }
+        return;
     }
 
     pub fn getTokenValue(self: *Parser, token: Token) ParseError![]const u8 {
