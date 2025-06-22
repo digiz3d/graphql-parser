@@ -2,6 +2,7 @@ const std = @import("std");
 const Parser = @import("parser.zig").Parser;
 const Allocator = std.mem.Allocator;
 const parseArgs = @import("args.zig").parseArgs;
+const getFileContent = @import("utils/utils.zig").getFileContent;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -27,18 +28,4 @@ pub fn main() !void {
 
     var document = try parser.parse();
     document.printAST(0);
-}
-
-fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]const u8 {
-    var file = try std.fs.cwd().openFile(filePath, .{});
-    defer file.close();
-
-    // TODO: take any file size?
-    const rawContent = try file.readToEndAlloc(allocator, 1024 * 1024);
-    defer allocator.free(rawContent);
-
-    const content: [:0]u8 = try allocator.allocSentinel(u8, rawContent.len, 0);
-    @memcpy(content, rawContent);
-
-    return content;
 }

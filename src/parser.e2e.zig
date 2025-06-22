@@ -1,113 +1,13 @@
 const testing = @import("std").testing;
 const Parser = @import("parser.zig").Parser;
 const OperationType = @import("ast/operation_definition.zig").OperationType;
+const getFileContent = @import("utils/utils.zig").getFileContent;
 
 test "e2e-parse" {
-    const doc =
-        \\ "schema desc"
-        \\ schema {
-        \\   query: Query
-        \\ }
-        \\ 
-        \\ #lol
-        \\ 
-        \\ "scalar desc"
-        \\ scalar Lol @lol
-        \\ 
-        \\ """
-        \\ union desc
-        \\ """
-        \\ union SomeUnion = SomeType | SomeOtherType
-        \\ 
-        \\ "object def desc"
-        \\ type Query @lol {
-        \\   "ok"
-        \\   name("obj def arg desc" id: ID!, value: String = "default"): String
-        \\ }
-        \\ 
-        \\ interface USBA {
-        \\   a: A
-        \\ }
-        \\ 
-        \\ interface USBC {
-        \\   C: C
-        \\ }
-        \\ 
-        \\ type Desktop implements USBA & USBC {
-        \\   ok: String
-        \\ }
-        \\ 
-        \\ type Laptop implements USBC {
-        \\   ok: String
-        \\ }
-        \\ 
-        \\ "directive desc 1"
-        \\ directive @example(
-        \\   "directive arg desc"
-        \\   arg: Ok = 123 @lol
-        \\   arg2: Ok
-        \\ ) on FIELD | OBJECT
-        \\ 
-        \\ "directive desc 2"
-        \\ directive @lol on FIELD
-        \\ 
-        \\ fragment SomeFragment on ok {
-        \\   id
-        \\ }
-        \\ 
-        \\ query SomeQuery($id: ok) @lolok(arg: { lol: { ok: [true] } }, arg2: Ok) {
-        \\   ok @field1
-        \\   ...SomeFragment @field2
-        \\ }
-        \\ 
-        \\ extend schema @someDirective {
-        \\   mutation: Mutation
-        \\ }
-        \\ 
-        \\ extend type Laptop implements ok @someDirective {
-        \\   "ok"
-        \\   k: String @someOtherDirective
-        \\   k2: String @someOtherDirective
-        \\ }
-        \\ 
-        \\ enum SomeEnum {
-        \\   SOME_VALUE
-        \\   SOME_OTHER_VALUE
-        \\ }
-        \\ 
-        \\ enum SomeEnum2 @ok {
-        \\   SOME_VALUE @ok2
-        \\   SOME_OTHER_VALUE @ok3
-        \\ }
-        \\ 
-        \\ extend enum SomeEnum2 @ok {
-        \\   SOME_NEW_VALUE @ok4
-        \\ }
-        \\ 
-        \\ "input desc"
-        \\ input SomeInput @someDirective {
-        \\   "some field desc"
-        \\   field: String = "Some default"
-        \\ }
-        \\ 
-        \\ extend input Oki {
-        \\   "okidoki"
-        \\   okayyy: String!
-        \\ }
-        \\ 
-        \\ extend interface USBA implements NewInterface @someDirective {
-        \\   "new field desc"
-        \\   newField: String
-        \\   anotherField: Int!
-        \\ }
-        \\ 
-        \\ extend union SomeUnion @someDirective = NewType | AnotherType
-        \\ 
-        \\ extend scalar DateTime @someDirective @anotherDirective
-        \\ 
-    ;
+    const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
+    defer testing.allocator.free(content);
 
-    var parser = try Parser.initFromBuffer(testing.allocator, doc);
+    var parser = try Parser.initFromBuffer(testing.allocator, content);
     defer parser.deinit();
 
     const rootNode = try parser.parse();
