@@ -33,8 +33,8 @@ fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]const
     var file = try std.fs.cwd().openFile(filePath, .{});
     defer file.close();
 
-    // TODO: take any file size?
-    const rawContent = try file.readToEndAlloc(allocator, 1024 * 1024);
+    const stat = try file.stat();
+    const rawContent = try file.readToEndAlloc(allocator, stat.size);
     defer allocator.free(rawContent);
 
     const content: [:0]u8 = try allocator.allocSentinel(u8, rawContent.len, 0);
