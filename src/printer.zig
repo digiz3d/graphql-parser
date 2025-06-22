@@ -270,14 +270,14 @@ pub const Printer = struct {
             try str.appendSlice(" ");
         }
         try str.appendSlice(inputValueDefinition.name);
-        if (inputValueDefinition.directives.len > 0) {
-            try str.appendSlice(try getGqlFromDirectiveList(inputValueDefinition.directives, allocator));
-        }
         try str.appendSlice(": ");
         try str.appendSlice(try getGqlFromType(inputValueDefinition.value, allocator));
         if (inputValueDefinition.defaultValue) |defaultValue| {
             try str.appendSlice(" = ");
             try str.appendSlice(try getGqlInputValue(defaultValue, allocator));
+        }
+        if (inputValueDefinition.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(inputValueDefinition.directives, allocator));
         }
         return str.toOwnedSlice();
     }
@@ -398,14 +398,6 @@ pub const Printer = struct {
         return str.toOwnedSlice();
     }
 
-    fn getGqlFomDirective(_: Directive, allocator: Allocator) ![]u8 {
-        return try getNotImplementedString(allocator);
-    }
-
-    fn getGqlFomArgument(_: Argument, allocator: Allocator) ![]u8 {
-        return try getNotImplementedString(allocator);
-    }
-
     fn getGqlFomDirectiveDefinition(directiveDefinition: DirectiveDefinition, allocator: Allocator) ![]u8 {
         var str = std.ArrayList(u8).init(allocator);
         if (directiveDefinition.description) |description| {
@@ -522,6 +514,7 @@ pub const Printer = struct {
 
     fn getGqlFromDirective(directive: Directive, allocator: Allocator) ![]u8 {
         var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice(" @");
         try str.appendSlice(directive.name);
         if (directive.arguments.len > 0) {
             try str.appendSlice("(");
@@ -596,9 +589,7 @@ pub const Printer = struct {
 
     fn getGqlFromDirectiveList(directives: []Directive, allocator: Allocator) ![]u8 {
         var str = std.ArrayList(u8).init(allocator);
-        try str.appendSlice(" @");
-        for (directives, 0..) |directive, i| {
-            if (i > 0) try str.appendSlice(" ");
+        for (directives) |directive| {
             try str.appendSlice(try getGqlFromDirective(directive, allocator));
         }
         return str.toOwnedSlice();
@@ -611,12 +602,6 @@ pub const Printer = struct {
             if (i > 0) try str.appendSlice(" & ");
             try str.appendSlice(try getGqlFromType(interface.type, allocator));
         }
-        return str.toOwnedSlice();
-    }
-
-    fn getNotImplementedString(allocator: Allocator) ![]u8 {
-        var str = std.ArrayList(u8).init(allocator);
-        try str.appendSlice("not implemented atm");
         return str.toOwnedSlice();
     }
 
@@ -675,7 +660,7 @@ pub const Printer = struct {
 
     fn getGqlFromScalarTypeExtension(scalarTypeExtension: ScalarTypeExtension, allocator: Allocator) ![]u8 {
         var str = std.ArrayList(u8).init(allocator);
-        try str.appendSlice("scalar ");
+        try str.appendSlice("extend scalar ");
         try str.appendSlice(scalarTypeExtension.name);
         if (scalarTypeExtension.directives.len > 0) {
             try str.appendSlice(try getGqlFromDirectiveList(scalarTypeExtension.directives, allocator));

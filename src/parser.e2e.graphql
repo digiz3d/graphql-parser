@@ -24,7 +24,7 @@ interface USBA @a1 {
   a: A @a2
 }
 
-interface USBC implements USBA {
+interface USBC {
   C: C
 }
 
@@ -85,7 +85,7 @@ input SomeInput @someDirective {
   field: String = "Some default"
 }
 
-extend input Oki @a1 {
+extend input Oki @oui {
   "okidoki"
   okayyy: String!
 }
