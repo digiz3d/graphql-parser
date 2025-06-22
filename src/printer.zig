@@ -18,6 +18,7 @@ const Field = @import("ast/field.zig").Field;
 const ScalarTypeDefinition = @import("ast/scalar_type_definition.zig").ScalarTypeDefinition;
 const ScalarTypeExtension = @import("ast/scalar_type_extension.zig").ScalarTypeExtension;
 const SchemaDefinition = @import("ast/schema_definition.zig").SchemaDefinition;
+const SchemaExtension = @import("ast/schema_extension.zig").SchemaExtension;
 const OperationTypeDefinition = @import("ast/operation_type_definition.zig").OperationTypeDefinition;
 const UnionTypeDefinition = @import("ast/union_type_definition.zig").UnionTypeDefinition;
 const UnionTypeExtension = @import("ast/union_type_extension.zig").UnionTypeExtension;
@@ -105,8 +106,8 @@ pub const Printer = struct {
             .scalarTypeExtension => |scalarTypeExtension| {
                 return try getGqlFromScalarTypeExtension(scalarTypeExtension, allocator);
             },
-            else => {
-                return try getNotImplementedString(allocator);
+            .schemaExtension => |schemaExtension| {
+                return try getGqlFromSchemaExtension(schemaExtension, allocator);
             },
         };
 
@@ -679,6 +680,21 @@ pub const Printer = struct {
         if (scalarTypeExtension.directives.len > 0) {
             try str.appendSlice(try getGqlFromDirectiveList(scalarTypeExtension.directives, allocator));
         }
+        return str.toOwnedSlice();
+    }
+
+    fn getGqlFromSchemaExtension(schemaExtension: SchemaExtension, allocator: Allocator) ![]u8 {
+        var str = std.ArrayList(u8).init(allocator);
+        try str.appendSlice("extend schema");
+        if (schemaExtension.directives.len > 0) {
+            try str.appendSlice(try getGqlFromDirectiveList(schemaExtension.directives, allocator));
+        }
+        try str.appendSlice(" {");
+        for (schemaExtension.operationTypes, 0..) |operationType, i| {
+            if (i > 0) try str.append(' ');
+            try str.appendSlice(try getGqlFromOperationTypeDefinition(operationType, allocator));
+        }
+        try str.appendSlice("}");
         return str.toOwnedSlice();
     }
 };
