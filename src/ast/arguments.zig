@@ -58,7 +58,7 @@ pub fn parseArguments(parser: *Parser, tokens: []Token) ParseError![]Argument {
         const argumentNameToken = parser.consumeToken(tokens, Token.Tag.identifier) catch return ParseError.ExpectedName;
         const argumentName = try parser.getTokenValue(argumentNameToken);
         errdefer parser.allocator.free(argumentName);
-        _ = try parser.consumeToken(tokens, Token.Tag.punct_colon);
+        _ = parser.consumeToken(tokens, Token.Tag.punct_colon) catch return ParseError.ExpectedColon;
 
         const argumentValue = try parseInputValue(parser, tokens, true);
 
@@ -112,6 +112,12 @@ test "parsing argument with default value" {
     try testing.expectEqual(2, arguments.len);
     try testing.expectEqual(null, arguments[0].defaultValue);
     try testing.expectEqual(InputValue{ .int_value = .{ .value = 456 } }, arguments[1].defaultValue.?);
+}
+
+test "missing colon" {
+    const buffer = "(id 123, value: $var = 456)";
+    const arguments = runTest(buffer);
+    try testing.expectError(ParseError.ExpectedColon, arguments);
 }
 
 test "parsing arguments with unexpected token" {
