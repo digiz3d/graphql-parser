@@ -30,6 +30,6 @@ pub fn main() !void {
     const document = try parser.parse();
 
     var printer = try Printer.init(allocator, document);
-    const gql = try printer.getText();
+    const gql = try printer.getGql();
     std.debug.print("{s}", .{gql});
 }

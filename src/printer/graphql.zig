@@ -99,12 +99,16 @@ fn getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition: InputObjectTyp
     try str.appendSlice("input ");
     try str.appendSlice(inputObjectTypeDefinition.name);
     if (inputObjectTypeDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(inputObjectTypeDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(inputObjectTypeDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (inputObjectTypeDefinition.fields, 0..) |fieldDefinition, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
+        const fieldStr = try getGqlFromInputValueDefinition(fieldDefinition, allocator);
+        defer allocator.free(fieldStr);
+        try str.appendSlice(fieldStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -115,12 +119,16 @@ fn getGqlFromInputObjectTypeExtension(inputObjectTypeExtension: InputObjectTypeE
     try str.appendSlice("extend input ");
     try str.appendSlice(inputObjectTypeExtension.name);
     if (inputObjectTypeExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(inputObjectTypeExtension.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(inputObjectTypeExtension.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (inputObjectTypeExtension.fields, 0..) |fieldDefinition, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromInputValueDefinition(fieldDefinition, allocator));
+        const fieldStr = try getGqlFromInputValueDefinition(fieldDefinition, allocator);
+        defer allocator.free(fieldStr);
+        try str.appendSlice(fieldStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -135,14 +143,18 @@ fn getGqlFromEnumTypeDefinition(enumTypeDefinition: EnumTypeDefinition, allocato
     try str.appendSlice("enum ");
     try str.appendSlice(enumTypeDefinition.name);
     if (enumTypeDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(enumTypeDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(enumTypeDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (enumTypeDefinition.values, 0..) |value, i| {
         if (i > 0) try str.append(' ');
         try str.appendSlice(value.name);
         if (value.directives.len > 0) {
-            try str.appendSlice(try getGqlFromDirectiveList(value.directives, allocator));
+            const valueDirectivesStr = try getGqlFromDirectiveList(value.directives, allocator);
+            defer allocator.free(valueDirectivesStr);
+            try str.appendSlice(valueDirectivesStr);
         }
     }
     try str.appendSlice("}");
@@ -154,14 +166,18 @@ fn getGqlFromEnumTypeExtension(enumTypeExtension: EnumTypeExtension, allocator: 
     try str.appendSlice("extend enum ");
     try str.appendSlice(enumTypeExtension.name);
     if (enumTypeExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(enumTypeExtension.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(enumTypeExtension.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (enumTypeExtension.values, 0..) |value, i| {
         if (i > 0) try str.append(' ');
         try str.appendSlice(value.name);
         if (value.directives.len > 0) {
-            try str.appendSlice(try getGqlFromDirectiveList(value.directives, allocator));
+            const valueDirectivesStr = try getGqlFromDirectiveList(value.directives, allocator);
+            defer allocator.free(valueDirectivesStr);
+            try str.appendSlice(valueDirectivesStr);
         }
     }
     try str.appendSlice("}");
@@ -177,15 +193,21 @@ fn getGqlFromInterfaceTypeDefinition(interfaceTypeDefinition: InterfaceTypeDefin
     try str.appendSlice("interface ");
     try str.appendSlice(interfaceTypeDefinition.name);
     if (interfaceTypeDefinition.interfaces.len > 0) {
-        try str.appendSlice(try getGqlFromImplementedInterfaces(interfaceTypeDefinition.interfaces, allocator));
+        const gql = try getGqlFromImplementedInterfaces(interfaceTypeDefinition.interfaces, allocator);
+        defer allocator.free(gql);
+        try str.appendSlice(gql);
     }
     if (interfaceTypeDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(interfaceTypeDefinition.directives, allocator));
+        const gql = try getGqlFromDirectiveList(interfaceTypeDefinition.directives, allocator);
+        defer allocator.free(gql);
+        try str.appendSlice(gql);
     }
     try str.appendSlice(" {");
     for (interfaceTypeDefinition.fields, 0..) |fieldDefinition, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
+        const gql = try getGqlFromFieldDefinition(fieldDefinition, allocator);
+        defer allocator.free(gql);
+        try str.appendSlice(gql);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -200,15 +222,21 @@ fn getGqlFromObjectTypeDefinition(objectTypeDefinition: ObjectTypeDefinition, al
     try str.appendSlice("type ");
     try str.appendSlice(objectTypeDefinition.name);
     if (objectTypeDefinition.interfaces.len > 0) {
-        try str.appendSlice(try getGqlFromImplementedInterfaces(objectTypeDefinition.interfaces, allocator));
+        const interfacesStr = try getGqlFromImplementedInterfaces(objectTypeDefinition.interfaces, allocator);
+        defer allocator.free(interfacesStr);
+        try str.appendSlice(interfacesStr);
     }
     if (objectTypeDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(objectTypeDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(objectTypeDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (objectTypeDefinition.fields, 0..) |fieldDefinition, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
+        const fieldStr = try getGqlFromFieldDefinition(fieldDefinition, allocator);
+        defer allocator.free(fieldStr);
+        try str.appendSlice(fieldStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -225,14 +253,20 @@ fn getGqlFromFieldDefinition(fieldDefinition: FieldDefinition, allocator: Alloca
         try str.appendSlice("(");
         for (fieldDefinition.arguments, 0..) |inputValueDefinition, i| {
             if (i > 0) try str.appendSlice(", ");
-            try str.appendSlice(try getGqlFromInputValueDefinition(inputValueDefinition, allocator));
+            const argStr = try getGqlFromInputValueDefinition(inputValueDefinition, allocator);
+            defer allocator.free(argStr);
+            try str.appendSlice(argStr);
         }
         try str.appendSlice(")");
     }
     try str.appendSlice(": ");
-    try str.appendSlice(try getGqlFromType(fieldDefinition.type, allocator));
+    const typeStr = try getGqlFromType(fieldDefinition.type, allocator);
+    defer allocator.free(typeStr);
+    try str.appendSlice(typeStr);
     if (fieldDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(fieldDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(fieldDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     return str.toOwnedSlice();
 }
@@ -245,13 +279,19 @@ fn getGqlFromInputValueDefinition(inputValueDefinition: InputValueDefinition, al
     }
     try str.appendSlice(inputValueDefinition.name);
     try str.appendSlice(": ");
-    try str.appendSlice(try getGqlFromType(inputValueDefinition.value, allocator));
+    const typeStr = try getGqlFromType(inputValueDefinition.value, allocator);
+    defer allocator.free(typeStr);
+    try str.appendSlice(typeStr);
     if (inputValueDefinition.defaultValue) |defaultValue| {
         try str.appendSlice(" = ");
-        try str.appendSlice(try getGqlInputValue(defaultValue, allocator));
+        const defaultValueStr = try getGqlInputValue(defaultValue, allocator);
+        defer allocator.free(defaultValueStr);
+        try str.appendSlice(defaultValueStr);
     }
     if (inputValueDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(inputValueDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(inputValueDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     return str.toOwnedSlice();
 }
@@ -265,12 +305,16 @@ fn getGqlFromUnionTypeDefinition(unionTypeDefinition: UnionTypeDefinition, alloc
     try str.appendSlice("union ");
     try str.appendSlice(unionTypeDefinition.name);
     if (unionTypeDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(unionTypeDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(unionTypeDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" = ");
     for (unionTypeDefinition.types, 0..) |t, i| {
         if (i > 0) try str.appendSlice(" | ");
-        try str.appendSlice(try getGqlFromType(t, allocator));
+        const typeStr = try getGqlFromType(t, allocator);
+        defer allocator.free(typeStr);
+        try str.appendSlice(typeStr);
     }
     return str.toOwnedSlice();
 }
@@ -283,12 +327,16 @@ fn getGqlFomSchemaDefinition(schemaDefinition: SchemaDefinition, allocator: Allo
     }
     try str.appendSlice("schema");
     if (schemaDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(schemaDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(schemaDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (schemaDefinition.operationTypes, 0..) |operationType, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromOperationTypeDefinition(operationType, allocator));
+        const operationTypeStr = try getGqlFromOperationTypeDefinition(operationType, allocator);
+        defer allocator.free(operationTypeStr);
+        try str.appendSlice(operationTypeStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -332,15 +380,21 @@ fn getGqlFomOperationDefinition(operationDefinition: OperationDefinition, alloca
         try str.appendSlice("(");
         for (operationDefinition.variableDefinitions, 0..) |variableDefinition, i| {
             if (i > 0) try str.appendSlice(", ");
-            try str.appendSlice(try getGqlVariableDefinition(variableDefinition, allocator));
+            const varDefStr = try getGqlVariableDefinition(variableDefinition, allocator);
+            defer allocator.free(varDefStr);
+            try str.appendSlice(varDefStr);
         }
         try str.appendSlice(")");
     }
     if (operationDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(operationDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(operationDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" ");
-    try str.appendSlice(try getGqlFromSelectionSet(operationDefinition.selectionSet, allocator));
+    const selectionSetStr = try getGqlFromSelectionSet(operationDefinition.selectionSet, allocator);
+    defer allocator.free(selectionSetStr);
+    try str.appendSlice(selectionSetStr);
 
     return str.toOwnedSlice();
 }
@@ -354,7 +408,9 @@ fn getGqlFomScalarTypeDefinition(scalarTypeDefinition: ScalarTypeDefinition, all
     try str.appendSlice("scalar ");
     try str.appendSlice(scalarTypeDefinition.name);
     if (scalarTypeDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(scalarTypeDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(scalarTypeDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     return str.toOwnedSlice();
 }
@@ -364,11 +420,17 @@ fn getGqlFomFragmentDefinition(fragmentDefinition: FragmentDefinition, allocator
     try str.appendSlice("fragment ");
     try str.appendSlice(fragmentDefinition.name);
     try str.appendSlice(" on ");
-    try str.appendSlice(try getGqlFromType(fragmentDefinition.typeCondition, allocator));
+    const typeStr = try getGqlFromType(fragmentDefinition.typeCondition, allocator);
+    defer allocator.free(typeStr);
+    try str.appendSlice(typeStr);
     if (fragmentDefinition.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(fragmentDefinition.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(fragmentDefinition.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
-    try str.appendSlice(try getGqlFromSelectionSet(fragmentDefinition.selectionSet, allocator));
+    const selectionSetStr = try getGqlFromSelectionSet(fragmentDefinition.selectionSet, allocator);
+    defer allocator.free(selectionSetStr);
+    try str.appendSlice(selectionSetStr);
     return str.toOwnedSlice();
 }
 
@@ -384,7 +446,9 @@ fn getGqlFomDirectiveDefinition(directiveDefinition: DirectiveDefinition, alloca
         try str.appendSlice("(");
         for (directiveDefinition.arguments, 0..) |argument, i| {
             if (i > 0) try str.appendSlice(", ");
-            try str.appendSlice(try getGqlFromInputValueDefinition(argument, allocator));
+            const argStr = try getGqlFromInputValueDefinition(argument, allocator);
+            defer allocator.free(argStr);
+            try str.appendSlice(argStr);
         }
         try str.appendSlice(")");
     }
@@ -401,10 +465,14 @@ fn getGqlVariableDefinition(variableDefinition: VariableDefinition, allocator: A
     try str.appendSlice("$");
     try str.appendSlice(variableDefinition.name);
     try str.appendSlice(": ");
-    try str.appendSlice(try getGqlFromType(variableDefinition.type, allocator));
+    const typeStr = try getGqlFromType(variableDefinition.type, allocator);
+    defer allocator.free(typeStr);
+    try str.appendSlice(typeStr);
     if (variableDefinition.defaultValue) |defaultValue| {
         try str.appendSlice(" = ");
-        try str.appendSlice(try getGqlInputValue(defaultValue, allocator));
+        const defaultValueStr = try getGqlInputValue(defaultValue, allocator);
+        defer allocator.free(defaultValueStr);
+        try str.appendSlice(defaultValueStr);
     }
     return str.toOwnedSlice();
 }
@@ -418,7 +486,9 @@ fn getGqlFromType(t: Type, allocator: Allocator) ![]u8 {
         },
         .listType => |listType| {
             try str.appendSlice("[");
-            try str.appendSlice(try getGqlFromType(listType.elementType.*, allocator));
+            const elementTypeStr = try getGqlFromType(listType.elementType.*, allocator);
+            defer allocator.free(elementTypeStr);
+            try str.appendSlice(elementTypeStr);
             try str.appendSlice("]");
         },
         .nonNullType => |nonNullType| {
@@ -429,7 +499,9 @@ fn getGqlFromType(t: Type, allocator: Allocator) ![]u8 {
                 },
                 .listType => |listType| {
                     try str.appendSlice("[");
-                    try str.appendSlice(try getGqlFromType(listType.elementType.*, allocator));
+                    const elementTypeStr = try getGqlFromType(listType.elementType.*, allocator);
+                    defer allocator.free(elementTypeStr);
+                    try str.appendSlice(elementTypeStr);
                     try str.appendSlice("]!");
                 },
             }
@@ -450,7 +522,9 @@ fn getGqlInputValue(inputValue: InputValue, allocator: Allocator) ![]u8 {
             try str.appendSlice("[");
             for (listValue.values, 0..) |item, i| {
                 if (i > 0) try str.appendSlice(", ");
-                try str.appendSlice(try getGqlInputValue(item, allocator));
+                const itemStr = try getGqlInputValue(item, allocator);
+                defer allocator.free(itemStr);
+                try str.appendSlice(itemStr);
             }
             try str.appendSlice("]");
         },
@@ -460,7 +534,9 @@ fn getGqlInputValue(inputValue: InputValue, allocator: Allocator) ![]u8 {
                 if (i > 0) try str.appendSlice(", ");
                 try str.appendSlice(field.name);
                 try str.appendSlice(": ");
-                try str.appendSlice(try getGqlInputValue(field.value, allocator));
+                const fieldValueStr = try getGqlInputValue(field.value, allocator);
+                defer allocator.free(fieldValueStr);
+                try str.appendSlice(fieldValueStr);
             }
             try str.appendSlice("}");
         },
@@ -468,13 +544,19 @@ fn getGqlInputValue(inputValue: InputValue, allocator: Allocator) ![]u8 {
             try str.appendSlice(if (booleanValue.value) "true" else "false");
         },
         .int_value => |intValue| {
-            try str.appendSlice(try std.fmt.allocPrint(allocator, "{d}", .{intValue.value}));
+            const intStr = try std.fmt.allocPrint(allocator, "{d}", .{intValue.value});
+            defer allocator.free(intStr);
+            try str.appendSlice(intStr);
         },
         .float_value => |floatValue| {
-            try str.appendSlice(try std.fmt.allocPrint(allocator, "{d}", .{floatValue.value}));
+            const floatStr = try std.fmt.allocPrint(allocator, "{d}", .{floatValue.value});
+            defer allocator.free(floatStr);
+            try str.appendSlice(floatStr);
         },
         .string_value => |stringValue| {
-            try str.appendSlice(try std.fmt.allocPrint(allocator, "{s}", .{stringValue.value}));
+            const stringStr = try std.fmt.allocPrint(allocator, "{s}", .{stringValue.value});
+            defer allocator.free(stringStr);
+            try str.appendSlice(stringStr);
         },
         .null_value => {
             try str.appendSlice("null");
@@ -494,7 +576,9 @@ fn getGqlFromDirective(directive: Directive, allocator: Allocator) ![]u8 {
         try str.appendSlice("(");
         for (directive.arguments, 0..) |argument, i| {
             if (i > 0) try str.appendSlice(", ");
-            try str.appendSlice(try getGqlFromArgument(argument, allocator));
+            const argStr = try getGqlFromArgument(argument, allocator);
+            defer allocator.free(argStr);
+            try str.appendSlice(argStr);
         }
         try str.appendSlice(")");
     }
@@ -505,7 +589,9 @@ fn getGqlFromArgument(argument: Argument, allocator: Allocator) ![]u8 {
     var str = std.ArrayList(u8).init(allocator);
     try str.appendSlice(argument.name);
     try str.appendSlice(": ");
-    try str.appendSlice(try getGqlInputValue(argument.value, allocator));
+    const valueStr = try getGqlInputValue(argument.value, allocator);
+    defer allocator.free(valueStr);
+    try str.appendSlice(valueStr);
     return str.toOwnedSlice();
 }
 
@@ -517,21 +603,29 @@ fn getGqlFromSelectionSet(selectionSet: SelectionSet, allocator: Allocator) ![]u
         if (i > 0) try str.appendSlice(" ");
         switch (selection) {
             .field => |field| {
-                try str.appendSlice(try getGqlFromField(field, allocator));
+                const fieldStr = try getGqlFromField(field, allocator);
+                defer allocator.free(fieldStr);
+                try str.appendSlice(fieldStr);
             },
             .fragmentSpread => |fragmentSpread| {
                 try str.appendSlice("...");
                 try str.appendSlice(fragmentSpread.name);
                 if (fragmentSpread.directives.len > 0) {
-                    try str.appendSlice(try getGqlFromDirectiveList(fragmentSpread.directives, allocator));
+                    const directivesStr = try getGqlFromDirectiveList(fragmentSpread.directives, allocator);
+                    defer allocator.free(directivesStr);
+                    try str.appendSlice(directivesStr);
                 }
             },
             .inlineFragment => |inlineFragment| {
                 try str.appendSlice("... on ");
                 try str.appendSlice(inlineFragment.typeCondition);
-                try str.appendSlice(try getGqlFromSelectionSet(inlineFragment.selectionSet, allocator));
+                const selectionSetStr = try getGqlFromSelectionSet(inlineFragment.selectionSet, allocator);
+                defer allocator.free(selectionSetStr);
+                try str.appendSlice(selectionSetStr);
                 if (inlineFragment.directives.len > 0) {
-                    try str.appendSlice(try getGqlFromDirectiveList(inlineFragment.directives, allocator));
+                    const directivesStr = try getGqlFromDirectiveList(inlineFragment.directives, allocator);
+                    defer allocator.free(directivesStr);
+                    try str.appendSlice(directivesStr);
                 }
             },
         }
@@ -551,12 +645,16 @@ fn getGqlFromField(field: Field, allocator: Allocator) ![]u8 {
         try str.appendSlice("(");
         for (field.arguments, 0..) |argument, i| {
             if (i > 0) try str.appendSlice(", ");
-            try str.appendSlice(try getGqlFromArgument(argument, allocator));
+            const argStr = try getGqlFromArgument(argument, allocator);
+            defer allocator.free(argStr);
+            try str.appendSlice(argStr);
         }
         try str.appendSlice(")");
     }
     if (field.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(field.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(field.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     return str.toOwnedSlice();
 }
@@ -564,7 +662,9 @@ fn getGqlFromField(field: Field, allocator: Allocator) ![]u8 {
 fn getGqlFromDirectiveList(directives: []Directive, allocator: Allocator) ![]u8 {
     var str = std.ArrayList(u8).init(allocator);
     for (directives) |directive| {
-        try str.appendSlice(try getGqlFromDirective(directive, allocator));
+        const directiveStr = try getGqlFromDirective(directive, allocator);
+        defer allocator.free(directiveStr);
+        try str.appendSlice(directiveStr);
     }
     return str.toOwnedSlice();
 }
@@ -574,7 +674,9 @@ fn getGqlFromImplementedInterfaces(interfaces: []Interface, allocator: Allocator
     try str.appendSlice(" implements ");
     for (interfaces, 0..) |interface, i| {
         if (i > 0) try str.appendSlice(" & ");
-        try str.appendSlice(try getGqlFromType(interface.type, allocator));
+        const interfaceStr = try getGqlFromType(interface.type, allocator);
+        defer allocator.free(interfaceStr);
+        try str.appendSlice(interfaceStr);
     }
     return str.toOwnedSlice();
 }
@@ -584,15 +686,21 @@ fn getGqlFromObjectTypeExtension(objectTypeExtension: ObjectTypeExtension, alloc
     try str.appendSlice("extend type ");
     try str.appendSlice(objectTypeExtension.name);
     if (objectTypeExtension.interfaces.len > 0) {
-        try str.appendSlice(try getGqlFromImplementedInterfaces(objectTypeExtension.interfaces, allocator));
+        const interfacesStr = try getGqlFromImplementedInterfaces(objectTypeExtension.interfaces, allocator);
+        defer allocator.free(interfacesStr);
+        try str.appendSlice(interfacesStr);
     }
     if (objectTypeExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(objectTypeExtension.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(objectTypeExtension.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (objectTypeExtension.fields, 0..) |fieldDefinition, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
+        const fieldStr = try getGqlFromFieldDefinition(fieldDefinition, allocator);
+        defer allocator.free(fieldStr);
+        try str.appendSlice(fieldStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -603,15 +711,21 @@ fn getGqlFromInterfaceTypeExtension(interfaceTypeExtension: InterfaceTypeExtensi
     try str.appendSlice("extend interface ");
     try str.appendSlice(interfaceTypeExtension.name);
     if (interfaceTypeExtension.interfaces.len > 0) {
-        try str.appendSlice(try getGqlFromImplementedInterfaces(interfaceTypeExtension.interfaces, allocator));
+        const interfacesStr = try getGqlFromImplementedInterfaces(interfaceTypeExtension.interfaces, allocator);
+        defer allocator.free(interfacesStr);
+        try str.appendSlice(interfacesStr);
     }
     if (interfaceTypeExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(interfaceTypeExtension.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(interfaceTypeExtension.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (interfaceTypeExtension.fields, 0..) |fieldDefinition, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromFieldDefinition(fieldDefinition, allocator));
+        const fieldStr = try getGqlFromFieldDefinition(fieldDefinition, allocator);
+        defer allocator.free(fieldStr);
+        try str.appendSlice(fieldStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
@@ -622,12 +736,16 @@ fn getGqlFromUnionTypeExtension(unionTypeExtension: UnionTypeExtension, allocato
     try str.appendSlice("extend union ");
     try str.appendSlice(unionTypeExtension.name);
     if (unionTypeExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(unionTypeExtension.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(unionTypeExtension.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" = ");
     for (unionTypeExtension.types, 0..) |t, i| {
         if (i > 0) try str.appendSlice(" | ");
-        try str.appendSlice(try getGqlFromType(t, allocator));
+        const typeStr = try getGqlFromType(t, allocator);
+        defer allocator.free(typeStr);
+        try str.appendSlice(typeStr);
     }
     return str.toOwnedSlice();
 }
@@ -637,7 +755,9 @@ fn getGqlFromScalarTypeExtension(scalarTypeExtension: ScalarTypeExtension, alloc
     try str.appendSlice("extend scalar ");
     try str.appendSlice(scalarTypeExtension.name);
     if (scalarTypeExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(scalarTypeExtension.directives, allocator));
+        const gql = try getGqlFromDirectiveList(scalarTypeExtension.directives, allocator);
+        defer allocator.free(gql);
+        try str.appendSlice(gql);
     }
     return str.toOwnedSlice();
 }
@@ -646,12 +766,16 @@ fn getGqlFromSchemaExtension(schemaExtension: SchemaExtension, allocator: Alloca
     var str = std.ArrayList(u8).init(allocator);
     try str.appendSlice("extend schema");
     if (schemaExtension.directives.len > 0) {
-        try str.appendSlice(try getGqlFromDirectiveList(schemaExtension.directives, allocator));
+        const directivesStr = try getGqlFromDirectiveList(schemaExtension.directives, allocator);
+        defer allocator.free(directivesStr);
+        try str.appendSlice(directivesStr);
     }
     try str.appendSlice(" {");
     for (schemaExtension.operationTypes, 0..) |operationType, i| {
         if (i > 0) try str.append(' ');
-        try str.appendSlice(try getGqlFromOperationTypeDefinition(operationType, allocator));
+        const operationTypeStr = try getGqlFromOperationTypeDefinition(operationType, allocator);
+        defer allocator.free(operationTypeStr);
+        try str.appendSlice(operationTypeStr);
     }
     try str.appendSlice("}");
     return str.toOwnedSlice();
