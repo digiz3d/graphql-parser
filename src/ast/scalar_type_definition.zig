@@ -19,24 +19,6 @@ pub const ScalarTypeDefinition = struct {
     name: []const u8,
     directives: []Directive,
 
-    pub fn printAST(self: ScalarTypeDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- ScalarTypeDefinition\n", .{spaces});
-        if (self.description != null) {
-            const str = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(str);
-            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
-        } else {
-            std.debug.print("{s}  description: null\n", .{spaces});
-        }
-        std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives:\n", .{spaces});
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: ScalarTypeDefinition) void {
         if (self.description != null) {
             self.allocator.free(self.description.?);

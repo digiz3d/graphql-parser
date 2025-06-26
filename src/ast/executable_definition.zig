@@ -35,12 +35,6 @@ pub const ExecutableDefinition = union(enum) {
     unionTypeExtension: UnionTypeExtension,
     scalarTypeExtension: ScalarTypeExtension,
 
-    pub fn printAST(self: ExecutableDefinition, indent: usize) void {
-        switch (self) {
-            inline else => |value| value.printAST(indent),
-        }
-    }
-
     pub fn deinit(self: ExecutableDefinition) void {
         switch (self) {
             inline else => |value| value.deinit(),

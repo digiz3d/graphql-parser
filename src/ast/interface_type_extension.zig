@@ -39,25 +39,6 @@ pub const InterfaceTypeExtension = struct {
         }
         self.allocator.free(self.fields);
     }
-
-    pub fn printAST(self: InterfaceTypeExtension, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- InterfaceTypeExtension\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  interfaces: {d}\n", .{ spaces, self.interfaces.len });
-        for (self.interfaces) |interface| {
-            interface.printAST(indent + 1);
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-        std.debug.print("{s}  fields: {d}\n", .{ spaces, self.fields.len });
-        for (self.fields) |field| {
-            field.printAST(indent + 1);
-        }
-    }
 };
 
 pub fn parseInterfaceTypeExtension(parser: *Parser) ParseError!InterfaceTypeExtension {

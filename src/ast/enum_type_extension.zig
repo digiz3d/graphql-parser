@@ -30,21 +30,6 @@ pub const EnumTypeExtension = struct {
         }
         self.allocator.free(self.values);
     }
-
-    pub fn printAST(self: EnumTypeExtension, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- EnumTypeExtension\n", .{spaces});
-        std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-        std.debug.print("{s}  values: {d}\n", .{ spaces, self.values.len });
-        for (self.values) |value| {
-            value.printAST(indent + 1);
-        }
-    }
 };
 
 pub fn parseEnumTypeExtension(parser: *Parser) ParseError!EnumTypeExtension {

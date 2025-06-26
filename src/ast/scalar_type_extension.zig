@@ -24,17 +24,6 @@ pub const ScalarTypeExtension = struct {
         }
         self.allocator.free(self.directives);
     }
-
-    pub fn printAST(self: ScalarTypeExtension, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- ScalarTypeExtension\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-    }
 };
 
 pub fn parseScalarTypeExtension(parser: *Parser) ParseError!ScalarTypeExtension {

@@ -32,21 +32,6 @@ pub const UnionTypeExtension = struct {
         }
         self.allocator.free(self.types);
     }
-
-    pub fn printAST(self: UnionTypeExtension, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- UnionTypeExtension\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-        std.debug.print("{s}  types: {d}\n", .{ spaces, self.types.len });
-        for (self.types) |t| {
-            t.printAST(indent + 1, self.allocator);
-        }
-    }
 };
 
 pub fn parseUnionTypeExtension(parser: *Parser) ParseError!UnionTypeExtension {

@@ -24,28 +24,6 @@ pub const FieldDefinition = struct {
     arguments: []InputValueDefinition,
     directives: []Directive,
 
-    pub fn printAST(self: FieldDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- FieldDefinition\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        if (self.description != null) {
-            const str = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(str);
-            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
-        } else {
-            std.debug.print("{s}  description: null\n", .{spaces});
-        }
-        std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
-        for (self.arguments) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: FieldDefinition) void {
         if (self.description != null) {
             self.allocator.free(self.description.?);

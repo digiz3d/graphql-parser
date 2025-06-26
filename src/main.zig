@@ -28,9 +28,8 @@ pub fn main() !void {
     defer parser.deinit();
 
     const document = try parser.parse();
-    // document.printAST(0);
 
     var printer = try Printer.init(allocator, document);
-    const gql = try printer.getGql();
+    const gql = try printer.getText();
     std.debug.print("{s}", .{gql});
 }

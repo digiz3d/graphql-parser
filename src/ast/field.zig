@@ -15,32 +15,6 @@ pub const Field = struct {
     directives: []Directive,
     selectionSet: ?SelectionSet,
 
-    pub fn printAST(self: Field, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- FieldData\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        if (self.alias != null) {
-            std.debug.print("{s}  alias = {?s}\n", .{ spaces, if (self.alias.?.len > 0) self.alias else "none" });
-        } else {
-            std.debug.print("{s}  alias = null\n", .{spaces});
-        }
-        std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
-        for (self.arguments) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        if (self.selectionSet != null) {
-            std.debug.print("{s}  selectionSet: \n", .{spaces});
-            self.selectionSet.?.printAST(indent + 1);
-        } else {
-            std.debug.print("{s}  selectionSet: null\n", .{spaces});
-        }
-    }
-
     pub fn deinit(self: Field) void {
         self.allocator.free(self.name);
         if (self.alias != null) {

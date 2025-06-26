@@ -23,28 +23,6 @@ pub const EnumTypeDefinition = struct {
     directives: []Directive,
     values: []EnumValueDefinition,
 
-    pub fn printAST(self: EnumTypeDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- EnumTypeDefinition\n", .{spaces});
-        std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
-        if (self.description != null) {
-            const str = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(str);
-            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
-        } else {
-            std.debug.print("{s}  description: null\n", .{spaces});
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-        std.debug.print("{s}  values: {d}\n", .{ spaces, self.values.len });
-        for (self.values) |value| {
-            value.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: EnumTypeDefinition) void {
         if (self.description != null) {
             self.allocator.free(self.description.?);
