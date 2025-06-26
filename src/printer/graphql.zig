@@ -35,10 +35,7 @@ const UnionTypeExtension = @import("../ast/union_type_extension.zig").UnionTypeE
 const VariableDefinition = @import("../ast/variable_definition.zig").VariableDefinition;
 
 pub fn getGqlFromExecutableDefinition(definition: ExecutableDefinition, allocator: Allocator) ![]u8 {
-    var graphQLString = std.ArrayList(u8).init(allocator);
-    defer graphQLString.deinit();
-
-    const str = switch (definition) {
+    return switch (definition) {
         .fragmentDefinition => |fragmentDefinition| {
             return try getGqlFomFragmentDefinition(fragmentDefinition, allocator);
         },
@@ -91,10 +88,6 @@ pub fn getGqlFromExecutableDefinition(definition: ExecutableDefinition, allocato
             return try getGqlFromSchemaExtension(schemaExtension, allocator);
         },
     };
-
-    try graphQLString.appendSlice(str);
-
-    return try graphQLString.toOwnedSlice();
 }
 
 fn getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition: InputObjectTypeDefinition, allocator: Allocator) ![]u8 {
