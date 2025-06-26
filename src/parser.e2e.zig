@@ -2,6 +2,7 @@ const testing = @import("std").testing;
 const Parser = @import("parser.zig").Parser;
 const OperationType = @import("ast/operation_definition.zig").OperationType;
 const getFileContent = @import("utils/utils.zig").getFileContent;
+const Printer = @import("printer.zig").Printer;
 
 test "e2e-parse" {
     const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
@@ -42,4 +43,24 @@ test "e2e-parse" {
     try testing.expectEqual(2, scalarTypeExtension.directives.len);
     try testing.expectEqualStrings("someDirective", scalarTypeExtension.directives[0].name);
     try testing.expectEqualStrings("anotherDirective", scalarTypeExtension.directives[1].name);
+}
+
+test "e2e-print-text" {
+    const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
+    defer testing.allocator.free(content);
+
+    var parser = try Parser.initFromBuffer(testing.allocator, content);
+    defer parser.deinit();
+
+    const rootNode = try parser.parse();
+    defer rootNode.deinit();
+
+    var printer = try Printer.init(testing.allocator, rootNode);
+    const text = try printer.getText();
+    defer testing.allocator.free(text);
+
+    const expectedText = try getFileContent("src/parser.e2e.snapshot.txt", testing.allocator);
+    defer testing.allocator.free(expectedText);
+
+    try testing.expectEqualStrings(expectedText, text);
 }

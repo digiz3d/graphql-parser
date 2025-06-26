@@ -61,7 +61,9 @@ pub const InputValue = union(enum) {
                 result.appendSlice("[") catch return "";
                 for (list_value.values, 0..) |value, i| {
                     if (i > 0) result.appendSlice(", ") catch return "";
-                    result.appendSlice(value.getPrintableString(allocator)) catch return "";
+                    const printableString = value.getPrintableString(allocator);
+                    defer allocator.free(printableString);
+                    result.appendSlice(printableString) catch return "";
                 }
                 result.appendSlice("]") catch return "";
 
@@ -77,7 +79,9 @@ pub const InputValue = union(enum) {
                     if (i > 0) result.appendSlice(", ") catch return "";
                     result.appendSlice(field.name) catch return "";
                     result.appendSlice(": ") catch return "";
-                    result.appendSlice(field.value.getPrintableString(allocator)) catch return "";
+                    const printableString = field.value.getPrintableString(allocator);
+                    defer allocator.free(printableString);
+                    result.appendSlice(printableString) catch return "";
                 }
                 result.appendSlice("}") catch return "";
 
