@@ -16,10 +16,15 @@ pub const Printer = struct {
     pub fn getGql(self: *Printer) ![]u8 {
         var graphQLString = std.ArrayList(u8).init(self.allocator);
         defer graphQLString.deinit();
-        for (self.document.definitions.items) |definition| {
-            try graphQLString.appendSlice(try getGqlFromExecutableDefinition(definition, self.allocator));
-            try graphQLString.appendSlice("\n\n");
+        for (self.document.definitions.items, 0..) |definition, i| {
+            const gql = try getGqlFromExecutableDefinition(definition, self.allocator);
+            defer self.allocator.free(gql);
+            try graphQLString.appendSlice(gql);
+            if (i < self.document.definitions.items.len - 1) {
+                try graphQLString.appendSlice("\n\n");
+            }
         }
+        try graphQLString.appendSlice("\n");
         return graphQLString.toOwnedSlice();
     }
 

@@ -2,6 +2,8 @@ const testing = @import("std").testing;
 const Parser = @import("parser.zig").Parser;
 const OperationType = @import("ast/operation_definition.zig").OperationType;
 const getFileContent = @import("utils/utils.zig").getFileContent;
+const normalizeLineEndings = @import("utils/utils.zig").normalizeLineEndings;
+const trimTrailingNewlines = @import("utils/utils.zig").trimTrailingNewlines;
 const Printer = @import("printer.zig").Printer;
 
 test "e2e-parse" {
@@ -62,5 +64,35 @@ test "e2e-print-text" {
     const expectedText = try getFileContent("src/parser.e2e.snapshot.txt", testing.allocator);
     defer testing.allocator.free(expectedText);
 
-    try testing.expectEqualStrings(expectedText, text);
+    const normalizedText = normalizeLineEndings(testing.allocator, text);
+    defer testing.allocator.free(normalizedText);
+    const normalizedExpectedText = normalizeLineEndings(testing.allocator, expectedText);
+    defer testing.allocator.free(normalizedExpectedText);
+
+    try testing.expectEqualStrings(normalizedText, normalizedExpectedText);
+}
+
+test "e2e-print-graphql" {
+    const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
+    defer testing.allocator.free(content);
+
+    var parser = try Parser.initFromBuffer(testing.allocator, content);
+    defer parser.deinit();
+
+    const rootNode = try parser.parse();
+    defer rootNode.deinit();
+
+    var printer = try Printer.init(testing.allocator, rootNode);
+    const text = try printer.getGql();
+    defer testing.allocator.free(text);
+
+    const expectedText = try getFileContent("src/parser.e2e.snapshot.graphql", testing.allocator);
+    defer testing.allocator.free(expectedText);
+
+    const normalizedText = normalizeLineEndings(testing.allocator, text);
+    defer testing.allocator.free(normalizedText);
+    const normalizedExpectedText = normalizeLineEndings(testing.allocator, expectedText);
+    defer testing.allocator.free(normalizedExpectedText);
+
+    try testing.expectEqualStrings(normalizedText, normalizedExpectedText);
 }

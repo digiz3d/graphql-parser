@@ -67,3 +67,32 @@ pub fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]c
 
     return content;
 }
+
+pub fn normalizeLineEndings(allocator: Allocator, str: []const u8) []const u8 {
+    var normalized = ArrayList(u8).init(allocator);
+
+    var i: usize = 0;
+    while (i < str.len) {
+        if (i + 1 < str.len and str[i] == '\r' and str[i + 1] == '\n') {
+            normalized.append('\n') catch return "";
+            i += 2;
+        } else if (str[i] == '\r') {
+            normalized.append('\n') catch return "";
+            i += 1;
+        } else {
+            normalized.append(str[i]) catch return "";
+            i += 1;
+        }
+    }
+
+    return normalized.toOwnedSlice() catch return "";
+}
+
+test "normalizeLineEndings" {
+    const allocator = std.testing.allocator;
+    const input = "hello\r\nworld\r\ntest\r";
+    const expected = "hello\nworld\ntest\n";
+    const result = normalizeLineEndings(allocator, input);
+    defer allocator.free(result);
+    try std.testing.expectEqualStrings(expected, result);
+}

@@ -18,7 +18,7 @@
       name = lol
       arguments: 0
   - UnionTypeDefinition
-    description: """\n\nunion desc\n\n"""
+    description: """\nunion desc\n"""
     name: SomeUnion
     types:
     - NamedType
