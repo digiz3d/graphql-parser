@@ -52,7 +52,9 @@ pub fn getDocumentText(document: Document, indent: usize, allocator: Allocator) 
     try w.print("{s}- Document\n", .{spaces});
     try w.print("{s}  definitions: {d}\n", .{ spaces, document.definitions.items.len });
     for (document.definitions.items) |item| {
-        try w.print("{s}", .{try getExecutableDefinitionText(item, indent + 1, allocator)});
+        const txt = try getExecutableDefinitionText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     return text.toOwnedSlice();
 }
@@ -90,12 +92,18 @@ fn getFragmentDefinitionText(def: FragmentDefinition, indent: usize, allocator: 
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
-    try w.print("{s}  selectionSet: \n", .{spaces});
-    try w.print("{s}", .{try getSelectionSetText(def.selectionSet, indent + 1, allocator)});
-    try w.print("{s}  typeCondition: \n", .{spaces});
-    try w.print("{s}", .{try getTypeText(def.typeCondition, indent + 1, allocator)});
+    try w.print("{s}  selectionSet:\n", .{spaces});
+    const selectionSetTxt = try getSelectionSetText(def.selectionSet, indent + 1, allocator);
+    defer allocator.free(selectionSetTxt);
+    try w.print("{s}", .{selectionSetTxt});
+    try w.print("{s}  typeCondition:\n", .{spaces});
+    const typeConditionTxt = try getTypeText(def.typeCondition, indent + 1, allocator);
+    defer allocator.free(typeConditionTxt);
+    try w.print("{s}", .{typeConditionTxt});
 
     return text.toOwnedSlice();
 }
@@ -116,14 +124,20 @@ fn getOperationDefinitionText(def: OperationDefinition, indent: usize, allocator
     try w.print("{s}  name = {?s}\n", .{ spaces, def.name });
     try w.print("{s}  variableDefinitions: {d}\n", .{ spaces, def.variableDefinitions.len });
     for (def.variableDefinitions) |item| {
-        try w.print("{s}", .{try getVariableDefinitionText(item, indent + 1, allocator)});
+        const txt = try getVariableDefinitionText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
-    try w.print("{s}  selectionSet: \n", .{spaces});
-    try w.print("{s}", .{try getSelectionSetText(def.selectionSet, indent + 1, allocator)});
+    try w.print("{s}  selectionSet:\n", .{spaces});
+    const selectionSetTxt = try getSelectionSetText(def.selectionSet, indent + 1, allocator);
+    defer allocator.free(selectionSetTxt);
+    try w.print("{s}", .{selectionSetTxt});
 
     return text.toOwnedSlice();
 }
@@ -145,11 +159,15 @@ fn getSchemaDefinitionText(def: SchemaDefinition, indent: usize, allocator: Allo
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  operationTypes: {d}\n", .{ spaces, def.operationTypes.len });
     for (def.operationTypes) |item| {
-        try w.print("{s}", .{try getOperationTypeDefinitionText(item, indent + 1, allocator)});
+        const txt = try getOperationTypeDefinitionText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -173,15 +191,21 @@ fn getObjectTypeDefinitionText(def: ObjectTypeDefinition, indent: usize, allocat
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        try w.print("{s}", .{try getInterfaceText(interface, indent + 1, allocator)});
+        const txt = try getInterfaceText(interface, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |item| {
-        try w.print("{s}", .{try getFieldDefinitionText(item, indent + 1, allocator)});
+        const txt = try getFieldDefinitionText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -205,11 +229,15 @@ fn getUnionTypeDefinitionText(def: UnionTypeDefinition, indent: usize, allocator
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  types:\n", .{spaces});
     for (def.types) |t| {
-        try w.print("{s}", .{try getTypeText(t, indent + 1, allocator)});
+        const txt = try getTypeText(t, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives:\n", .{spaces});
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -233,7 +261,9 @@ fn getScalarTypeDefinitionText(def: ScalarTypeDefinition, indent: usize, allocat
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives:\n", .{spaces});
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -257,7 +287,9 @@ fn getDirectiveDefinitionText(def: DirectiveDefinition, indent: usize, allocator
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |arg| {
-        try w.print("{s}", .{try getInputValueDefinitionText(arg, indent + 1, allocator)});
+        const txt = try getInputValueDefinitionText(arg, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  locations: {d}\n", .{ spaces, def.locations.len });
     for (def.locations) |location| {
@@ -265,7 +297,9 @@ fn getDirectiveDefinitionText(def: DirectiveDefinition, indent: usize, allocator
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -283,15 +317,21 @@ fn getInterfaceTypeDefinitionText(def: InterfaceTypeDefinition, indent: usize, a
     try w.print("{s}  description = {?s}\n", .{ spaces, def.description });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        try w.print("{s}", .{try getInterfaceText(interface, indent + 1, allocator)});
+        const txt = try getInterfaceText(interface, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        try w.print("{s}", .{try getFieldDefinitionText(field, indent + 1, allocator)});
+        const txt = try getFieldDefinitionText(field, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -307,11 +347,15 @@ fn getSchemaExtensionText(def: SchemaExtension, indent: usize, allocator: Alloca
     try w.print("{s}- SchemaExtension\n", .{spaces});
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  operationTypes: {d}\n", .{ spaces, def.operationTypes.len });
     for (def.operationTypes) |operationType| {
-        try w.print("{s}", .{try getOperationTypeDefinitionText(operationType, indent + 1, allocator)});
+        const txt = try getOperationTypeDefinitionText(operationType, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -328,11 +372,15 @@ fn getObjectTypeExtensionText(def: ObjectTypeExtension, indent: usize, allocator
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        try w.print("{s}", .{try getInterfaceText(interface, indent + 1, allocator)});
+        const txt = try getInterfaceText(interface, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -356,11 +404,15 @@ fn getEnumTypeDefinitionText(def: EnumTypeDefinition, indent: usize, allocator: 
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  values: {d}\n", .{ spaces, def.values.len });
     for (def.values) |value| {
-        try w.print("{s}", .{try getEnumValueDefinitionText(value, indent + 1, allocator)});
+        const txt = try getEnumValueDefinitionText(value, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -377,11 +429,15 @@ fn getEnumTypeExtensionText(def: EnumTypeExtension, indent: usize, allocator: Al
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  values: {d}\n", .{ spaces, def.values.len });
     for (def.values) |value| {
-        try w.print("{s}", .{try getEnumValueDefinitionText(value, indent + 1, allocator)});
+        const txt = try getEnumValueDefinitionText(value, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -405,11 +461,15 @@ fn getInputObjectTypeDefinitionText(def: InputObjectTypeDefinition, indent: usiz
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        try w.print("{s}", .{try getInputValueDefinitionText(field, indent + 1, allocator)});
+        const txt = try getInputValueDefinitionText(field, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -426,11 +486,15 @@ fn getInputObjectTypeExtensionText(def: InputObjectTypeExtension, indent: usize,
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        try w.print("{s}", .{try getInputValueDefinitionText(field, indent + 1, allocator)});
+        const txt = try getInputValueDefinitionText(field, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -447,15 +511,21 @@ fn getInterfaceTypeExtensionText(def: InterfaceTypeExtension, indent: usize, all
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        try w.print("{s}", .{try getInterfaceText(interface, indent + 1, allocator)});
+        const txt = try getInterfaceText(interface, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        try w.print("{s}", .{try getFieldDefinitionText(field, indent + 1, allocator)});
+        const txt = try getFieldDefinitionText(field, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -472,11 +542,15 @@ fn getUnionTypeExtensionText(def: UnionTypeExtension, indent: usize, allocator: 
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  types: {d}\n", .{ spaces, def.types.len });
     for (def.types) |t| {
-        try w.print("{s}", .{try getTypeText(t, indent + 1, allocator)});
+        const txt = try getTypeText(t, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -493,7 +567,9 @@ fn getScalarTypeExtensionText(def: ScalarTypeExtension, indent: usize, allocator
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -510,7 +586,9 @@ fn getDirectiveText(def: Directive, indent: usize, allocator: Allocator) ![]u8 {
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |item| {
-        try w.print("{s}", .{try getArgumentText(item, indent + 1, allocator)});
+        const txt = try getArgumentText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -526,7 +604,9 @@ fn getSelectionSetText(def: SelectionSet, indent: usize, allocator: Allocator) !
     try w.print("{s}- SelectionSet\n", .{spaces});
     try w.print("{s}  selections:\n", .{spaces});
     for (def.selections) |item| {
-        try w.print("{s}", .{try getSelectionText(item, indent + 1, allocator)});
+        const txt = try getSelectionText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -556,16 +636,22 @@ fn getFieldText(def: Field, indent: usize, allocator: Allocator) ![]u8 {
     }
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |item| {
-        try w.print("{s}", .{try getArgumentText(item, indent + 1, allocator)});
+        const txt = try getArgumentText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     if (def.selectionSet != null) {
-        try w.print("{s}  selectionSet: \n", .{spaces});
+        try w.print("{s}  selectionSet:\n", .{spaces});
         if (def.selectionSet) |set| {
-            try w.print("{s}", .{try getSelectionSetText(set, indent + 1, allocator)});
+            const txt = try getSelectionSetText(set, indent + 1, allocator);
+            defer allocator.free(txt);
+            try w.print("{s}", .{txt});
         }
     } else {
         try w.print("{s}  selectionSet: null\n", .{spaces});
@@ -585,7 +671,9 @@ fn getFragmentSpreadText(def: FragmentSpread, indent: usize, allocator: Allocato
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -609,7 +697,11 @@ fn getVariableDefinitionText(def: VariableDefinition, indent: usize, allocator: 
     try w.print("{s}- VariableDefinition\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  type\n", .{spaces});
-    try w.print("{s}", .{try getTypeText(def.type, indent, allocator)});
+    {
+        const txt = try getTypeText(def.type, indent, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
+    }
     if (def.defaultValue != null) {
         const value = def.defaultValue.?.getPrintableString(allocator);
         defer allocator.free(value);
@@ -619,7 +711,9 @@ fn getVariableDefinitionText(def: VariableDefinition, indent: usize, allocator: 
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -646,7 +740,9 @@ fn getInterfaceText(def: Interface, indent: usize, allocator: Allocator) ![]u8 {
     defer text.deinit();
     const w = text.writer();
 
-    try w.print("{s}- {s}\n", .{ spaces, def.type.getPrintableString(allocator) });
+    const printableString = def.type.getPrintableString(allocator);
+    defer allocator.free(printableString);
+    try w.print("{s}- {s}\n", .{ spaces, printableString });
 
     return text.toOwnedSlice();
 }
@@ -669,11 +765,15 @@ fn getFieldDefinitionText(def: FieldDefinition, indent: usize, allocator: Alloca
     }
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |item| {
-        try w.print("{s}", .{try getInputValueDefinitionText(item, indent + 1, allocator)});
+        const txt = try getInputValueDefinitionText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -700,7 +800,9 @@ fn getInputValueDefinitionText(def: InputValueDefinition, indent: usize, allocat
     try w.print("{s}  value = {s}\n", .{ spaces, value });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
     if (def.defaultValue != null) {
         const value2 = def.defaultValue.?.getPrintableString(allocator);
@@ -731,7 +833,9 @@ fn getEnumValueDefinitionText(def: EnumValueDefinition, indent: usize, allocator
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        try w.print("{s}", .{try getDirectiveText(directive, indent + 1, allocator)});
+        const txt = try getDirectiveText(directive, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
 
     return text.toOwnedSlice();
@@ -764,10 +868,14 @@ fn getInlineFragmentText(def: InlineFragment, indent: usize, allocator: Allocato
     try w.print("{s}  typeCondition = {s}\n", .{ spaces, def.typeCondition });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        try w.print("{s}", .{try getDirectiveText(item, indent + 1, allocator)});
+        const txt = try getDirectiveText(item, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
     }
-    try w.print("{s}  selectionSet: \n", .{spaces});
-    try w.print("{s}", .{try getSelectionSetText(def.selectionSet, indent + 1, allocator)});
+    try w.print("{s}  selectionSet:\n", .{spaces});
+    const txt = try getSelectionSetText(def.selectionSet, indent + 1, allocator);
+    defer allocator.free(txt);
+    try w.print("{s}", .{txt});
 
     return text.toOwnedSlice();
 }
@@ -794,7 +902,11 @@ fn getListTypeText(def: ListType, indent: usize, allocator: Allocator) ![]u8 {
 
     try w.print("{s}- ListType\n", .{spaces});
     try w.print("{s}  type\n", .{spaces});
-    try w.print("{s}", .{try getTypeText(def.elementType.*, indent + 1, allocator)});
+    {
+        const txt = try getTypeText(def.elementType.*, indent + 1, allocator);
+        defer allocator.free(txt);
+        try w.print("{s}", .{txt});
+    }
 
     return text.toOwnedSlice();
 }
@@ -809,8 +921,16 @@ fn getNonNullTypeText(def: NonNullType, indent: usize, allocator: Allocator) ![]
     try w.print("{s}- NonNullType\n", .{spaces});
     try w.print("{s}  type\n", .{spaces});
     switch (def) {
-        .namedType => |n| try w.print("{s}", .{try getNamedTypeText(n, indent + 1, allocator)}),
-        .listType => |n| try w.print("{s}", .{try getListTypeText(n, indent + 1, allocator)}),
+        .namedType => |n| {
+            const txt = try getNamedTypeText(n, indent + 1, allocator);
+            defer allocator.free(txt);
+            try w.print("{s}", .{txt});
+        },
+        .listType => |n| {
+            const txt = try getListTypeText(n, indent + 1, allocator);
+            defer allocator.free(txt);
+            try w.print("{s}", .{txt});
+        },
     }
 
     return text.toOwnedSlice();

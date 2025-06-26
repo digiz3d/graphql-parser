@@ -29,4 +29,6 @@ jobs:
       - uses: mlugg/setup-zig@v2
         with:
           version: "master"
-      - run: zig test --test-filter e2e-parse src/parser.e2e.zig
+      - run: |
+          zig test --test-filter e2e-parse src/parser.e2e.zig
+          zig test --test-filter e2e-print-text src/parser.e2e.zig

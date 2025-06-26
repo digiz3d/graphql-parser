@@ -9,7 +9,10 @@ run = "zig run src/main.zig"
 run = "zig test src/parser.zig"
 
 [tasks.e2e]
-run = "zig test --test-filter e2e-parse src/parser.e2e.zig"
+run = [
+    "zig test --test-filter e2e-parse src/parser.e2e.zig",
+    "zig test --test-filter e2e-print-text src/parser.e2e.zig",
+]
 
 [tasks.tests]
 depends = ["unit", "e2e"]

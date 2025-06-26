@@ -1,0 +1,338 @@
+- Document
+  definitions: 22
+  - SchemaDefinition
+    description = ""schema desc""
+    directives: 1
+    - Directive
+      name = some
+      arguments: 0
+    operationTypes: 1
+    - OperationTypeDefinition
+      operation: query
+      name: Query
+  - ScalarTypeDefinition
+    description: "scalar desc"
+    name: Lol
+    directives:
+    - Directive
+      name = lol
+      arguments: 0
+  - UnionTypeDefinition
+    description: """\n\nunion desc\n\n"""
+    name: SomeUnion
+    types:
+    - NamedType
+      name = SomeType
+    - NamedType
+      name = SomeOtherType
+    directives:
+    - Directive
+      name = hi
+      arguments: 0
+  - ObjectTypeDefinition
+    description: "object def desc"
+    name = Query
+    interfaces: 0
+    directives: 1
+    - Directive
+      name = lol
+      arguments: 0
+    fields: 1
+    - FieldDefinition
+      name = name
+      description: "ok"
+      arguments: 2
+      - InputValueDefinition
+        name = id
+        description: "obj def arg desc"
+        value = ID!
+        directives: 0
+        defaultValue: null
+      - InputValueDefinition
+        name = value
+        description: null
+        value = String
+        directives: 0
+        defaultValue: "default" (string_value)
+      directives: 0
+  - InterfaceTypeDefinition
+    name = USBA
+    description = "some interface desc"
+    interfaces: 0
+    fields: 1
+    - FieldDefinition
+      name = a
+      description: null
+      arguments: 0
+      directives: 1
+      - Directive
+        name = a2
+        arguments: 0
+    directives: 1
+    - Directive
+      name = a1
+      arguments: 0
+  - InterfaceTypeDefinition
+    name = USBC
+    description = null
+    interfaces: 0
+    fields: 1
+    - FieldDefinition
+      name = C
+      description: null
+      arguments: 0
+      directives: 0
+    directives: 0
+  - ObjectTypeDefinition
+    description: null
+    name = Desktop
+    interfaces: 2
+    - USBA
+    - USBC
+    directives: 1
+    - Directive
+      name = a1
+      arguments: 0
+    fields: 1
+    - FieldDefinition
+      name = ok
+      description: null
+      arguments: 0
+      directives: 1
+      - Directive
+        name = a2
+        arguments: 0
+  - ObjectTypeDefinition
+    description: null
+    name = Laptop
+    interfaces: 1
+    - USBC
+    directives: 0
+    fields: 1
+    - FieldDefinition
+      name = ok
+      description: null
+      arguments: 0
+      directives: 0
+  - DirectiveDefinition
+    description: "directive desc 1"
+    name: example
+    arguments: 2
+    - InputValueDefinition
+      name = arg
+      description: "directive arg desc"
+      value = Ok
+      directives: 1
+      - Directive
+        name = lol
+        arguments: 0
+      defaultValue: 123 (int_value)
+    - InputValueDefinition
+      name = arg2
+      description: null
+      value = Ok
+      directives: 0
+      defaultValue: null
+    locations: 2
+      - FIELD
+      - OBJECT
+    directives: 0
+  - DirectiveDefinition
+    description: "directive desc 2"
+    name: lol
+    arguments: 0
+    locations: 1
+      - FIELD
+    directives: 0
+  - FragmentDefinition
+    name = SomeFragment
+    directives: 1
+    - Directive
+      name = ok1
+      arguments: 0
+    selectionSet:
+    - SelectionSet
+      selections:
+      - FieldData
+        name = id
+        alias = null
+        arguments: 0
+        directives: 1
+        - Directive
+          name = ok2
+          arguments: 0
+        selectionSet: null
+    typeCondition:
+    - NamedType
+      name = ok
+  - OperationDefinition
+    operation = query
+    name = SomeQuery
+    variableDefinitions: 1
+    - VariableDefinition
+      name = id
+      type
+    - NamedType
+      name = ok
+      defaultValue = null
+      directives: 0
+    directives: 1
+    - Directive
+      name = lolok
+      arguments: 2
+      - Argument
+        name = arg
+        value = {lol: {ok: [true (boolean_value)]}}
+      - Argument
+        name = arg2
+        value = Ok (enum_value)
+    selectionSet:
+    - SelectionSet
+      selections:
+      - FieldData
+        name = ok
+        alias = null
+        arguments: 0
+        directives: 1
+        - Directive
+          name = field1
+          arguments: 0
+        selectionSet: null
+      - FragmentSpread
+        name = SomeFragment
+        directives: 1
+        - Directive
+          name = field2
+          arguments: 0
+  - SchemaExtension
+    directives: 1
+    - Directive
+      name = someDirective
+      arguments: 0
+    operationTypes: 1
+    - OperationTypeDefinition
+      operation: mutation
+      name: Mutation
+  - ObjectTypeExtension
+    name = Laptop
+    interfaces: 1
+    - ok
+    directives: 1
+    - Directive
+      name = someDirective
+      arguments: 0
+  - EnumTypeDefinition
+    name: SomeEnum
+    description: null
+    directives: 0
+    values: 2
+    - EnumValueDefinition
+      description: null
+      name: SOME_VALUE
+      directives: 0
+    - EnumValueDefinition
+      description: null
+      name: SOME_OTHER_VALUE
+      directives: 0
+  - EnumTypeDefinition
+    name: SomeEnum2
+    description: null
+    directives: 1
+    - Directive
+      name = ok
+      arguments: 0
+    values: 2
+    - EnumValueDefinition
+      description: null
+      name: SOME_VALUE
+      directives: 1
+      - Directive
+        name = ok2
+        arguments: 0
+    - EnumValueDefinition
+      description: null
+      name: SOME_OTHER_VALUE
+      directives: 1
+      - Directive
+        name = ok3
+        arguments: 0
+  - EnumTypeExtension
+    name: SomeEnum2
+    directives: 1
+    - Directive
+      name = ok
+      arguments: 0
+    values: 1
+    - EnumValueDefinition
+      description: null
+      name: SOME_NEW_VALUE
+      directives: 1
+      - Directive
+        name = ok4
+        arguments: 0
+  - InputObjectTypeDefinition
+    name: SomeInput
+    description: "input desc"
+    directives: 1
+    - Directive
+      name = someDirective
+      arguments: 0
+    fields: 1
+    - InputValueDefinition
+      name = field
+      description: "some field desc"
+      value = String
+      directives: 0
+      defaultValue: "Some default" (string_value)
+  - InputObjectTypeExtension
+    name = Oki
+    directives: 1
+    - Directive
+      name = oui
+      arguments: 0
+    fields: 1
+    - InputValueDefinition
+      name = okayyy
+      description: "okidoki"
+      value = String!
+      directives: 0
+      defaultValue: null
+  - InterfaceTypeExtension
+    name = USBA
+    interfaces: 1
+    - NewInterface
+    directives: 1
+    - Directive
+      name = someDirective
+      arguments: 0
+    fields: 2
+    - FieldDefinition
+      name = newField
+      description: "new field desc"
+      arguments: 0
+      directives: 0
+    - FieldDefinition
+      name = anotherField
+      description: null
+      arguments: 0
+      directives: 0
+  - UnionTypeExtension
+    name = SomeUnion
+    directives: 1
+    - Directive
+      name = someDirective
+      arguments: 0
+    types: 2
+    - NamedType
+      name = NewType
+    - NamedType
+      name = AnotherType
+  - ScalarTypeExtension
+    name = DateTime
+    directives: 2
+    - Directive
+      name = someDirective
+      arguments: 0
+    - Directive
+      name = anotherDirective
+      arguments: 0
