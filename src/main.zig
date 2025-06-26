@@ -3,6 +3,7 @@ const Parser = @import("parser.zig").Parser;
 const Allocator = std.mem.Allocator;
 const parseArgs = @import("args.zig").parseArgs;
 const getFileContent = @import("utils/utils.zig").getFileContent;
+const Printer = @import("printer.zig").Printer;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -26,6 +27,9 @@ pub fn main() !void {
     var parser = try Parser.initFromBuffer(allocator, content);
     defer parser.deinit();
 
-    var document = try parser.parse();
-    document.printAST(0);
+    const document = try parser.parse();
+
+    var printer = try Printer.init(allocator, document);
+    const gql = try printer.getText();
+    std.debug.print("{s}", .{gql});
 }

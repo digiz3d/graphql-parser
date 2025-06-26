@@ -20,14 +20,6 @@ pub const OperationTypeDefinition = struct {
     operation: []const u8,
     name: []const u8,
 
-    pub fn printAST(self: OperationTypeDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- OperationTypeDefinition\n", .{spaces});
-        std.debug.print("{s}  operation: {s}\n", .{ spaces, self.operation });
-        std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
-    }
-
     pub fn deinit(self: OperationTypeDefinition) void {
         self.allocator.free(self.operation);
         self.allocator.free(self.name);

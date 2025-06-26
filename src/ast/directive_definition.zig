@@ -25,32 +25,6 @@ pub const DirectiveDefinition = struct {
     locations: []const []const u8,
     directives: []Directive,
 
-    pub fn printAST(self: DirectiveDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- DirectiveDefinition\n", .{spaces});
-        if (self.description != null) {
-            const str = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(str);
-            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
-        } else {
-            std.debug.print("{s}  description: null\n", .{spaces});
-        }
-        std.debug.print("{s}  name: {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  arguments: {d}\n", .{ spaces, self.arguments.len });
-        for (self.arguments) |arg| {
-            arg.printAST(indent + 1);
-        }
-        std.debug.print("{s}  locations: {d}\n", .{ spaces, self.locations.len });
-        for (self.locations) |location| {
-            std.debug.print("{s}    - {s}\n", .{ spaces, location });
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: DirectiveDefinition) void {
         if (self.description != null) {
             self.allocator.free(self.description.?);

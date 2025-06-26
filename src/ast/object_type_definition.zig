@@ -28,32 +28,6 @@ pub const ObjectTypeDefinition = struct {
     directives: []Directive,
     fields: []FieldDefinition,
 
-    pub fn printAST(self: ObjectTypeDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- ObjectTypeDefinition\n", .{spaces});
-        if (self.description != null) {
-            const str = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(str);
-            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
-        } else {
-            std.debug.print("{s}  description: null\n", .{spaces});
-        }
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  interfaces: {d}\n", .{ spaces, self.interfaces.len });
-        for (self.interfaces) |interface| {
-            interface.printAST(indent + 1);
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  fields: {d}\n", .{ spaces, self.fields.len });
-        for (self.fields) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: ObjectTypeDefinition) void {
         if (self.description != null) {
             self.allocator.free(self.description.?);

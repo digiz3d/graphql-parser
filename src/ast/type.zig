@@ -12,17 +12,9 @@ const ParseError = p.ParseError;
 
 const Field = @import("field.zig").Field;
 
-const NamedType = struct {
+pub const NamedType = struct {
     allocator: Allocator,
     name: []const u8,
-
-    pub fn printAST(self: NamedType, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-
-        std.debug.print("{s}- NamedType\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-    }
 
     pub fn deinit(self: NamedType) void {
         self.allocator.free(self.name);
@@ -33,18 +25,9 @@ const NamedType = struct {
     }
 };
 
-const ListType = struct {
+pub const ListType = struct {
     allocator: Allocator,
     elementType: *Type,
-
-    pub fn printAST(self: ListType, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-
-        std.debug.print("{s}- ListType\n", .{spaces});
-        std.debug.print("{s}  type\n", .{spaces});
-        self.elementType.*.printAST(indent + 1, self.allocator);
-    }
 
     pub fn deinit(self: ListType) void {
         self.elementType.*.deinit();
@@ -58,21 +41,9 @@ const ListType = struct {
     }
 };
 
-const NonNullType = union(enum) {
+pub const NonNullType = union(enum) {
     namedType: NamedType,
     listType: ListType,
-
-    pub fn printAST(self: NonNullType, indent: usize, allocator: Allocator) void {
-        const spaces = makeIndentation(indent, allocator);
-        defer allocator.free(spaces);
-
-        std.debug.print("{s}- NonNullType\n", .{spaces});
-        std.debug.print("{s}  type\n", .{spaces});
-        switch (self) {
-            .namedType => |n| n.printAST(indent + 1),
-            .listType => |n| n.printAST(indent + 1),
-        }
-    }
 
     pub fn deinit(self: NonNullType) void {
         switch (self) {
@@ -95,14 +66,6 @@ pub const Type = union(enum) {
     namedType: NamedType,
     listType: ListType,
     nonNullType: NonNullType,
-
-    pub fn printAST(self: Type, indent: usize, allocator: Allocator) void {
-        switch (self) {
-            .namedType => |n| n.printAST(indent),
-            .listType => |n| n.printAST(indent),
-            .nonNullType => |n| n.printAST(indent, allocator),
-        }
-    }
 
     pub fn deinit(self: Type) void {
         switch (self) {

@@ -30,27 +30,6 @@ pub const InterfaceTypeDefinition = struct {
     fields: []FieldDefinition,
     directives: []Directive,
 
-    pub fn printAST(self: InterfaceTypeDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-
-        std.debug.print("{s}- InterfaceTypeDefinition\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  description = {?s}\n", .{ spaces, self.description });
-        std.debug.print("{s}  interfaces: {d}\n", .{ spaces, self.interfaces.len });
-        for (self.interfaces) |interface| {
-            interface.printAST(indent + 1);
-        }
-        std.debug.print("{s}  fields: {d}\n", .{ spaces, self.fields.len });
-        for (self.fields) |field| {
-            field.printAST(indent + 1);
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: InterfaceTypeDefinition) void {
         self.allocator.free(self.name);
         if (self.description != null) {

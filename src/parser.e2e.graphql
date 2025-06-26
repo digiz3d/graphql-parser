@@ -1,5 +1,5 @@
 "schema desc"
-schema {
+schema @some {
   query: Query
 }
 
@@ -11,7 +11,7 @@ scalar Lol @lol
 """
 union desc
 """
-union SomeUnion = SomeType | SomeOtherType
+union SomeUnion @hi = SomeType | SomeOtherType
 
 "object def desc"
 type Query @lol {
@@ -19,16 +19,17 @@ type Query @lol {
   name("obj def arg desc" id: ID!, value: String = "default"): String
 }
 
-interface USBA {
-  a: A
+"some interface desc"
+interface USBA @a1 {
+  a: A @a2
 }
 
 interface USBC {
   C: C
 }
 
-type Desktop implements USBA & USBC {
-  ok: String
+type Desktop implements USBA & USBC @a1 {
+  ok: String @a2
 }
 
 type Laptop implements USBC {
@@ -45,8 +46,8 @@ directive @example(
 "directive desc 2"
 directive @lol on FIELD
 
-fragment SomeFragment on ok {
-  id
+fragment SomeFragment on ok @ok1 {
+  id @ok2
 }
 
 query SomeQuery($id: ok) @lolok(arg: { lol: { ok: [true] } }, arg2: Ok) {
@@ -84,7 +85,7 @@ input SomeInput @someDirective {
   field: String = "Some default"
 }
 
-extend input Oki {
+extend input Oki @oui {
   "okidoki"
   okayyy: String!
 }

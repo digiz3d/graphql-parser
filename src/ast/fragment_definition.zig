@@ -24,21 +24,6 @@ pub const FragmentDefinition = struct {
     selectionSet: SelectionSet,
     typeCondition: Type,
 
-    pub fn printAST(self: FragmentDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- FragmentDefinition\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  selectionSet: \n", .{spaces});
-        self.selectionSet.printAST(indent + 1);
-        std.debug.print("{s}  typeCondition: \n", .{spaces});
-        self.typeCondition.printAST(indent + 1, self.allocator);
-    }
-
     pub fn deinit(self: FragmentDefinition) void {
         self.allocator.free(self.name);
         for (self.directives) |item| {

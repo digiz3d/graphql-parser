@@ -22,27 +22,6 @@ pub const SchemaDefinition = struct {
     directives: []Directive,
     operationTypes: []OperationTypeDefinition,
 
-    pub fn printAST(self: SchemaDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- SchemaDefinition\n", .{spaces});
-        if (self.description != null) {
-            const newDescription = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(newDescription);
-            std.debug.print("{s}  description = \"{s}\"\n", .{ spaces, newDescription });
-        } else {
-            std.debug.print("{s}  description = null\n", .{spaces});
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        std.debug.print("{s}  operationTypes: {d}\n", .{ spaces, self.operationTypes.len });
-        for (self.operationTypes) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: SchemaDefinition) void {
         if (self.description != null) {
             self.allocator.free(self.description.?);

@@ -2,7 +2,6 @@ const std = @import("std");
 const testing = std.testing;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
-const allocPrint = std.fmt.allocPrint;
 
 const tok = @import("tokenizer.zig");
 const Token = tok.Token;
@@ -26,7 +25,7 @@ const parseSchemaExtension = @import("ast/schema_extension.zig").parseSchemaExte
 const parseObjectTypeExtension = @import("ast/object_type_extension.zig").parseObjectTypeExtension;
 const parseEnumTypeDefinition = @import("ast/enum_type_definition.zig").parseEnumTypeDefinition;
 const parseEnumTypeExtension = @import("ast/enum_type_extension.zig").parseEnumTypeExtension;
-const parseInputObjectTypeDefinition = @import("ast/input_object_type_defintiion.zig").parseInputObjectTypeDefinition;
+const parseInputObjectTypeDefinition = @import("ast/input_object_type_definition.zig").parseInputObjectTypeDefinition;
 const parseInputObjectTypeExtension = @import("ast/input_object_type_extension.zig").parseInputObjectTypeExtension;
 const parseInterfaceTypeExtension = @import("ast/interface_type_extension.zig").parseInterfaceTypeExtension;
 const parseUnionTypeExtension = @import("ast/union_type_extension.zig").parseUnionTypeExtension;

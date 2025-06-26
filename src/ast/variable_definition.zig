@@ -30,26 +30,6 @@ pub const VariableDefinition = struct {
     defaultValue: ?InputValue,
     directives: []Directive,
 
-    pub fn printAST(self: VariableDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- VariableDefinition\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        std.debug.print("{s}  type\n", .{spaces});
-        self.type.printAST(indent, self.allocator);
-        if (self.defaultValue != null) {
-            const value = self.defaultValue.?.getPrintableString(self.allocator);
-            defer self.allocator.free(value);
-            std.debug.print("{s}  defaultValue = {s}\n", .{ spaces, value });
-        } else {
-            std.debug.print("{s}  defaultValue = null\n", .{spaces});
-        }
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-    }
-
     pub fn deinit(self: VariableDefinition) void {
         self.allocator.free(self.name);
         self.type.deinit();

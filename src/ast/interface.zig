@@ -20,15 +20,6 @@ pub const Interface = struct {
     allocator: Allocator,
     type: Type,
 
-    pub fn printAST(self: Interface, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-
-        const typeStr = self.type.getPrintableString(self.allocator);
-        defer self.allocator.free(typeStr);
-        std.debug.print("{s}- {s}\n", .{ spaces, typeStr });
-    }
-
     pub fn deinit(self: Interface) void {
         self.type.deinit();
     }

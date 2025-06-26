@@ -27,32 +27,6 @@ pub const InputValueDefinition = struct {
     defaultValue: ?InputValue,
     directives: []Directive,
 
-    pub fn printAST(self: InputValueDefinition, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- InputValueDefinition\n", .{spaces});
-        std.debug.print("{s}  name = {s}\n", .{ spaces, self.name });
-        if (self.description != null) {
-            const str = newLineToBackslashN(self.allocator, self.description.?);
-            defer self.allocator.free(str);
-            std.debug.print("{s}  description: {s}\n", .{ spaces, str });
-        } else {
-            std.debug.print("{s}  description: null\n", .{spaces});
-        }
-        const value = self.value.getPrintableString(self.allocator);
-        defer self.allocator.free(value);
-        std.debug.print("{s}  value = {s}\n", .{ spaces, value });
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |item| {
-            item.printAST(indent + 1);
-        }
-        if (self.defaultValue != null) {
-            std.debug.print("{s}  defaultValue: {s}\n", .{ spaces, self.defaultValue.?.getPrintableString(self.allocator) });
-        } else {
-            std.debug.print("{s}  defaultValue: null\n", .{spaces});
-        }
-    }
-
     pub fn deinit(self: InputValueDefinition) void {
         self.allocator.free(self.name);
         if (self.description != null) {

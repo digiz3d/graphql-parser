@@ -29,20 +29,6 @@ pub const SchemaExtension = struct {
         }
         self.allocator.free(self.operationTypes);
     }
-
-    pub fn printAST(self: SchemaExtension, indent: usize) void {
-        const spaces = makeIndentation(indent, self.allocator);
-        defer self.allocator.free(spaces);
-        std.debug.print("{s}- SchemaExtension\n", .{spaces});
-        std.debug.print("{s}  directives: {d}\n", .{ spaces, self.directives.len });
-        for (self.directives) |directive| {
-            directive.printAST(indent + 1);
-        }
-        std.debug.print("{s}  operationTypes: {d}\n", .{ spaces, self.operationTypes.len });
-        for (self.operationTypes) |operationType| {
-            operationType.printAST(indent + 1);
-        }
-    }
 };
 
 pub fn parseSchemaExtension(parser: *Parser) ParseError!SchemaExtension {
