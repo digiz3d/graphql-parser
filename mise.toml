@@ -1,9 +1,12 @@
 [tools]
-zig = "latest"
-zls = "latest"
+zig = "0.14.1"
+zls = "0.14.0"
 
 [tasks.main]
 run = "zig run src/main.zig"
+
+[tasks.merge]
+run = "zig run src/merge.zig"
 
 [tasks.unit]
 run = "zig test src/parser.zig"
