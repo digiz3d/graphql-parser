@@ -28,3 +28,4 @@ zig-cache/
 !/benchmark/*.graphql
 **/*.generated.graphql
 **/main.exe
+**/main

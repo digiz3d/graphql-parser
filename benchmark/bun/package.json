@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "main": "bun run main.ts",
-    "build": "bun build --compile main.ts --outfile main.exe"
+    "build": "bun build --compile main.ts --outfile main"
   },
   "devDependencies": {
     "@types/bun": "latest"

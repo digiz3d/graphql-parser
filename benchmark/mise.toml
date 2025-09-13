@@ -8,9 +8,9 @@ run = ["mise run bun", "mise run go"]
 description = "Merge the graphql definitions and compare the results"
 
 [tasks.bun]
-run = "cd bun && bun install && bun run build && hyperfine  --warmup 10 main.exe"
+run = "cd bun && bun install && bun run build && hyperfine  --warmup 10 ./main"
 description = "Run the bun benchmark"
 
 [tasks.go]
-run = "cd go && go build && hyperfine --warmup 10 main.exe"
+run = "cd go && go build && hyperfine --warmup 10 ./main"
 description = "Run the go benchmark"
