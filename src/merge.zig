@@ -39,9 +39,9 @@ pub const Merger = struct {
 
 pub fn main() !void {
     const filesToParse = [_][]const u8{
-        "benchmark/graphql-definitions/base.graphql",
-        "benchmark/graphql-definitions/extend.graphql",
-        "benchmark/graphql-definitions/query.graphql",
+        "graphql-definitions/base.graphql",
+        "graphql-definitions/extend.graphql",
+        "graphql-definitions/query.graphql",
     };
 
     var documents = ArrayList(Document).init(std.heap.page_allocator);
@@ -63,7 +63,7 @@ pub fn main() !void {
     var printer = try Printer.init(std.heap.page_allocator, mergedDocument);
     const gql = try printer.getGql();
 
-    const outputFile = try std.fs.cwd().createFile("benchmark/zig.generated.graphql", .{});
+    const outputFile = try std.fs.cwd().createFile("zig.generated.graphql", .{});
     defer outputFile.close();
     try outputFile.writeAll(gql);
 }
