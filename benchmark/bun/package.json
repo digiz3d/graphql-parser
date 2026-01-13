@@ -1,0 +1,18 @@
+{
+  "name": "merge-graphql-schemas",
+  "private": true,
+  "scripts": {
+    "main": "bun run main.ts",
+    "build": "bun build --compile main.ts --outfile main"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@graphql-tools/merge": "^9.0.24",
+    "graphql": "^16.11.0"
+  }
+}

@@ -23,4 +23,9 @@ zig-cache/
 
 /*.graphql
 
-/.vscode/
+.vscode/
+
+!/benchmark/*.graphql
+**/*.generated.graphql
+**/main.exe
+**/main

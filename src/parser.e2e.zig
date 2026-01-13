@@ -7,7 +7,7 @@ const trimTrailingNewlines = @import("utils/utils.zig").trimTrailingNewlines;
 const Printer = @import("printer.zig").Printer;
 
 test "e2e-parse" {
-    const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
+    const content = try getFileContent("tests/parser.e2e.graphql", testing.allocator);
     defer testing.allocator.free(content);
 
     var parser = try Parser.initFromBuffer(testing.allocator, content);
@@ -48,7 +48,7 @@ test "e2e-parse" {
 }
 
 test "e2e-print-text" {
-    const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
+    const content = try getFileContent("tests/parser.e2e.graphql", testing.allocator);
     defer testing.allocator.free(content);
 
     var parser = try Parser.initFromBuffer(testing.allocator, content);
@@ -61,7 +61,7 @@ test "e2e-print-text" {
     const text = try printer.getText();
     defer testing.allocator.free(text);
 
-    const expectedText = try getFileContent("src/parser.e2e.snapshot.txt", testing.allocator);
+    const expectedText = try getFileContent("tests/parser.e2e.snapshot.txt", testing.allocator);
     defer testing.allocator.free(expectedText);
 
     const normalizedText = normalizeLineEndings(testing.allocator, text);
@@ -73,7 +73,7 @@ test "e2e-print-text" {
 }
 
 test "e2e-print-graphql" {
-    const content = try getFileContent("src/parser.e2e.graphql", testing.allocator);
+    const content = try getFileContent("tests/parser.e2e.graphql", testing.allocator);
     defer testing.allocator.free(content);
 
     var parser = try Parser.initFromBuffer(testing.allocator, content);
@@ -86,7 +86,7 @@ test "e2e-print-graphql" {
     const text = try printer.getGql();
     defer testing.allocator.free(text);
 
-    const expectedText = try getFileContent("src/parser.e2e.snapshot.graphql", testing.allocator);
+    const expectedText = try getFileContent("tests/parser.e2e.snapshot.graphql", testing.allocator);
     defer testing.allocator.free(expectedText);
 
     const normalizedText = normalizeLineEndings(testing.allocator, text);
