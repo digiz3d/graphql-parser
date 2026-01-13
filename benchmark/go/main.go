@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	typeDefsDir := "../graphql-definitions"
+	typeDefsDir := "graphql-definitions"
 	files, err := os.ReadDir(typeDefsDir)
 	if err != nil {
 		panic(err)
@@ -19,7 +19,7 @@ func main() {
 		}
 	}
 	schema := gql.Merge(" ", typeDefPaths...)
-	outputFile, err := os.Create("../go.generated.graphql")
+	outputFile, err := os.Create("go.generated.graphql")
 	if err != nil {
 		panic(err)
 	}

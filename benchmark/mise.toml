@@ -4,13 +4,10 @@ go = "latest"
 hyperfine = "latest"
 
 [tasks.bench]
-run = ["mise run bun", "mise run go"]
-description = "Merge the graphql definitions and compare the results"
-
-[tasks.bun]
-run = "cd bun && bun install && bun run build && hyperfine  --warmup 10 ./main"
-description = "Run the bun benchmark"
-
-[tasks.go]
-run = "cd go && go build && hyperfine --warmup 10 ./main"
-description = "Run the go benchmark"
+run = [
+    "cd bun && bun install && bun run build",
+    "cd go && go build",
+    "cd .. && zig build benchmark",
+    "bun run run.ts",
+]
+description = "Build all benchmarks and compare them with hyperfine"

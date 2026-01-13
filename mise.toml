@@ -3,7 +3,7 @@ zig = "0.14.1"
 zls = "0.14.0"
 
 [tasks.main]
-run = "zig run src/main.zig"
+run = "zig run src/main.zig -- $@"
 
 [tasks.merge]
 run = "zig run src/merge.zig"

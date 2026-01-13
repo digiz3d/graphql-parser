@@ -62,5 +62,8 @@ pub fn main() !void {
 
     var printer = try Printer.init(std.heap.page_allocator, mergedDocument);
     const gql = try printer.getGql();
-    std.debug.print("{s}", .{gql});
+
+    const outputFile = try std.fs.cwd().createFile("benchmark/zig.generated.graphql", .{});
+    defer outputFile.close();
+    try outputFile.writeAll(gql);
 }
