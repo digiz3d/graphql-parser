@@ -21,6 +21,7 @@ const strEq = @import("../utils/utils.zig").strEq;
 const Interface = @import("interface.zig").Interface;
 const parseInterfaces = @import("interface.zig").parseInterfaces;
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
+const InterfaceTypeExtension = @import("interface_type_extension.zig").InterfaceTypeExtension;
 
 pub const InterfaceTypeDefinition = struct {
     allocator: Allocator,
@@ -47,6 +48,17 @@ pub const InterfaceTypeDefinition = struct {
             directive.deinit();
         }
         self.allocator.free(self.directives);
+    }
+
+    pub fn fromExtension(ext: InterfaceTypeExtension) InterfaceTypeDefinition {
+        return InterfaceTypeDefinition{
+            .allocator = ext.allocator,
+            .name = ext.name,
+            .description = null,
+            .interfaces = ext.interfaces,
+            .directives = ext.directives,
+            .fields = ext.fields,
+        };
     }
 };
 

@@ -15,6 +15,7 @@ const InputValueDefinition = @import("input_value_definition.zig").InputValueDef
 const parseInputValueDefinitions = @import("input_value_definition.zig").parseInputValueDefinitions;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
+const InputObjectTypeExtension = @import("input_object_type_extension.zig").InputObjectTypeExtension;
 
 pub const InputObjectTypeDefinition = struct {
     allocator: Allocator,
@@ -36,6 +37,16 @@ pub const InputObjectTypeDefinition = struct {
             directive.deinit();
         }
         self.allocator.free(self.directives);
+    }
+
+    pub fn fromExtension(ext: InputObjectTypeExtension) InputObjectTypeDefinition {
+        return InputObjectTypeDefinition{
+            .allocator = ext.allocator,
+            .name = ext.name,
+            .description = null,
+            .directives = ext.directives,
+            .fields = ext.fields,
+        };
     }
 };
 

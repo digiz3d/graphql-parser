@@ -15,6 +15,7 @@ const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const parseEnumValueDefinition = @import("enum_value_definition.zig").parseEnumValueDefinition;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
+const EnumTypeExtension = @import("enum_type_extension.zig").EnumTypeExtension;
 
 pub const EnumTypeDefinition = struct {
     allocator: Allocator,
@@ -36,6 +37,15 @@ pub const EnumTypeDefinition = struct {
             directive.deinit();
         }
         self.allocator.free(self.directives);
+    }
+
+    pub fn fromExtension(ext: EnumTypeExtension) EnumTypeDefinition {
+        return EnumTypeDefinition{
+            .allocator = ext.allocator,
+            .name = ext.name,
+            .directives = ext.directives,
+            .values = ext.values,
+        };
     }
 };
 
