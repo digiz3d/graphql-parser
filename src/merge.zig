@@ -60,68 +60,52 @@ pub const Merger = struct {
                     similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsNames.append(definitionName) catch return MergeError.UnexpectedMemoryError;
-                    print("added definition 1 \"{s}\"\n", .{definitionName});
                 } else {
                     var similarDefinitions = similarDefinitionsMap.get(definitionName).?;
                     // TODO: clone the definition
                     similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
-                    print("added definition 2 \"{s}\"\n", .{definitionName});
                 }
             }
         }
 
-        print("similarDefinitionsNames: {d}\n", .{similarDefinitionsNames.items.len});
-        for (similarDefinitionsNames.items) |definition_name| {
-            const definitions = similarDefinitionsMap.get(definition_name).?;
-            print("definition \"{s}\" has {d} entries\n", .{ definition_name, definitions.items.len });
-            for (definitions.items, 0..) |definition, index| {
-                print("  [{d}] tag={s}\n", .{ index, @tagName(definition) });
-            }
-        }
-
         var mergedDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
+        var unmergeableDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
+
         for (similarDefinitionsNames.items) |definition_name| {
             const similarDefinitions = similarDefinitionsMap.get(definition_name).?;
 
             switch (similarDefinitions.items[0]) {
                 .objectTypeDefinition, .objectTypeExtension => {
-                    var unionDefinition = ArrayList(ObjectTypeUnion).init(self.allocator);
+                    var unionDefinition = ArrayList(ObjectTypeDefinition).init(self.allocator);
                     for (similarDefinitions.items) |definition| {
-                        switch (definition) {
-                            .objectTypeDefinition => |objectTypeDefinition| {
-                                unionDefinition.append(ObjectTypeUnion{ .objectTypeDefinition = objectTypeDefinition }) catch
-                                    return MergeError.UnexpectedMemoryError;
-                            },
-                            .objectTypeExtension => |objectTypeExtension| {
-                                unionDefinition.append(ObjectTypeUnion{ .objectTypeExtension = objectTypeExtension }) catch
-                                    return MergeError.UnexpectedMemoryError;
-                            },
-                            else => continue, // TODO: handle other types of definitions
-                        }
+                        unionDefinition.append(switch (definition) {
+                            .objectTypeDefinition => |def| def,
+                            .objectTypeExtension => |ext| ObjectTypeDefinition.fromExtension(ext),
+                            else => unreachable,
+                        }) catch return MergeError.UnexpectedMemoryError;
                     }
-                    const mergedDefinition = try mergeObjectTypeDefinition(self, unionDefinition.toOwnedSlice() catch return MergeError.UnexpectedMemoryError);
+                    const mergedDefinition = try mergeObjectTypeDefinitions(self, unionDefinition.toOwnedSlice() catch return MergeError.UnexpectedMemoryError);
                     mergedDefinitions.append(ExecutableDefinition{ .objectTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
                 },
                 .operationDefinition => {
-                    print("unmergeable operation definition ({s})\n", .{similarDefinitions.items[0].operationDefinition.name.?});
+                    unmergeableDefinitions.append(similarDefinitions.items[0]) catch return MergeError.UnexpectedMemoryError;
                 },
                 else => continue, // TODO: handle other types of definitions
             }
         }
 
-        // for each document, recursively browse it and check if the item exists at the same level in the new document. if not, create it.
-        // problem: each ExecutableDefinition is not easily mutable; I have to create a new one
-
-        // lets make an array or array like list of similar definitions.
-        // ["typeDefinition_name", "directive_name"]
-        // {
-        //     "typeDefinition_name": [Definition1, Definition2],
-        //     "directive_name": [Definition3, Definition4],
-        // }
-        //
-
-        // TODO: merge each array and add definition to the merged document
+        if (unmergeableDefinitions.items.len > 0) {
+            print("unmergeableDefinitions: {d}\n", .{unmergeableDefinitions.items.len});
+            for (unmergeableDefinitions.items) |definition| {
+                print(" - {s} ({s})\n", .{
+                    @tagName(definition), switch (definition) {
+                        .operationDefinition => |operationDefinition| operationDefinition.name.?,
+                        else => unreachable, // TODO: handle other types of definitions, like fragment definitions
+                    },
+                });
+            }
+        }
 
         return Document{
             .allocator = self.allocator,
@@ -130,43 +114,23 @@ pub const Merger = struct {
     }
 };
 
-pub const ObjectTypeUnion = union(enum) {
-    objectTypeDefinition: ObjectTypeDefinition,
-    objectTypeExtension: ObjectTypeExtension,
-};
-
-// maybe should convert objectTypeExtensions into objectTypeDefinitions before merging.
-fn mergeObjectTypeDefinition(self: *Merger, objectTypeUnions: []const ObjectTypeUnion) MergeError!ObjectTypeDefinition {
+fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: []const ObjectTypeDefinition) MergeError!ObjectTypeDefinition {
     var name: ?[]const u8 = null;
     var description: ?[]const u8 = null;
     var interfaces = ArrayList(Interface).init(self.allocator);
     var directives = ArrayList(Directive).init(self.allocator);
     var fields = ArrayList(FieldDefinition).init(self.allocator);
 
-    for (objectTypeUnions) |objectTypeUnion| {
-        switch (objectTypeUnion) {
-            .objectTypeDefinition => |objectTypeDefinition| {
-                print("-- objectTypeDefinition\n", .{});
-                if (name == null) {
-                    name = objectTypeDefinition.name;
-                }
-                if (description == null) {
-                    description = objectTypeDefinition.description;
-                }
-                interfaces.appendSlice(objectTypeDefinition.interfaces) catch return MergeError.UnexpectedMemoryError;
-                directives.appendSlice(objectTypeDefinition.directives) catch return MergeError.UnexpectedMemoryError;
-                fields.appendSlice(objectTypeDefinition.fields) catch return MergeError.UnexpectedMemoryError;
-            },
-            .objectTypeExtension => |objectTypeExtension| {
-                print("-- objectTypeExtension\n", .{});
-                if (name == null) {
-                    name = objectTypeExtension.name;
-                }
-                interfaces.appendSlice(objectTypeExtension.interfaces) catch return MergeError.UnexpectedMemoryError;
-                directives.appendSlice(objectTypeExtension.directives) catch return MergeError.UnexpectedMemoryError;
-                fields.appendSlice(objectTypeExtension.fields) catch return MergeError.UnexpectedMemoryError;
-            },
+    for (objectTypeDefinitions) |objectTypeDef| {
+        if (name == null) {
+            name = objectTypeDef.name;
         }
+        if (description == null) {
+            description = objectTypeDef.description;
+        }
+        interfaces.appendSlice(objectTypeDef.interfaces) catch return MergeError.UnexpectedMemoryError;
+        directives.appendSlice(objectTypeDef.directives) catch return MergeError.UnexpectedMemoryError;
+        fields.appendSlice(objectTypeDef.fields) catch return MergeError.UnexpectedMemoryError;
     }
 
     return ObjectTypeDefinition{

@@ -19,6 +19,7 @@ const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 const Interface = @import("interface.zig").Interface;
 const parseInterfaces = @import("interface.zig").parseInterfaces;
+const ObjectTypeExtension = @import("object_type_extension.zig").ObjectTypeExtension;
 
 pub const ObjectTypeDefinition = struct {
     allocator: Allocator,
@@ -45,6 +46,17 @@ pub const ObjectTypeDefinition = struct {
             item.deinit();
         }
         self.allocator.free(self.fields);
+    }
+
+    pub fn fromExtension(ext: ObjectTypeExtension) ObjectTypeDefinition {
+        return ObjectTypeDefinition{
+            .allocator = ext.allocator,
+            .description = null,
+            .name = ext.name,
+            .interfaces = ext.interfaces,
+            .directives = ext.directives,
+            .fields = ext.fields,
+        };
     }
 };
 
