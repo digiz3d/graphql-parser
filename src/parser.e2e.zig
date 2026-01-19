@@ -94,5 +94,5 @@ test "e2e-print-graphql" {
     const normalizedExpectedText = normalizeLineEndings(testing.allocator, expectedText);
     defer testing.allocator.free(normalizedExpectedText);
 
-    try testing.expectEqualStrings(normalizedText, normalizedExpectedText);
+    try testing.expectEqualStrings(normalizedExpectedText, normalizedText);
 }

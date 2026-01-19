@@ -95,7 +95,7 @@ pub fn getGqlFromExecutableDefinition(printer: *Printer, definition: ExecutableD
 fn getGqlFromInputObjectTypeDefinition(printer: *Printer, inputObjectTypeDefinition: InputObjectTypeDefinition) !void {
     if (inputObjectTypeDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("input ");
     try printer.append(inputObjectTypeDefinition.name);
@@ -103,10 +103,15 @@ fn getGqlFromInputObjectTypeDefinition(printer: *Printer, inputObjectTypeDefinit
         try getGqlFromDirectiveList(printer, inputObjectTypeDefinition.directives);
     }
     try printer.append(" {");
-    for (inputObjectTypeDefinition.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+
+    for (inputObjectTypeDefinition.fields) |fieldDefinition| {
+        try printer.newLine();
         try getGqlFromInputValueDefinition(printer, fieldDefinition);
     }
+
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
@@ -117,17 +122,22 @@ fn getGqlFromInputObjectTypeExtension(printer: *Printer, inputObjectTypeExtensio
         try getGqlFromDirectiveList(printer, inputObjectTypeExtension.directives);
     }
     try printer.append(" {");
-    for (inputObjectTypeExtension.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+
+    for (inputObjectTypeExtension.fields) |fieldDefinition| {
+        try printer.newLine();
         try getGqlFromInputValueDefinition(printer, fieldDefinition);
     }
+
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
 fn getGqlFromEnumTypeDefinition(printer: *Printer, enumTypeDefinition: EnumTypeDefinition) !void {
     if (enumTypeDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("enum ");
     try printer.append(enumTypeDefinition.name);
@@ -135,13 +145,18 @@ fn getGqlFromEnumTypeDefinition(printer: *Printer, enumTypeDefinition: EnumTypeD
         try getGqlFromDirectiveList(printer, enumTypeDefinition.directives);
     }
     try printer.append(" {");
-    for (enumTypeDefinition.values, 0..) |value, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+
+    for (enumTypeDefinition.values) |value| {
+        try printer.newLine();
         try printer.append(value.name);
         if (value.directives.len > 0) {
             try getGqlFromDirectiveList(printer, value.directives);
         }
     }
+
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
@@ -152,20 +167,25 @@ fn getGqlFromEnumTypeExtension(printer: *Printer, enumTypeExtension: EnumTypeExt
         try getGqlFromDirectiveList(printer, enumTypeExtension.directives);
     }
     try printer.append(" {");
-    for (enumTypeExtension.values, 0..) |value, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+
+    for (enumTypeExtension.values) |value| {
+        try printer.newLine();
         try printer.append(value.name);
         if (value.directives.len > 0) {
             try getGqlFromDirectiveList(printer, value.directives);
         }
     }
+
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
 fn getGqlFromInterfaceTypeDefinition(printer: *Printer, interfaceTypeDefinition: InterfaceTypeDefinition) !void {
     if (interfaceTypeDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("interface ");
     try printer.append(interfaceTypeDefinition.name);
@@ -176,10 +196,15 @@ fn getGqlFromInterfaceTypeDefinition(printer: *Printer, interfaceTypeDefinition:
         try getGqlFromDirectiveList(printer, interfaceTypeDefinition.directives);
     }
     try printer.append(" {");
-    for (interfaceTypeDefinition.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+
+    for (interfaceTypeDefinition.fields) |fieldDefinition| {
+        try printer.newLine();
         try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
+
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
@@ -199,8 +224,7 @@ fn getGqlFromObjectTypeDefinition(printer: *Printer, objectTypeDefinition: Objec
     try printer.append(" {");
     printer.indent();
 
-    for (objectTypeDefinition.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try printer.appendByte(' ');
+    for (objectTypeDefinition.fields) |fieldDefinition| {
         try printer.newLine();
         try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
@@ -217,12 +241,12 @@ fn getGqlFromFieldDefinition(printer: *Printer, fieldDefinition: FieldDefinition
     }
     try printer.append(fieldDefinition.name);
     if (fieldDefinition.arguments.len > 0) {
-        try printer.append("(");
+        try printer.appendByte('(');
         for (fieldDefinition.arguments, 0..) |inputValueDefinition, i| {
             if (i > 0) try printer.append(", ");
             try getGqlFromInputValueDefinition(printer, inputValueDefinition);
         }
-        try printer.append(")");
+        try printer.appendByte(')');
     }
     try printer.append(": ");
     try getGqlFromType(printer, fieldDefinition.type);
@@ -251,7 +275,7 @@ fn getGqlFromInputValueDefinition(printer: *Printer, inputValueDefinition: Input
 fn getGqlFromUnionTypeDefinition(printer: *Printer, unionTypeDefinition: UnionTypeDefinition) !void {
     if (unionTypeDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("union ");
     try printer.append(unionTypeDefinition.name);
@@ -268,17 +292,21 @@ fn getGqlFromUnionTypeDefinition(printer: *Printer, unionTypeDefinition: UnionTy
 fn getGqlFomSchemaDefinition(printer: *Printer, schemaDefinition: SchemaDefinition) !void {
     if (schemaDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("schema");
     if (schemaDefinition.directives.len > 0) {
         try getGqlFromDirectiveList(printer, schemaDefinition.directives);
     }
     try printer.append(" {");
+    printer.indent();
+
     for (schemaDefinition.operationTypes, 0..) |operationType, i| {
         if (i > 0) try printer.appendByte(' ');
         try getGqlFromOperationTypeDefinition(printer, operationType);
     }
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
@@ -330,7 +358,7 @@ fn getGqlFomOperationDefinition(printer: *Printer, operationDefinition: Operatio
 fn getGqlFomScalarTypeDefinition(printer: *Printer, scalarTypeDefinition: ScalarTypeDefinition) !void {
     if (scalarTypeDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("scalar ");
     try printer.append(scalarTypeDefinition.name);
@@ -347,13 +375,14 @@ fn getGqlFomFragmentDefinition(printer: *Printer, fragmentDefinition: FragmentDe
     if (fragmentDefinition.directives.len > 0) {
         try getGqlFromDirectiveList(printer, fragmentDefinition.directives);
     }
+    try printer.appendByte(' ');
     try getGqlFromSelectionSet(printer, fragmentDefinition.selectionSet);
 }
 
 fn getGqlFomDirectiveDefinition(printer: *Printer, directiveDefinition: DirectiveDefinition) !void {
     if (directiveDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        try printer.newLine();
     }
     try printer.append("directive @");
     try printer.append(directiveDefinition.name);
@@ -464,12 +493,12 @@ fn getGqlFromDirective(printer: *Printer, directive: Directive) !void {
     try printer.append(" @");
     try printer.append(directive.name);
     if (directive.arguments.len > 0) {
-        try printer.append("(");
+        try printer.appendByte('(');
         for (directive.arguments, 0..) |argument, i| {
             if (i > 0) try printer.append(", ");
             try getGqlFromArgument(printer, argument);
         }
-        try printer.append(")");
+        try printer.appendByte(')');
     }
 }
 
@@ -483,8 +512,8 @@ fn getGqlFromSelectionSet(printer: *Printer, selectionSet: SelectionSet) !void {
     try printer.appendByte('{');
     printer.indent();
 
-    for (selectionSet.selections, 0..) |selection, i| {
-        if (i > 0) try printer.appendByte(' ');
+    for (selectionSet.selections) |selection| {
+        try printer.newLine();
         switch (selection) {
             .field => |field| {
                 try getGqlFromField(printer, field);
@@ -519,12 +548,12 @@ fn getGqlFromField(printer: *Printer, field: Field) !void {
     }
     try printer.append(field.name);
     if (field.arguments.len > 0) {
-        try printer.append("(");
+        try printer.appendByte('(');
         for (field.arguments, 0..) |argument, i| {
             if (i > 0) try printer.append(", ");
             try getGqlFromArgument(printer, argument);
         }
-        try printer.append(")");
+        try printer.appendByte(')');
     }
     if (field.directives.len > 0) {
         try getGqlFromDirectiveList(printer, field.directives);
@@ -555,10 +584,15 @@ fn getGqlFromObjectTypeExtension(printer: *Printer, objectTypeExtension: ObjectT
         try getGqlFromDirectiveList(printer, objectTypeExtension.directives);
     }
     try printer.append(" {");
-    for (objectTypeExtension.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+
+    for (objectTypeExtension.fields) |fieldDefinition| {
+        try printer.newLine();
         try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
+
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
