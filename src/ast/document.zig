@@ -2,8 +2,6 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-
 const ExecutableDefinition = @import("executable_definition.zig").ExecutableDefinition;
 
 pub const Document = struct {

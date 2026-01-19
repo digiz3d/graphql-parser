@@ -14,7 +14,6 @@ const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 const Interface = @import("interface.zig").Interface;

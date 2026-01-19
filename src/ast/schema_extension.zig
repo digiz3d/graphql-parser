@@ -7,7 +7,6 @@ const Parser = p.Parser;
 const ParseError = p.ParseError;
 
 const Directive = @import("directive.zig").Directive;
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const OperationTypeDefinition = @import("operation_type_definition.zig").OperationTypeDefinition;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseOperationTypeDefinitions = @import("operation_type_definition.zig").parseOperationTypeDefinitions;

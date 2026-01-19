@@ -2,8 +2,6 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const testing = std.testing;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-
 const Directive = @import("directive.zig").Directive;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 const parseDirectives = @import("directive.zig").parseDirectives;

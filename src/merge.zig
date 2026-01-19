@@ -68,6 +68,11 @@ pub const Merger = struct {
                 }
             }
         }
+        // {
+        //   "objectTypeDefinition_Object": [objectTypeExtension_obj1, objectTypeDefinition_obj2],
+        //   "objectTypeDefinition_Query": [objectTypeDefinition_obj3, objectTypeExtension_obj4],
+        // }
+        // ["objectTypeDefinition_Object", "objectTypeDefinition_Query"]
 
         var mergedDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
         var unmergeableDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
@@ -180,8 +185,8 @@ pub fn main() !void {
     const gql = try printer.getGql();
     defer alloc.free(gql);
 
-    const outputFile = try std.fs.cwd().createFile("zig.generated.graphql", .{});
-    defer outputFile.close();
-    std.debug.print("gql: {s}\n", .{gql});
+    std.debug.print("gql:\n{s}\n", .{gql});
+    // const outputFile = try std.fs.cwd().createFile("zig.generated.graphql", .{});
+    // defer outputFile.close();
     // try outputFile.writeAll(gql);
 }

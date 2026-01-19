@@ -14,8 +14,6 @@ const strEq = @import("../utils/utils.zig").strEq;
 const Type = @import("type.zig").Type;
 const parseNamedType = @import("type.zig").parseNamedType;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-
 pub const Interface = struct {
     allocator: Allocator,
     type: Type,

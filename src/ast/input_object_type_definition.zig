@@ -10,7 +10,6 @@ const ParseError = @import("../parser.zig").ParseError;
 
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const InputValueDefinition = @import("input_value_definition.zig").InputValueDefinition;
 const parseInputValueDefinitions = @import("input_value_definition.zig").parseInputValueDefinitions;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;

@@ -20,7 +20,6 @@ const strEq = @import("../utils/utils.zig").strEq;
 
 const Interface = @import("interface.zig").Interface;
 const parseInterfaces = @import("interface.zig").parseInterfaces;
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const InterfaceTypeExtension = @import("interface_type_extension.zig").InterfaceTypeExtension;
 
 pub const InterfaceTypeDefinition = struct {

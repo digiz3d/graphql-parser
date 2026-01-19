@@ -11,7 +11,6 @@ const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
 
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 pub const EnumValueDefinition = struct {

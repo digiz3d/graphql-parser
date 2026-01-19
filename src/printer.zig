@@ -8,27 +8,53 @@ const getDocumentText = @import("printer/text.zig").getDocumentText;
 pub const Printer = struct {
     allocator: Allocator,
     document: Document,
+    currentIndent: usize,
+    buffer: std.ArrayList(u8),
 
     pub fn init(allocator: Allocator, document: Document) !Printer {
-        return Printer{ .allocator = allocator, .document = document };
+        return Printer{
+            .allocator = allocator,
+            .document = document,
+            .currentIndent = 0,
+            .buffer = std.ArrayList(u8).init(allocator),
+        };
     }
 
     pub fn getGql(self: *Printer) ![]u8 {
-        var graphQLString = std.ArrayList(u8).init(self.allocator);
-        defer graphQLString.deinit();
         for (self.document.definitions.items, 0..) |definition, i| {
-            const gql = try getGqlFromExecutableDefinition(definition, self.allocator);
-            defer self.allocator.free(gql);
-            try graphQLString.appendSlice(gql);
+            try getGqlFromExecutableDefinition(self, definition);
             if (i < self.document.definitions.items.len - 1) {
-                try graphQLString.appendSlice("\n\n");
+                try self.append("\n\n");
             }
         }
-        try graphQLString.appendSlice("\n");
-        return graphQLString.toOwnedSlice();
+        try self.appendByte('\n');
+        return self.buffer.toOwnedSlice();
     }
 
     pub fn getText(self: *Printer) ![]u8 {
         return getDocumentText(self.document, 0, self.allocator);
+    }
+
+    pub fn append(self: *Printer, str: []const u8) !void {
+        try self.buffer.appendSlice(str);
+    }
+
+    pub fn appendByte(self: *Printer, byte: u8) !void {
+        try self.buffer.append(byte);
+    }
+
+    pub fn newLine(self: *Printer) !void {
+        try self.appendByte('\n');
+        for (0..self.currentIndent) |_| {
+            try self.appendByte(' ');
+        }
+    }
+
+    pub fn indent(self: *Printer) void {
+        self.currentIndent += 2;
+    }
+
+    pub fn unindent(self: *Printer) void {
+        self.currentIndent -= 2;
     }
 };

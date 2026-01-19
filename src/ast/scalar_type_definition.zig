@@ -7,7 +7,6 @@ const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;

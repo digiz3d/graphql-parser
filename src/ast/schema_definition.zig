@@ -2,7 +2,6 @@ const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 const Directive = @import("directive.zig").Directive;
