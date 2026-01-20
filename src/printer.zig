@@ -50,11 +50,22 @@ pub const Printer = struct {
         }
     }
 
-    pub fn indent(self: *Printer) void {
+    pub fn openBrace(self: *Printer) !void {
+        try self.append(" {");
+        self.indent();
+    }
+
+    pub fn closeBrace(self: *Printer) !void {
+        self.unindent();
+        try self.newLine();
+        try self.appendByte('}');
+    }
+
+    fn indent(self: *Printer) void {
         self.currentIndent += 2;
     }
 
-    pub fn unindent(self: *Printer) void {
+    fn unindent(self: *Printer) void {
         self.currentIndent -= 2;
     }
 };
