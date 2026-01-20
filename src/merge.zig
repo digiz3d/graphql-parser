@@ -178,7 +178,6 @@ pub fn main() !void {
         alloc.free(documentsSlice);
     }
     const mergedDocument = try merger.mergeIntoSingleDocument(documentsSlice);
-    // defer mergedDocument.deinit();
 
     var printer = try Printer.init(alloc, mergedDocument);
     const gql = try printer.getGql();
