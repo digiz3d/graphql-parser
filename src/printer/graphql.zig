@@ -326,12 +326,12 @@ fn getGqlFomOperationDefinition(printer: *Printer, operationDefinition: Operatio
         try printer.append(name);
     }
     if (operationDefinition.variableDefinitions.len > 0) {
-        try printer.append("(");
+        try printer.appendByte('(');
         for (operationDefinition.variableDefinitions, 0..) |variableDefinition, i| {
             if (i > 0) try printer.append(", ");
             try getGqlVariableDefinition(printer, variableDefinition);
         }
-        try printer.append(")");
+        try printer.appendByte(')');
     }
     if (operationDefinition.directives.len > 0) {
         try getGqlFromDirectiveList(printer, operationDefinition.directives);
@@ -370,12 +370,12 @@ fn getGqlFomDirectiveDefinition(printer: *Printer, directiveDefinition: Directiv
     try printer.append("directive @");
     try printer.append(directiveDefinition.name);
     if (directiveDefinition.arguments.len > 0) {
-        try printer.append("(");
+        try printer.appendByte('(');
         for (directiveDefinition.arguments, 0..) |argument, i| {
             if (i > 0) try printer.append(", ");
             try getGqlFromInputValueDefinition(printer, argument, InputValueSpacing.space);
         }
-        try printer.append(")");
+        try printer.appendByte(')');
     }
     try printer.append(" on ");
     for (directiveDefinition.locations, 0..) |location, i| {
@@ -385,7 +385,7 @@ fn getGqlFomDirectiveDefinition(printer: *Printer, directiveDefinition: Directiv
 }
 
 fn getGqlVariableDefinition(printer: *Printer, variableDefinition: VariableDefinition) !void {
-    try printer.append("$");
+    try printer.appendByte('$');
     try printer.append(variableDefinition.name);
     try printer.append(": ");
     try getGqlFromType(printer, variableDefinition.type);
@@ -401,18 +401,18 @@ fn getGqlFromType(printer: *Printer, t: Type) !void {
             try printer.append(namedType.name);
         },
         .listType => |listType| {
-            try printer.append("[");
+            try printer.appendByte('[');
             try getGqlFromType(printer, listType.elementType.*);
-            try printer.append("]");
+            try printer.appendByte(']');
         },
         .nonNullType => |nonNullType| {
             switch (nonNullType) {
                 .namedType => |namedType| {
                     try printer.append(namedType.name);
-                    try printer.append("!");
+                    try printer.appendByte('!');
                 },
                 .listType => |listType| {
-                    try printer.append("[");
+                    try printer.appendByte('[');
                     try getGqlFromType(printer, listType.elementType.*);
                     try printer.append("]!");
                 },
@@ -424,19 +424,19 @@ fn getGqlFromType(printer: *Printer, t: Type) !void {
 fn getGqlInputValue(printer: *Printer, inputValue: InputValue) !void {
     switch (inputValue) {
         .variable => |variable| {
-            try printer.append("$");
+            try printer.appendByte('$');
             try printer.append(variable.name);
         },
         .list_value => |listValue| {
-            try printer.append("[");
+            try printer.appendByte('[');
             for (listValue.values, 0..) |item, i| {
                 if (i > 0) try printer.append(", ");
                 try getGqlInputValue(printer, item);
             }
-            try printer.append("]");
+            try printer.appendByte(']');
         },
         .object_value => |objectValue| {
-            try printer.append("{");
+            try printer.appendByte('{');
             for (objectValue.fields, 0..) |field, i| {
                 if (i > 0) try printer.append(", ");
                 try printer.append(field.name);
