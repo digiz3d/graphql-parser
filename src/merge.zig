@@ -56,18 +56,17 @@ pub const Merger = struct {
 
                 if (!similarDefinitionsMap.contains(definitionName)) {
                     var similarDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
-                    // TODO: clone the definition
                     similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsNames.append(definitionName) catch return MergeError.UnexpectedMemoryError;
                 } else {
                     var similarDefinitions = similarDefinitionsMap.get(definitionName).?;
-                    // TODO: clone the definition
                     similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
                 }
             }
         }
+        // data structure is like this:
         // {
         //   "objectTypeDefinition_Object": [objectTypeExtension_obj1, objectTypeDefinition_obj2],
         //   "objectTypeDefinition_Query": [objectTypeDefinition_obj3, objectTypeExtension_obj4],
@@ -185,8 +184,7 @@ pub fn main() !void {
     const gql = try printer.getGql();
     defer alloc.free(gql);
 
-    std.debug.print("gql:\n{s}\n", .{gql});
-    // const outputFile = try std.fs.cwd().createFile("zig.generated.graphql", .{});
-    // defer outputFile.close();
-    // try outputFile.writeAll(gql);
+    const outputFile = try std.fs.cwd().createFile("zig.generated.graphql", .{});
+    defer outputFile.close();
+    try outputFile.writeAll(gql);
 }
