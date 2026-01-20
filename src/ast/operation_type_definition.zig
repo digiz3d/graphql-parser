@@ -3,8 +3,6 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-
 const strEq = @import("../utils/utils.zig").strEq;
 const t = @import("../tokenizer.zig");
 const Token = t.Token;

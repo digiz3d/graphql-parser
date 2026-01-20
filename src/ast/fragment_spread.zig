@@ -1,8 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
-
 const Directive = @import("directive.zig").Directive;
 
 pub const FragmentSpread = struct {

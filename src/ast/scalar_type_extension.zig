@@ -9,7 +9,6 @@ const ParseError = @import("../parser.zig").ParseError;
 
 const Directive = @import("directive.zig").Directive;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const parseDirectives = @import("directive.zig").parseDirectives;
 
 pub const ScalarTypeExtension = struct {

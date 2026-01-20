@@ -11,3 +11,11 @@ run = [
     "bun run run.ts",
 ]
 description = "Build all benchmarks and compare them with hyperfine"
+
+[tasks.others]
+run = [
+    "cd bun && bun install && bun run build",
+    "cd go && go build",
+    "bun run run-others.ts",
+]
+description = "Build other libs and generate graphql"

@@ -2,7 +2,6 @@ const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
 const Directive = @import("directive.zig").Directive;
@@ -15,6 +14,7 @@ const ParseError = @import("../parser.zig").ParseError;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseOperationTypeDefinitions = @import("operation_type_definition.zig").parseOperationTypeDefinitions;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
+const SchemaExtension = @import("schema_extension.zig").SchemaExtension;
 
 pub const SchemaDefinition = struct {
     allocator: Allocator,
@@ -34,6 +34,15 @@ pub const SchemaDefinition = struct {
             item.deinit();
         }
         self.allocator.free(self.operationTypes);
+    }
+
+    pub fn fromExtension(ext: SchemaExtension) SchemaDefinition {
+        return SchemaDefinition{
+            .allocator = ext.allocator,
+            .description = null,
+            .directives = ext.directives,
+            .operationTypes = ext.operationTypes,
+        };
     }
 };
 

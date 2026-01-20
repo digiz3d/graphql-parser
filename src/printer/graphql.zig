@@ -1,6 +1,6 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
 
+const Printer = @import("../printer.zig").Printer;
 const Argument = @import("../ast/arguments.zig").Argument;
 const Directive = @import("../ast/directive.zig").Directive;
 const DirectiveDefinition = @import("../ast/directive_definition.zig").DirectiveDefinition;
@@ -27,756 +27,611 @@ const ScalarTypeDefinition = @import("../ast/scalar_type_definition.zig").Scalar
 const ScalarTypeExtension = @import("../ast/scalar_type_extension.zig").ScalarTypeExtension;
 const SchemaDefinition = @import("../ast/schema_definition.zig").SchemaDefinition;
 const SchemaExtension = @import("../ast/schema_extension.zig").SchemaExtension;
-const Selection = @import("../ast/selection.zig").Selection;
 const SelectionSet = @import("../ast/selection_set.zig").SelectionSet;
 const Type = @import("../ast/type.zig").Type;
 const UnionTypeDefinition = @import("../ast/union_type_definition.zig").UnionTypeDefinition;
 const UnionTypeExtension = @import("../ast/union_type_extension.zig").UnionTypeExtension;
 const VariableDefinition = @import("../ast/variable_definition.zig").VariableDefinition;
 
-pub fn getGqlFromExecutableDefinition(definition: ExecutableDefinition, allocator: Allocator) ![]u8 {
+pub fn getDocumentGql(printer: *Printer) !void {
+    for (printer.document.definitions.items, 0..) |definition, i| {
+        try getGqlFromExecutableDefinition(printer, definition);
+        if (i < printer.document.definitions.items.len - 1) {
+            try printer.append("\n\n");
+        }
+    }
+    try printer.appendByte('\n');
+}
+
+pub fn getGqlFromExecutableDefinition(printer: *Printer, definition: ExecutableDefinition) !void {
     return switch (definition) {
         .fragmentDefinition => |fragmentDefinition| {
-            return try getGqlFomFragmentDefinition(fragmentDefinition, allocator);
+            try getGqlFomFragmentDefinition(printer, fragmentDefinition);
         },
         .operationDefinition => |operationDefinition| {
-            return try getGqlFomOperationDefinition(operationDefinition, allocator);
+            try getGqlFomOperationDefinition(printer, operationDefinition);
         },
         .schemaDefinition => |schemaDefinition| {
-            return try getGqlFomSchemaDefinition(schemaDefinition, allocator);
+            try getGqlFomSchemaDefinition(printer, schemaDefinition);
         },
         .objectTypeDefinition => |objectTypeDefinition| {
-            return try getGqlFromObjectTypeDefinition(objectTypeDefinition, allocator);
+            try getGqlFromObjectTypeDefinition(printer, objectTypeDefinition);
         },
         .unionTypeDefinition => |unionTypeDefinition| {
-            return try getGqlFromUnionTypeDefinition(unionTypeDefinition, allocator);
+            try getGqlFromUnionTypeDefinition(printer, unionTypeDefinition);
         },
         .directiveDefinition => |directiveDefinition| {
-            return try getGqlFomDirectiveDefinition(directiveDefinition, allocator);
+            try getGqlFomDirectiveDefinition(printer, directiveDefinition);
         },
         .scalarTypeDefinition => |scalarTypeDefinition| {
-            return try getGqlFomScalarTypeDefinition(scalarTypeDefinition, allocator);
+            try getGqlFomScalarTypeDefinition(printer, scalarTypeDefinition);
         },
         .interfaceTypeDefinition => |interfaceTypeDefinition| {
-            return try getGqlFromInterfaceTypeDefinition(interfaceTypeDefinition, allocator);
+            try getGqlFromInterfaceTypeDefinition(printer, interfaceTypeDefinition);
         },
         .enumTypeDefinition => |enumTypeDefinition| {
-            return try getGqlFromEnumTypeDefinition(enumTypeDefinition, allocator);
+            try getGqlFromEnumTypeDefinition(printer, enumTypeDefinition);
         },
         .enumTypeExtension => |enumTypeExtension| {
-            return try getGqlFromEnumTypeExtension(enumTypeExtension, allocator);
+            try getGqlFromEnumTypeExtension(printer, enumTypeExtension);
         },
         .inputObjectTypeDefinition => |inputObjectTypeDefinition| {
-            return try getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition, allocator);
+            try getGqlFromInputObjectTypeDefinition(printer, inputObjectTypeDefinition);
         },
         .inputObjectTypeExtension => |inputObjectTypeExtension| {
-            return try getGqlFromInputObjectTypeExtension(inputObjectTypeExtension, allocator);
+            try getGqlFromInputObjectTypeExtension(printer, inputObjectTypeExtension);
         },
         .objectTypeExtension => |objectTypeExtension| {
-            return try getGqlFromObjectTypeExtension(objectTypeExtension, allocator);
+            try getGqlFromObjectTypeExtension(printer, objectTypeExtension);
         },
         .interfaceTypeExtension => |interfaceTypeExtension| {
-            return try getGqlFromInterfaceTypeExtension(interfaceTypeExtension, allocator);
+            try getGqlFromInterfaceTypeExtension(printer, interfaceTypeExtension);
         },
         .unionTypeExtension => |unionTypeExtension| {
-            return try getGqlFromUnionTypeExtension(unionTypeExtension, allocator);
+            try getGqlFromUnionTypeExtension(printer, unionTypeExtension);
         },
         .scalarTypeExtension => |scalarTypeExtension| {
-            return try getGqlFromScalarTypeExtension(scalarTypeExtension, allocator);
+            try getGqlFromScalarTypeExtension(printer, scalarTypeExtension);
         },
         .schemaExtension => |schemaExtension| {
-            return try getGqlFromSchemaExtension(schemaExtension, allocator);
+            try getGqlFromSchemaExtension(printer, schemaExtension);
         },
     };
 }
 
-fn getGqlFromInputObjectTypeDefinition(inputObjectTypeDefinition: InputObjectTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromInputObjectTypeDefinition(printer: *Printer, inputObjectTypeDefinition: InputObjectTypeDefinition) !void {
     if (inputObjectTypeDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("input ");
-    try str.appendSlice(inputObjectTypeDefinition.name);
+    try printer.append("input ");
+    try printer.append(inputObjectTypeDefinition.name);
     if (inputObjectTypeDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(inputObjectTypeDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, inputObjectTypeDefinition.directives);
     }
-    try str.appendSlice(" {");
-    for (inputObjectTypeDefinition.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try str.append(' ');
-        const fieldStr = try getGqlFromInputValueDefinition(fieldDefinition, allocator);
-        defer allocator.free(fieldStr);
-        try str.appendSlice(fieldStr);
+    try printer.openBrace();
+
+    for (inputObjectTypeDefinition.fields) |fieldDefinition| {
+        try printer.newLine();
+        try getGqlFromInputValueDefinition(printer, fieldDefinition, InputValueSpacing.newLine);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromInputObjectTypeExtension(inputObjectTypeExtension: InputObjectTypeExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend input ");
-    try str.appendSlice(inputObjectTypeExtension.name);
+fn getGqlFromInputObjectTypeExtension(printer: *Printer, inputObjectTypeExtension: InputObjectTypeExtension) !void {
+    try printer.append("extend input ");
+    try printer.append(inputObjectTypeExtension.name);
     if (inputObjectTypeExtension.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(inputObjectTypeExtension.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, inputObjectTypeExtension.directives);
     }
-    try str.appendSlice(" {");
-    for (inputObjectTypeExtension.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try str.append(' ');
-        const fieldStr = try getGqlFromInputValueDefinition(fieldDefinition, allocator);
-        defer allocator.free(fieldStr);
-        try str.appendSlice(fieldStr);
+    try printer.openBrace();
+
+    for (inputObjectTypeExtension.fields) |fieldDefinition| {
+        try printer.newLine();
+        try getGqlFromInputValueDefinition(printer, fieldDefinition, InputValueSpacing.newLine);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromEnumTypeDefinition(enumTypeDefinition: EnumTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromEnumTypeDefinition(printer: *Printer, enumTypeDefinition: EnumTypeDefinition) !void {
     if (enumTypeDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("enum ");
-    try str.appendSlice(enumTypeDefinition.name);
+    try printer.append("enum ");
+    try printer.append(enumTypeDefinition.name);
     if (enumTypeDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(enumTypeDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, enumTypeDefinition.directives);
     }
-    try str.appendSlice(" {");
-    for (enumTypeDefinition.values, 0..) |value, i| {
-        if (i > 0) try str.append(' ');
-        try str.appendSlice(value.name);
+    try printer.openBrace();
+
+    for (enumTypeDefinition.values) |value| {
+        try printer.newLine();
+        try printer.append(value.name);
         if (value.directives.len > 0) {
-            const valueDirectivesStr = try getGqlFromDirectiveList(value.directives, allocator);
-            defer allocator.free(valueDirectivesStr);
-            try str.appendSlice(valueDirectivesStr);
+            try getGqlFromDirectiveList(printer, value.directives);
         }
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromEnumTypeExtension(enumTypeExtension: EnumTypeExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend enum ");
-    try str.appendSlice(enumTypeExtension.name);
+fn getGqlFromEnumTypeExtension(printer: *Printer, enumTypeExtension: EnumTypeExtension) !void {
+    try printer.append("extend enum ");
+    try printer.append(enumTypeExtension.name);
     if (enumTypeExtension.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(enumTypeExtension.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, enumTypeExtension.directives);
     }
-    try str.appendSlice(" {");
-    for (enumTypeExtension.values, 0..) |value, i| {
-        if (i > 0) try str.append(' ');
-        try str.appendSlice(value.name);
+    try printer.openBrace();
+
+    for (enumTypeExtension.values) |value| {
+        try printer.newLine();
+        try printer.append(value.name);
         if (value.directives.len > 0) {
-            const valueDirectivesStr = try getGqlFromDirectiveList(value.directives, allocator);
-            defer allocator.free(valueDirectivesStr);
-            try str.appendSlice(valueDirectivesStr);
+            try getGqlFromDirectiveList(printer, value.directives);
         }
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromInterfaceTypeDefinition(interfaceTypeDefinition: InterfaceTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromInterfaceTypeDefinition(printer: *Printer, interfaceTypeDefinition: InterfaceTypeDefinition) !void {
     if (interfaceTypeDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("interface ");
-    try str.appendSlice(interfaceTypeDefinition.name);
+    try printer.append("interface ");
+    try printer.append(interfaceTypeDefinition.name);
     if (interfaceTypeDefinition.interfaces.len > 0) {
-        const gql = try getGqlFromImplementedInterfaces(interfaceTypeDefinition.interfaces, allocator);
-        defer allocator.free(gql);
-        try str.appendSlice(gql);
+        try getGqlFromImplementedInterfaces(printer, interfaceTypeDefinition.interfaces);
     }
     if (interfaceTypeDefinition.directives.len > 0) {
-        const gql = try getGqlFromDirectiveList(interfaceTypeDefinition.directives, allocator);
-        defer allocator.free(gql);
-        try str.appendSlice(gql);
+        try getGqlFromDirectiveList(printer, interfaceTypeDefinition.directives);
     }
-    try str.appendSlice(" {");
-    for (interfaceTypeDefinition.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try str.append(' ');
-        const gql = try getGqlFromFieldDefinition(fieldDefinition, allocator);
-        defer allocator.free(gql);
-        try str.appendSlice(gql);
+    try printer.openBrace();
+
+    for (interfaceTypeDefinition.fields) |fieldDefinition| {
+        try printer.newLine();
+        try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromObjectTypeDefinition(objectTypeDefinition: ObjectTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromObjectTypeDefinition(printer: *Printer, objectTypeDefinition: ObjectTypeDefinition) !void {
     if (objectTypeDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("type ");
-    try str.appendSlice(objectTypeDefinition.name);
+    try printer.append("type ");
+    try printer.append(objectTypeDefinition.name);
     if (objectTypeDefinition.interfaces.len > 0) {
-        const interfacesStr = try getGqlFromImplementedInterfaces(objectTypeDefinition.interfaces, allocator);
-        defer allocator.free(interfacesStr);
-        try str.appendSlice(interfacesStr);
+        try getGqlFromImplementedInterfaces(printer, objectTypeDefinition.interfaces);
     }
     if (objectTypeDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(objectTypeDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, objectTypeDefinition.directives);
     }
-    try str.appendSlice(" {");
-    for (objectTypeDefinition.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try str.append(' ');
-        const fieldStr = try getGqlFromFieldDefinition(fieldDefinition, allocator);
-        defer allocator.free(fieldStr);
-        try str.appendSlice(fieldStr);
+    try printer.openBrace();
+
+    for (objectTypeDefinition.fields) |fieldDefinition| {
+        try printer.newLine();
+        try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromFieldDefinition(fieldDefinition: FieldDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromFieldDefinition(printer: *Printer, fieldDefinition: FieldDefinition) !void {
     if (fieldDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice(fieldDefinition.name);
+    try printer.append(fieldDefinition.name);
     if (fieldDefinition.arguments.len > 0) {
-        try str.appendSlice("(");
+        try printer.appendByte('(');
         for (fieldDefinition.arguments, 0..) |inputValueDefinition, i| {
-            if (i > 0) try str.appendSlice(", ");
-            const argStr = try getGqlFromInputValueDefinition(inputValueDefinition, allocator);
-            defer allocator.free(argStr);
-            try str.appendSlice(argStr);
+            if (i > 0) try printer.append(", ");
+            try getGqlFromInputValueDefinition(printer, inputValueDefinition, InputValueSpacing.space);
         }
-        try str.appendSlice(")");
+        try printer.appendByte(')');
     }
-    try str.appendSlice(": ");
-    const typeStr = try getGqlFromType(fieldDefinition.type, allocator);
-    defer allocator.free(typeStr);
-    try str.appendSlice(typeStr);
+    try printer.append(": ");
+    try getGqlFromType(printer, fieldDefinition.type);
     if (fieldDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(fieldDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, fieldDefinition.directives);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromInputValueDefinition(inputValueDefinition: InputValueDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+const InputValueSpacing = enum { space, newLine };
+
+fn getGqlFromInputValueDefinition(printer: *Printer, inputValueDefinition: InputValueDefinition, spacing: InputValueSpacing) !void {
     if (inputValueDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        if (spacing == InputValueSpacing.space) {
+            try printer.appendByte(' ');
+        } else {
+            try printer.newLine();
+        }
     }
-    try str.appendSlice(inputValueDefinition.name);
-    try str.appendSlice(": ");
-    const typeStr = try getGqlFromType(inputValueDefinition.value, allocator);
-    defer allocator.free(typeStr);
-    try str.appendSlice(typeStr);
+    try printer.append(inputValueDefinition.name);
+    try printer.append(": ");
+    try getGqlFromType(printer, inputValueDefinition.value);
     if (inputValueDefinition.defaultValue) |defaultValue| {
-        try str.appendSlice(" = ");
-        const defaultValueStr = try getGqlInputValue(defaultValue, allocator);
-        defer allocator.free(defaultValueStr);
-        try str.appendSlice(defaultValueStr);
+        try printer.append(" = ");
+        try getGqlInputValue(printer, defaultValue);
     }
     if (inputValueDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(inputValueDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, inputValueDefinition.directives);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromUnionTypeDefinition(unionTypeDefinition: UnionTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromUnionTypeDefinition(printer: *Printer, unionTypeDefinition: UnionTypeDefinition) !void {
     if (unionTypeDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("union ");
-    try str.appendSlice(unionTypeDefinition.name);
+    try printer.append("union ");
+    try printer.append(unionTypeDefinition.name);
     if (unionTypeDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(unionTypeDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, unionTypeDefinition.directives);
     }
-    try str.appendSlice(" = ");
+    try printer.append(" = ");
     for (unionTypeDefinition.types, 0..) |t, i| {
-        if (i > 0) try str.appendSlice(" | ");
-        const typeStr = try getGqlFromType(t, allocator);
-        defer allocator.free(typeStr);
-        try str.appendSlice(typeStr);
+        if (i > 0) try printer.append(" | ");
+        try getGqlFromType(printer, t);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFomSchemaDefinition(schemaDefinition: SchemaDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFomSchemaDefinition(printer: *Printer, schemaDefinition: SchemaDefinition) !void {
     if (schemaDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("schema");
+    try printer.append("schema");
     if (schemaDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(schemaDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, schemaDefinition.directives);
     }
-    try str.appendSlice(" {");
+    try printer.openBrace();
+
     for (schemaDefinition.operationTypes, 0..) |operationType, i| {
-        if (i > 0) try str.append(' ');
-        const operationTypeStr = try getGqlFromOperationTypeDefinition(operationType, allocator);
-        defer allocator.free(operationTypeStr);
-        try str.appendSlice(operationTypeStr);
+        if (i > 0) try printer.appendByte(' ');
+        try getGqlFromOperationTypeDefinition(printer, operationType);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+    try printer.closeBrace();
 }
 
-fn getGqlFromOperationTypeDefinition(operationTypeDefinition: OperationTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice(operationTypeDefinition.operation);
-    try str.appendSlice(": ");
-    try str.appendSlice(operationTypeDefinition.name);
-    return str.toOwnedSlice();
+fn getGqlFromOperationTypeDefinition(printer: *Printer, operationTypeDefinition: OperationTypeDefinition) !void {
+    try printer.newLine();
+    try printer.append(operationTypeDefinition.operation);
+    try printer.append(": ");
+    try printer.append(operationTypeDefinition.name);
 }
 
-fn getGqlFromOperationType(operationType: OperationType, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromOperationType(printer: *Printer, operationType: OperationType) !void {
     switch (operationType) {
-        .query => try str.appendSlice("query"),
-        .mutation => try str.appendSlice("mutation"),
-        .subscription => try str.appendSlice("subscription"),
+        .query => try printer.append("query"),
+        .mutation => try printer.append("mutation"),
+        .subscription => try printer.append("subscription"),
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFomOperationDefinition(operationDefinition: OperationDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFomOperationDefinition(printer: *Printer, operationDefinition: OperationDefinition) !void {
     switch (operationDefinition.operation) {
         .query => {
-            try str.appendSlice("query ");
+            try printer.append("query ");
         },
         .mutation => {
-            try str.appendSlice("mutation ");
+            try printer.append("mutation ");
         },
         .subscription => {
-            try str.appendSlice("subscription ");
+            try printer.append("subscription ");
         },
     }
     if (operationDefinition.name) |name| {
-        try str.appendSlice(name);
+        try printer.append(name);
     }
     if (operationDefinition.variableDefinitions.len > 0) {
-        try str.appendSlice("(");
+        try printer.appendByte('(');
         for (operationDefinition.variableDefinitions, 0..) |variableDefinition, i| {
-            if (i > 0) try str.appendSlice(", ");
-            const varDefStr = try getGqlVariableDefinition(variableDefinition, allocator);
-            defer allocator.free(varDefStr);
-            try str.appendSlice(varDefStr);
+            if (i > 0) try printer.append(", ");
+            try getGqlVariableDefinition(printer, variableDefinition);
         }
-        try str.appendSlice(")");
+        try printer.appendByte(')');
     }
     if (operationDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(operationDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, operationDefinition.directives);
     }
-    try str.appendSlice(" ");
-    const selectionSetStr = try getGqlFromSelectionSet(operationDefinition.selectionSet, allocator);
-    defer allocator.free(selectionSetStr);
-    try str.appendSlice(selectionSetStr);
-
-    return str.toOwnedSlice();
+    try getGqlFromSelectionSet(printer, operationDefinition.selectionSet);
 }
 
-fn getGqlFomScalarTypeDefinition(scalarTypeDefinition: ScalarTypeDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFomScalarTypeDefinition(printer: *Printer, scalarTypeDefinition: ScalarTypeDefinition) !void {
     if (scalarTypeDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("scalar ");
-    try str.appendSlice(scalarTypeDefinition.name);
+    try printer.append("scalar ");
+    try printer.append(scalarTypeDefinition.name);
     if (scalarTypeDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(scalarTypeDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, scalarTypeDefinition.directives);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFomFragmentDefinition(fragmentDefinition: FragmentDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("fragment ");
-    try str.appendSlice(fragmentDefinition.name);
-    try str.appendSlice(" on ");
-    const typeStr = try getGqlFromType(fragmentDefinition.typeCondition, allocator);
-    defer allocator.free(typeStr);
-    try str.appendSlice(typeStr);
+fn getGqlFomFragmentDefinition(printer: *Printer, fragmentDefinition: FragmentDefinition) !void {
+    try printer.append("fragment ");
+    try printer.append(fragmentDefinition.name);
+    try printer.append(" on ");
+    try getGqlFromType(printer, fragmentDefinition.typeCondition);
     if (fragmentDefinition.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(fragmentDefinition.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, fragmentDefinition.directives);
     }
-    const selectionSetStr = try getGqlFromSelectionSet(fragmentDefinition.selectionSet, allocator);
-    defer allocator.free(selectionSetStr);
-    try str.appendSlice(selectionSetStr);
-    return str.toOwnedSlice();
+    try getGqlFromSelectionSet(printer, fragmentDefinition.selectionSet);
 }
 
-fn getGqlFomDirectiveDefinition(directiveDefinition: DirectiveDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFomDirectiveDefinition(printer: *Printer, directiveDefinition: DirectiveDefinition) !void {
     if (directiveDefinition.description) |description| {
-        try str.appendSlice(description);
-        try str.appendSlice(" ");
+        try printer.append(description);
+        try printer.newLine();
     }
-    try str.appendSlice("directive @");
-    try str.appendSlice(directiveDefinition.name);
+    try printer.append("directive @");
+    try printer.append(directiveDefinition.name);
     if (directiveDefinition.arguments.len > 0) {
-        try str.appendSlice("(");
-        for (directiveDefinition.arguments, 0..) |argument, i| {
-            if (i > 0) try str.appendSlice(", ");
-            const argStr = try getGqlFromInputValueDefinition(argument, allocator);
-            defer allocator.free(argStr);
-            try str.appendSlice(argStr);
+        try printer.appendByte('(');
+        printer.indent();
+        for (directiveDefinition.arguments) |argument| {
+            try printer.newLine();
+            try getGqlFromInputValueDefinition(printer, argument, InputValueSpacing.newLine);
         }
-        try str.appendSlice(")");
+        printer.unindent();
+        try printer.newLine();
+        try printer.appendByte(')');
     }
-    try str.appendSlice(" on ");
+    try printer.append(" on ");
     for (directiveDefinition.locations, 0..) |location, i| {
-        if (i > 0) try str.appendSlice(" | ");
-        try str.appendSlice(location);
+        if (i > 0) try printer.append(" | ");
+        try printer.append(location);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlVariableDefinition(variableDefinition: VariableDefinition, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("$");
-    try str.appendSlice(variableDefinition.name);
-    try str.appendSlice(": ");
-    const typeStr = try getGqlFromType(variableDefinition.type, allocator);
-    defer allocator.free(typeStr);
-    try str.appendSlice(typeStr);
+fn getGqlVariableDefinition(printer: *Printer, variableDefinition: VariableDefinition) !void {
+    try printer.appendByte('$');
+    try printer.append(variableDefinition.name);
+    try printer.append(": ");
+    try getGqlFromType(printer, variableDefinition.type);
     if (variableDefinition.defaultValue) |defaultValue| {
-        try str.appendSlice(" = ");
-        const defaultValueStr = try getGqlInputValue(defaultValue, allocator);
-        defer allocator.free(defaultValueStr);
-        try str.appendSlice(defaultValueStr);
+        try printer.append(" = ");
+        try getGqlInputValue(printer, defaultValue);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromType(t: Type, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-
+fn getGqlFromType(printer: *Printer, t: Type) !void {
     switch (t) {
         .namedType => |namedType| {
-            try str.appendSlice(namedType.name);
+            try printer.append(namedType.name);
         },
         .listType => |listType| {
-            try str.appendSlice("[");
-            const elementTypeStr = try getGqlFromType(listType.elementType.*, allocator);
-            defer allocator.free(elementTypeStr);
-            try str.appendSlice(elementTypeStr);
-            try str.appendSlice("]");
+            try printer.appendByte('[');
+            try getGqlFromType(printer, listType.elementType.*);
+            try printer.appendByte(']');
         },
         .nonNullType => |nonNullType| {
             switch (nonNullType) {
                 .namedType => |namedType| {
-                    try str.appendSlice(namedType.name);
-                    try str.appendSlice("!");
+                    try printer.append(namedType.name);
+                    try printer.appendByte('!');
                 },
                 .listType => |listType| {
-                    try str.appendSlice("[");
-                    const elementTypeStr = try getGqlFromType(listType.elementType.*, allocator);
-                    defer allocator.free(elementTypeStr);
-                    try str.appendSlice(elementTypeStr);
-                    try str.appendSlice("]!");
+                    try printer.appendByte('[');
+                    try getGqlFromType(printer, listType.elementType.*);
+                    try printer.append("]!");
                 },
             }
         },
     }
-
-    return str.toOwnedSlice();
 }
 
-fn getGqlInputValue(inputValue: InputValue, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlInputValue(printer: *Printer, inputValue: InputValue) !void {
     switch (inputValue) {
         .variable => |variable| {
-            try str.appendSlice("$");
-            try str.appendSlice(variable.name);
+            try printer.appendByte('$');
+            try printer.append(variable.name);
         },
         .list_value => |listValue| {
-            try str.appendSlice("[");
+            try printer.appendByte('[');
             for (listValue.values, 0..) |item, i| {
-                if (i > 0) try str.appendSlice(", ");
-                const itemStr = try getGqlInputValue(item, allocator);
-                defer allocator.free(itemStr);
-                try str.appendSlice(itemStr);
+                if (i > 0) try printer.append(", ");
+                try getGqlInputValue(printer, item);
             }
-            try str.appendSlice("]");
+            try printer.appendByte(']');
         },
         .object_value => |objectValue| {
-            try str.appendSlice("{");
+            try printer.appendByte('{');
             for (objectValue.fields, 0..) |field, i| {
-                if (i > 0) try str.appendSlice(", ");
-                try str.appendSlice(field.name);
-                try str.appendSlice(": ");
-                const fieldValueStr = try getGqlInputValue(field.value, allocator);
-                defer allocator.free(fieldValueStr);
-                try str.appendSlice(fieldValueStr);
+                if (i > 0) try printer.append(", ");
+                try printer.append(field.name);
+                try printer.append(": ");
+                try getGqlInputValue(printer, field.value);
             }
-            try str.appendSlice("}");
+            try printer.appendByte('}');
         },
         .boolean_value => |booleanValue| {
-            try str.appendSlice(if (booleanValue.value) "true" else "false");
+            try printer.append(if (booleanValue.value) "true" else "false");
         },
         .int_value => |intValue| {
-            const intStr = try std.fmt.allocPrint(allocator, "{d}", .{intValue.value});
-            defer allocator.free(intStr);
-            try str.appendSlice(intStr);
+            const intStr = try std.fmt.allocPrint(printer.allocator, "{d}", .{intValue.value});
+            defer printer.allocator.free(intStr);
+            try printer.append(intStr);
         },
         .float_value => |floatValue| {
-            const floatStr = try std.fmt.allocPrint(allocator, "{d}", .{floatValue.value});
-            defer allocator.free(floatStr);
-            try str.appendSlice(floatStr);
+            const floatStr = try std.fmt.allocPrint(printer.allocator, "{d}", .{floatValue.value});
+            defer printer.allocator.free(floatStr);
+            try printer.append(floatStr);
         },
         .string_value => |stringValue| {
-            const stringStr = try std.fmt.allocPrint(allocator, "{s}", .{stringValue.value});
-            defer allocator.free(stringStr);
-            try str.appendSlice(stringStr);
+            const stringStr = try std.fmt.allocPrint(printer.allocator, "{s}", .{stringValue.value});
+            defer printer.allocator.free(stringStr);
+            try printer.append(stringStr);
         },
         .null_value => {
-            try str.appendSlice("null");
+            try printer.append("null");
         },
         .enum_value => |enumValue| {
-            try str.appendSlice(enumValue.name);
+            try printer.append(enumValue.name);
         },
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromDirective(directive: Directive, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice(" @");
-    try str.appendSlice(directive.name);
+fn getGqlFromDirective(printer: *Printer, directive: Directive) !void {
+    try printer.append(" @");
+    try printer.append(directive.name);
     if (directive.arguments.len > 0) {
-        try str.appendSlice("(");
+        try printer.appendByte('(');
         for (directive.arguments, 0..) |argument, i| {
-            if (i > 0) try str.appendSlice(", ");
-            const argStr = try getGqlFromArgument(argument, allocator);
-            defer allocator.free(argStr);
-            try str.appendSlice(argStr);
+            if (i > 0) try printer.append(", ");
+            try getGqlFromArgument(printer, argument);
         }
-        try str.appendSlice(")");
+        try printer.appendByte(')');
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromArgument(argument: Argument, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice(argument.name);
-    try str.appendSlice(": ");
-    const valueStr = try getGqlInputValue(argument.value, allocator);
-    defer allocator.free(valueStr);
-    try str.appendSlice(valueStr);
-    return str.toOwnedSlice();
+fn getGqlFromArgument(printer: *Printer, argument: Argument) !void {
+    try printer.append(argument.name);
+    try printer.append(": ");
+    try getGqlInputValue(printer, argument.value);
 }
 
-fn getGqlFromSelectionSet(selectionSet: SelectionSet, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("{");
+fn getGqlFromSelectionSet(printer: *Printer, selectionSet: SelectionSet) !void {
+    try printer.openBrace();
 
-    for (selectionSet.selections, 0..) |selection, i| {
-        if (i > 0) try str.appendSlice(" ");
+    for (selectionSet.selections) |selection| {
+        try printer.newLine();
         switch (selection) {
             .field => |field| {
-                const fieldStr = try getGqlFromField(field, allocator);
-                defer allocator.free(fieldStr);
-                try str.appendSlice(fieldStr);
+                try getGqlFromField(printer, field);
             },
             .fragmentSpread => |fragmentSpread| {
-                try str.appendSlice("...");
-                try str.appendSlice(fragmentSpread.name);
+                try printer.append("...");
+                try printer.append(fragmentSpread.name);
                 if (fragmentSpread.directives.len > 0) {
-                    const directivesStr = try getGqlFromDirectiveList(fragmentSpread.directives, allocator);
-                    defer allocator.free(directivesStr);
-                    try str.appendSlice(directivesStr);
+                    try getGqlFromDirectiveList(printer, fragmentSpread.directives);
                 }
             },
             .inlineFragment => |inlineFragment| {
-                try str.appendSlice("... on ");
-                try str.appendSlice(inlineFragment.typeCondition);
-                const selectionSetStr = try getGqlFromSelectionSet(inlineFragment.selectionSet, allocator);
-                defer allocator.free(selectionSetStr);
-                try str.appendSlice(selectionSetStr);
+                try printer.append("... on ");
+                try printer.append(inlineFragment.typeCondition);
+                try getGqlFromSelectionSet(printer, inlineFragment.selectionSet);
                 if (inlineFragment.directives.len > 0) {
-                    const directivesStr = try getGqlFromDirectiveList(inlineFragment.directives, allocator);
-                    defer allocator.free(directivesStr);
-                    try str.appendSlice(directivesStr);
+                    try getGqlFromDirectiveList(printer, inlineFragment.directives);
                 }
             },
         }
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromField(field: Field, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromField(printer: *Printer, field: Field) !void {
     if (field.alias) |alias| {
-        try str.appendSlice(alias);
-        try str.appendSlice(": ");
+        try printer.append(alias);
+        try printer.append(": ");
     }
-    try str.appendSlice(field.name);
+    try printer.append(field.name);
     if (field.arguments.len > 0) {
-        try str.appendSlice("(");
+        try printer.appendByte('(');
         for (field.arguments, 0..) |argument, i| {
-            if (i > 0) try str.appendSlice(", ");
-            const argStr = try getGqlFromArgument(argument, allocator);
-            defer allocator.free(argStr);
-            try str.appendSlice(argStr);
+            if (i > 0) try printer.append(", ");
+            try getGqlFromArgument(printer, argument);
         }
-        try str.appendSlice(")");
+        try printer.appendByte(')');
     }
     if (field.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(field.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, field.directives);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromDirectiveList(directives: []Directive, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
+fn getGqlFromDirectiveList(printer: *Printer, directives: []Directive) !void {
     for (directives) |directive| {
-        const directiveStr = try getGqlFromDirective(directive, allocator);
-        defer allocator.free(directiveStr);
-        try str.appendSlice(directiveStr);
+        try getGqlFromDirective(printer, directive);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromImplementedInterfaces(interfaces: []Interface, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice(" implements ");
+fn getGqlFromImplementedInterfaces(printer: *Printer, interfaces: []Interface) !void {
+    try printer.append(" implements ");
     for (interfaces, 0..) |interface, i| {
-        if (i > 0) try str.appendSlice(" & ");
-        const interfaceStr = try getGqlFromType(interface.type, allocator);
-        defer allocator.free(interfaceStr);
-        try str.appendSlice(interfaceStr);
+        if (i > 0) try printer.append(" & ");
+        try getGqlFromType(printer, interface.type);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromObjectTypeExtension(objectTypeExtension: ObjectTypeExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend type ");
-    try str.appendSlice(objectTypeExtension.name);
+fn getGqlFromObjectTypeExtension(printer: *Printer, objectTypeExtension: ObjectTypeExtension) !void {
+    try printer.append("extend type ");
+    try printer.append(objectTypeExtension.name);
     if (objectTypeExtension.interfaces.len > 0) {
-        const interfacesStr = try getGqlFromImplementedInterfaces(objectTypeExtension.interfaces, allocator);
-        defer allocator.free(interfacesStr);
-        try str.appendSlice(interfacesStr);
+        try getGqlFromImplementedInterfaces(printer, objectTypeExtension.interfaces);
     }
     if (objectTypeExtension.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(objectTypeExtension.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, objectTypeExtension.directives);
     }
-    try str.appendSlice(" {");
-    for (objectTypeExtension.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try str.append(' ');
-        const fieldStr = try getGqlFromFieldDefinition(fieldDefinition, allocator);
-        defer allocator.free(fieldStr);
-        try str.appendSlice(fieldStr);
+    try printer.openBrace();
+
+    for (objectTypeExtension.fields) |fieldDefinition| {
+        try printer.newLine();
+        try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }
 
-fn getGqlFromInterfaceTypeExtension(interfaceTypeExtension: InterfaceTypeExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend interface ");
-    try str.appendSlice(interfaceTypeExtension.name);
+fn getGqlFromInterfaceTypeExtension(printer: *Printer, interfaceTypeExtension: InterfaceTypeExtension) !void {
+    try printer.append("extend interface ");
+    try printer.append(interfaceTypeExtension.name);
     if (interfaceTypeExtension.interfaces.len > 0) {
-        const interfacesStr = try getGqlFromImplementedInterfaces(interfaceTypeExtension.interfaces, allocator);
-        defer allocator.free(interfacesStr);
-        try str.appendSlice(interfacesStr);
+        try getGqlFromImplementedInterfaces(printer, interfaceTypeExtension.interfaces);
     }
     if (interfaceTypeExtension.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(interfaceTypeExtension.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, interfaceTypeExtension.directives);
     }
-    try str.appendSlice(" {");
-    for (interfaceTypeExtension.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try str.append(' ');
-        const fieldStr = try getGqlFromFieldDefinition(fieldDefinition, allocator);
-        defer allocator.free(fieldStr);
-        try str.appendSlice(fieldStr);
+    try printer.openBrace();
+    for (interfaceTypeExtension.fields) |fieldDefinition| {
+        try printer.newLine();
+        try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+    try printer.closeBrace();
 }
 
-fn getGqlFromUnionTypeExtension(unionTypeExtension: UnionTypeExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend union ");
-    try str.appendSlice(unionTypeExtension.name);
+fn getGqlFromUnionTypeExtension(printer: *Printer, unionTypeExtension: UnionTypeExtension) !void {
+    try printer.append("extend union ");
+    try printer.append(unionTypeExtension.name);
     if (unionTypeExtension.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(unionTypeExtension.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, unionTypeExtension.directives);
     }
-    try str.appendSlice(" = ");
+    try printer.append(" = ");
     for (unionTypeExtension.types, 0..) |t, i| {
-        if (i > 0) try str.appendSlice(" | ");
-        const typeStr = try getGqlFromType(t, allocator);
-        defer allocator.free(typeStr);
-        try str.appendSlice(typeStr);
+        if (i > 0) try printer.append(" | ");
+        try getGqlFromType(printer, t);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromScalarTypeExtension(scalarTypeExtension: ScalarTypeExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend scalar ");
-    try str.appendSlice(scalarTypeExtension.name);
+fn getGqlFromScalarTypeExtension(printer: *Printer, scalarTypeExtension: ScalarTypeExtension) !void {
+    try printer.append("extend scalar ");
+    try printer.append(scalarTypeExtension.name);
     if (scalarTypeExtension.directives.len > 0) {
-        const gql = try getGqlFromDirectiveList(scalarTypeExtension.directives, allocator);
-        defer allocator.free(gql);
-        try str.appendSlice(gql);
+        try getGqlFromDirectiveList(printer, scalarTypeExtension.directives);
     }
-    return str.toOwnedSlice();
 }
 
-fn getGqlFromSchemaExtension(schemaExtension: SchemaExtension, allocator: Allocator) ![]u8 {
-    var str = std.ArrayList(u8).init(allocator);
-    try str.appendSlice("extend schema");
+fn getGqlFromSchemaExtension(printer: *Printer, schemaExtension: SchemaExtension) !void {
+    try printer.append("extend schema");
     if (schemaExtension.directives.len > 0) {
-        const directivesStr = try getGqlFromDirectiveList(schemaExtension.directives, allocator);
-        defer allocator.free(directivesStr);
-        try str.appendSlice(directivesStr);
+        try getGqlFromDirectiveList(printer, schemaExtension.directives);
     }
-    try str.appendSlice(" {");
+    try printer.openBrace();
+
     for (schemaExtension.operationTypes, 0..) |operationType, i| {
-        if (i > 0) try str.append(' ');
-        const operationTypeStr = try getGqlFromOperationTypeDefinition(operationType, allocator);
-        defer allocator.free(operationTypeStr);
-        try str.appendSlice(operationTypeStr);
+        if (i > 0) try printer.appendByte(' ');
+        try getGqlFromOperationTypeDefinition(printer, operationType);
     }
-    try str.appendSlice("}");
-    return str.toOwnedSlice();
+
+    try printer.closeBrace();
 }

@@ -74,8 +74,6 @@ pub fn build(b: *std.Build) void {
         .pdb_dir = .disabled,
         .dest_dir = .{ .override = .{ .custom = "../benchmark/zig" } },
     });
-    const benchmark_run_cmd = b.addRunArtifact(benchmark_exe);
-    benchmark_run_cmd.step.dependOn(&benchmark_install.step);
-    const benchmark_step = b.step("benchmark", "Run benchmark");
-    benchmark_step.dependOn(&benchmark_run_cmd.step);
+    const benchmark_step = b.step("benchmark", "Build benchmark");
+    benchmark_step.dependOn(&benchmark_install.step);
 }

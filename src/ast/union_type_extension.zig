@@ -12,7 +12,6 @@ const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
 const parseNamedType = @import("type.zig").parseNamedType;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const parseDirectives = @import("directive.zig").parseDirectives;
 
 pub const UnionTypeExtension = struct {

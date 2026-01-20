@@ -1,7 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const parserImport = @import("../parser.zig");
 const Parser = parserImport.Parser;
 const ParseError = parserImport.ParseError;

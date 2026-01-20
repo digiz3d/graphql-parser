@@ -9,7 +9,6 @@ const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const EnumValueDefinition = @import("enum_value_definition.zig").EnumValueDefinition;
 const parseEnumValueDefinition = @import("enum_value_definition.zig").parseEnumValueDefinition;
 

@@ -7,11 +7,11 @@ const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
+const ScalarTypeExtension = @import("scalar_type_extension.zig").ScalarTypeExtension;
 
 pub const ScalarTypeDefinition = struct {
     allocator: Allocator,
@@ -28,6 +28,15 @@ pub const ScalarTypeDefinition = struct {
             directive.deinit();
         }
         self.allocator.free(self.directives);
+    }
+
+    pub fn fromExtension(ext: ScalarTypeExtension) ScalarTypeDefinition {
+        return ScalarTypeExtension{
+            .allocator = ext.allocator,
+            .description = null,
+            .name = ext.name,
+            .directives = ext.directives,
+        };
     }
 };
 

@@ -8,13 +8,13 @@ const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
 const ParseError = @import("../parser.zig").ParseError;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;
 const parseNamedType = @import("type.zig").parseNamedType;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseOptionalDescription = @import("description.zig").parseOptionalDescription;
+const UnionTypeExtension = @import("union_type_extension.zig").UnionTypeExtension;
 
 pub const UnionTypeDefinition = struct {
     allocator: Allocator,
@@ -36,6 +36,15 @@ pub const UnionTypeDefinition = struct {
             directive.deinit();
         }
         self.allocator.free(self.directives);
+    }
+
+    pub fn fromExtension(ext: UnionTypeExtension) UnionTypeDefinition {
+        return UnionTypeDefinition{
+            .allocator = ext.allocator,
+            .name = ext.name,
+            .types = ext.types,
+            .directives = ext.directives,
+        };
     }
 };
 

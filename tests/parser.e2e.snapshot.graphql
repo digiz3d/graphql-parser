@@ -1,44 +1,98 @@
-"schema desc" schema @some {query: Query}
+"schema desc"
+schema @some {
+  query: Query
+}
 
-"scalar desc" scalar Lol @lol
+"scalar desc"
+scalar Lol @lol
 
 """
 union desc
-""" union SomeUnion @hi = SomeType | SomeOtherType
+"""
+union SomeUnion @hi = SomeType | SomeOtherType
 
-"object def desc" type Query @lol {"ok" name("obj def arg desc" id: ID!, value: String = "default"): String}
+"object def desc"
+type Query @lol {
+  "ok"
+  name("obj def arg desc" id: ID!, value: String = "default"): String
+}
 
-"some interface desc" interface USBA @a1 {a: A @a2}
+"some interface desc"
+interface USBA @a1 {
+  a: A @a2
+}
 
-interface USBC {C: C}
+interface USBC {
+  C: C
+}
 
-type Desktop implements USBA & USBC @a1 {ok: String @a2}
+type Desktop implements USBA & USBC @a1 {
+  ok: String @a2
+}
 
-type Laptop implements USBC {ok: String}
+type Laptop implements USBC {
+  ok: String
+}
 
-"directive desc 1" directive @example("directive arg desc" arg: Ok = 123 @lol, arg2: Ok) on FIELD | OBJECT
+"directive desc 1"
+directive @example(
+  "directive arg desc"
+  arg: Ok = 123 @lol
+  arg2: Ok
+) on FIELD | OBJECT
 
-"directive desc 2" directive @lol on FIELD
+"directive desc 2"
+directive @lol on FIELD
 
-fragment SomeFragment on ok @ok1{id @ok2}
+fragment SomeFragment on ok @ok1 {
+  id @ok2
+}
 
-query SomeQuery($id: ok) @lolok(arg: {lol: {ok: [true]}}, arg2: Ok) {ok @field1 ...SomeFragment @field2}
+query SomeQuery($id: ok) @lolok(arg: {lol: {ok: [true]}}, arg2: Ok) {
+  ok @field1
+  ...SomeFragment @field2
+}
 
-extend schema @someDirective {mutation: Mutation}
+extend schema @someDirective {
+  mutation: Mutation
+}
 
-extend type Laptop implements ok @someDirective {"ok" k: String @someOtherDirective k2: String @someOtherDirective}
+extend type Laptop implements ok @someDirective {
+  "ok"
+  k: String @someOtherDirective
+  k2: String @someOtherDirective
+}
 
-enum SomeEnum {SOME_VALUE SOME_OTHER_VALUE}
+enum SomeEnum {
+  SOME_VALUE
+  SOME_OTHER_VALUE
+}
 
-enum SomeEnum2 @ok {SOME_VALUE @ok2 SOME_OTHER_VALUE @ok3}
+enum SomeEnum2 @ok {
+  SOME_VALUE @ok2
+  SOME_OTHER_VALUE @ok3
+}
 
-extend enum SomeEnum2 @ok {SOME_NEW_VALUE @ok4}
+extend enum SomeEnum2 @ok {
+  SOME_NEW_VALUE @ok4
+}
 
-"input desc" input SomeInput @someDirective {"some field desc" field: String = "Some default"}
+"input desc"
+input SomeInput @someDirective {
+  "some field desc"
+  field: String = "Some default"
+}
 
-extend input Oki @oui {"okidoki" okayyy: String!}
+extend input Oki @oui {
+  "okidoki"
+  okayyy: String!
+}
 
-extend interface USBA implements NewInterface @someDirective {"new field desc" newField: String anotherField: Int!}
+extend interface USBA implements NewInterface @someDirective {
+  "new field desc"
+  newField: String
+  anotherField: Int!
+}
 
 extend union SomeUnion @someDirective = NewType | AnotherType
 

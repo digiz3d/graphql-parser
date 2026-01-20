@@ -4,7 +4,6 @@ const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const utils = @import("../utils/utils.zig");
-const makeIndentation = utils.makeIndentation;
 const strEq = utils.strEq;
 
 const Token = @import("../tokenizer.zig").Token;

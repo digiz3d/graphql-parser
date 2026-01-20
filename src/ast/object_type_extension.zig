@@ -12,7 +12,6 @@ const Interface = @import("interface.zig").Interface;
 const Directive = @import("directive.zig").Directive;
 const FieldDefinition = @import("field_definition.zig").FieldDefinition;
 
-const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const parseInterfaces = @import("interface.zig").parseInterfaces;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseFieldDefinition = @import("field_definition.zig").parseFieldDefinition;
