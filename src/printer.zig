@@ -58,11 +58,11 @@ pub const Printer = struct {
         try self.appendByte('}');
     }
 
-    fn indent(self: *Printer) void {
+    pub fn indent(self: *Printer) void {
         self.currentIndent += 2;
     }
 
-    fn unindent(self: *Printer) void {
+    pub fn unindent(self: *Printer) void {
         self.currentIndent -= 2;
     }
 };

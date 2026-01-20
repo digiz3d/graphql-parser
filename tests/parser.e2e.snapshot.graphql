@@ -35,7 +35,11 @@ type Laptop implements USBC {
 }
 
 "directive desc 1"
-directive @example("directive arg desc" arg: Ok = 123 @lol, arg2: Ok) on FIELD | OBJECT
+directive @example(
+  "directive arg desc"
+  arg: Ok = 123 @lol
+  arg2: Ok
+) on FIELD | OBJECT
 
 "directive desc 2"
 directive @lol on FIELD

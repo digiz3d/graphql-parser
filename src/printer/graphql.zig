@@ -378,10 +378,13 @@ fn getGqlFomDirectiveDefinition(printer: *Printer, directiveDefinition: Directiv
     try printer.append(directiveDefinition.name);
     if (directiveDefinition.arguments.len > 0) {
         try printer.appendByte('(');
-        for (directiveDefinition.arguments, 0..) |argument, i| {
-            if (i > 0) try printer.append(", ");
-            try getGqlFromInputValueDefinition(printer, argument, InputValueSpacing.space);
+        printer.indent();
+        for (directiveDefinition.arguments) |argument| {
+            try printer.newLine();
+            try getGqlFromInputValueDefinition(printer, argument, InputValueSpacing.newLine);
         }
+        printer.unindent();
+        try printer.newLine();
         try printer.appendByte(')');
     }
     try printer.append(" on ");
