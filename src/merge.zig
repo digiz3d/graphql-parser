@@ -149,9 +149,9 @@ fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: []const Obje
 
 pub fn main() !void {
     const filesToParse = [_][]const u8{
-        "benchmark/graphql-definitions/base.graphql",
-        "benchmark/graphql-definitions/extend.graphql",
-        "benchmark/graphql-definitions/query.graphql",
+        "graphql-definitions/base.graphql",
+        "graphql-definitions/extend.graphql",
+        "graphql-definitions/query.graphql",
     };
 
     const alloc = std.heap.page_allocator;
