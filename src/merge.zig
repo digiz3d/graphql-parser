@@ -148,17 +148,31 @@ fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: []const Obje
 }
 
 pub fn main() !void {
-    const filesToParse = [_][]const u8{
-        "graphql-definitions/base.graphql",
-        "graphql-definitions/extend.graphql",
-        "graphql-definitions/query.graphql",
-    };
-
     const alloc = std.heap.page_allocator;
+    const typeDefsDir = "graphql-definitions";
+
+    var dir = try std.fs.cwd().openDir(typeDefsDir, .{ .iterate = true });
+    defer dir.close();
+
+    var filesToParse = ArrayList([]const u8).init(alloc);
+    defer {
+        for (filesToParse.items) |path| {
+            alloc.free(path);
+        }
+        filesToParse.deinit();
+    }
+
+    var iterator = dir.iterate();
+    while (try iterator.next()) |entry| {
+        if (entry.kind == .file) {
+            const path = try std.fmt.allocPrint(alloc, "{s}/{s}", .{ typeDefsDir, entry.name });
+            try filesToParse.append(path);
+        }
+    }
 
     var documents = ArrayList(Document).init(alloc);
 
-    for (filesToParse) |file| {
+    for (filesToParse.items) |file| {
         const content = getFileContent(file, alloc) catch return;
         defer alloc.free(content);
 
