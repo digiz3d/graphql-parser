@@ -80,7 +80,8 @@ input SomeInput @someDirective {
 }
 
 extend input Oki @oui {
-  "okidoki" okayyy: String!
+  "okidoki"
+  okayyy: String!
 }
 
 extend interface USBA implements NewInterface @someDirective {

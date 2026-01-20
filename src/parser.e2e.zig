@@ -5,6 +5,7 @@ const getFileContent = @import("utils/utils.zig").getFileContent;
 const normalizeLineEndings = @import("utils/utils.zig").normalizeLineEndings;
 const trimTrailingNewlines = @import("utils/utils.zig").trimTrailingNewlines;
 const Printer = @import("printer.zig").Printer;
+const std = @import("std");
 
 test "e2e-parse" {
     const content = try getFileContent("tests/parser.e2e.graphql", testing.allocator);
@@ -69,7 +70,7 @@ test "e2e-print-text" {
     const normalizedExpectedText = normalizeLineEndings(testing.allocator, expectedText);
     defer testing.allocator.free(normalizedExpectedText);
 
-    try testing.expectEqualStrings(normalizedText, normalizedExpectedText);
+    try testing.expectEqualStrings(normalizedExpectedText, normalizedText);
 }
 
 test "e2e-print-graphql" {

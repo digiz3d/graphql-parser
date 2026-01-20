@@ -107,7 +107,7 @@ fn getGqlFromInputObjectTypeDefinition(printer: *Printer, inputObjectTypeDefinit
 
     for (inputObjectTypeDefinition.fields) |fieldDefinition| {
         try printer.newLine();
-        try getGqlFromInputValueDefinition(printer, fieldDefinition);
+        try getGqlFromInputValueDefinition(printer, fieldDefinition, InputValueSpacing.newLine);
     }
 
     printer.unindent();
@@ -126,7 +126,7 @@ fn getGqlFromInputObjectTypeExtension(printer: *Printer, inputObjectTypeExtensio
 
     for (inputObjectTypeExtension.fields) |fieldDefinition| {
         try printer.newLine();
-        try getGqlFromInputValueDefinition(printer, fieldDefinition);
+        try getGqlFromInputValueDefinition(printer, fieldDefinition, InputValueSpacing.newLine);
     }
 
     printer.unindent();
@@ -244,7 +244,7 @@ fn getGqlFromFieldDefinition(printer: *Printer, fieldDefinition: FieldDefinition
         try printer.appendByte('(');
         for (fieldDefinition.arguments, 0..) |inputValueDefinition, i| {
             if (i > 0) try printer.append(", ");
-            try getGqlFromInputValueDefinition(printer, inputValueDefinition);
+            try getGqlFromInputValueDefinition(printer, inputValueDefinition, InputValueSpacing.space);
         }
         try printer.appendByte(')');
     }
@@ -255,10 +255,16 @@ fn getGqlFromFieldDefinition(printer: *Printer, fieldDefinition: FieldDefinition
     }
 }
 
-fn getGqlFromInputValueDefinition(printer: *Printer, inputValueDefinition: InputValueDefinition) !void {
+const InputValueSpacing = enum { space, newLine };
+
+fn getGqlFromInputValueDefinition(printer: *Printer, inputValueDefinition: InputValueDefinition, spacing: InputValueSpacing) !void {
     if (inputValueDefinition.description) |description| {
         try printer.append(description);
-        try printer.appendByte(' ');
+        if (spacing == InputValueSpacing.space) {
+            try printer.appendByte(' ');
+        } else {
+            try printer.newLine();
+        }
     }
     try printer.append(inputValueDefinition.name);
     try printer.append(": ");
@@ -390,7 +396,7 @@ fn getGqlFomDirectiveDefinition(printer: *Printer, directiveDefinition: Directiv
         try printer.append("(");
         for (directiveDefinition.arguments, 0..) |argument, i| {
             if (i > 0) try printer.append(", ");
-            try getGqlFromInputValueDefinition(printer, argument);
+            try getGqlFromInputValueDefinition(printer, argument, InputValueSpacing.space);
         }
         try printer.append(")");
     }
@@ -606,10 +612,13 @@ fn getGqlFromInterfaceTypeExtension(printer: *Printer, interfaceTypeExtension: I
         try getGqlFromDirectiveList(printer, interfaceTypeExtension.directives);
     }
     try printer.append(" {");
-    for (interfaceTypeExtension.fields, 0..) |fieldDefinition, i| {
-        if (i > 0) try printer.appendByte(' ');
+    printer.indent();
+    for (interfaceTypeExtension.fields) |fieldDefinition| {
+        try printer.newLine();
         try getGqlFromFieldDefinition(printer, fieldDefinition);
     }
+    printer.unindent();
+    try printer.newLine();
     try printer.append("}");
 }
 
