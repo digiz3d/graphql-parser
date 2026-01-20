@@ -1,6 +1,6 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
 
+const Printer = @import("../printer.zig").Printer;
 const Argument = @import("../ast/arguments.zig").Argument;
 const Directive = @import("../ast/directive.zig").Directive;
 const DirectiveDefinition = @import("../ast/directive_definition.zig").DirectiveDefinition;
@@ -27,14 +27,21 @@ const ScalarTypeDefinition = @import("../ast/scalar_type_definition.zig").Scalar
 const ScalarTypeExtension = @import("../ast/scalar_type_extension.zig").ScalarTypeExtension;
 const SchemaDefinition = @import("../ast/schema_definition.zig").SchemaDefinition;
 const SchemaExtension = @import("../ast/schema_extension.zig").SchemaExtension;
-const Selection = @import("../ast/selection.zig").Selection;
 const SelectionSet = @import("../ast/selection_set.zig").SelectionSet;
 const Type = @import("../ast/type.zig").Type;
 const UnionTypeDefinition = @import("../ast/union_type_definition.zig").UnionTypeDefinition;
 const UnionTypeExtension = @import("../ast/union_type_extension.zig").UnionTypeExtension;
 const VariableDefinition = @import("../ast/variable_definition.zig").VariableDefinition;
 
-const Printer = @import("../printer.zig").Printer;
+pub fn getDocumentGql(printer: *Printer) !void {
+    for (printer.document.definitions.items, 0..) |definition, i| {
+        try getGqlFromExecutableDefinition(printer, definition);
+        if (i < printer.document.definitions.items.len - 1) {
+            try printer.append("\n\n");
+        }
+    }
+    try printer.appendByte('\n');
+}
 
 pub fn getGqlFromExecutableDefinition(printer: *Printer, definition: ExecutableDefinition) !void {
     return switch (definition) {

@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const Document = @import("ast/document.zig").Document;
-const getGqlFromExecutableDefinition = @import("printer/graphql.zig").getGqlFromExecutableDefinition;
+const getDocumentGql = @import("printer/graphql.zig").getDocumentGql;
 const getDocumentText = @import("printer/text.zig").getDocumentText;
 
 pub const Printer = struct {
@@ -21,18 +21,15 @@ pub const Printer = struct {
     }
 
     pub fn getGql(self: *Printer) ![]u8 {
-        for (self.document.definitions.items, 0..) |definition, i| {
-            try getGqlFromExecutableDefinition(self, definition);
-            if (i < self.document.definitions.items.len - 1) {
-                try self.append("\n\n");
-            }
-        }
-        try self.appendByte('\n');
+        self.buffer.clearAndFree();
+        try getDocumentGql(self);
         return self.buffer.toOwnedSlice();
     }
 
     pub fn getText(self: *Printer) ![]u8 {
-        return getDocumentText(self.document, 0, self.allocator);
+        self.buffer.clearAndFree();
+        try getDocumentText(self);
+        return self.buffer.toOwnedSlice();
     }
 
     pub fn append(self: *Printer, str: []const u8) !void {

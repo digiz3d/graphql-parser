@@ -1,62 +1,59 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const Document = @import("../ast/document.zig").Document;
-const FragmentDefinition = @import("../ast/fragment_definition.zig").FragmentDefinition;
-const OperationDefinition = @import("../ast/operation_definition.zig").OperationDefinition;
-const OperationType = @import("../ast/operation_definition.zig").OperationType;
-const ExecutableDefinition = @import("../ast/executable_definition.zig").ExecutableDefinition;
-const SchemaDefinition = @import("../ast/schema_definition.zig").SchemaDefinition;
-const ObjectTypeDefinition = @import("../ast/object_type_definition.zig").ObjectTypeDefinition;
-const UnionTypeDefinition = @import("../ast/union_type_definition.zig").UnionTypeDefinition;
-const ScalarTypeDefinition = @import("../ast/scalar_type_definition.zig").ScalarTypeDefinition;
+const Printer = @import("../printer.zig").Printer;
+const Argument = @import("../ast/arguments.zig").Argument;
+const Directive = @import("../ast/directive.zig").Directive;
 const DirectiveDefinition = @import("../ast/directive_definition.zig").DirectiveDefinition;
-const InterfaceTypeDefinition = @import("../ast/interface_type_definition.zig").InterfaceTypeDefinition;
-const SchemaExtension = @import("../ast/schema_extension.zig").SchemaExtension;
-const ObjectTypeExtension = @import("../ast/object_type_extension.zig").ObjectTypeExtension;
 const EnumTypeDefinition = @import("../ast/enum_type_definition.zig").EnumTypeDefinition;
 const EnumTypeExtension = @import("../ast/enum_type_extension.zig").EnumTypeExtension;
+const EnumValueDefinition = @import("../ast/enum_value_definition.zig").EnumValueDefinition;
+const ExecutableDefinition = @import("../ast/executable_definition.zig").ExecutableDefinition;
+const Field = @import("../ast/field.zig").Field;
+const FieldDefinition = @import("../ast/field_definition.zig").FieldDefinition;
+const FragmentDefinition = @import("../ast/fragment_definition.zig").FragmentDefinition;
+const FragmentSpread = @import("../ast/fragment_spread.zig").FragmentSpread;
+const InlineFragment = @import("../ast/inline_fragment.zig").InlineFragment;
 const InputObjectTypeDefinition = @import("../ast/input_object_type_definition.zig").InputObjectTypeDefinition;
 const InputObjectTypeExtension = @import("../ast/input_object_type_extension.zig").InputObjectTypeExtension;
-const InterfaceTypeExtension = @import("../ast/interface_type_extension.zig").InterfaceTypeExtension;
-const UnionTypeExtension = @import("../ast/union_type_extension.zig").UnionTypeExtension;
-const ScalarTypeExtension = @import("../ast/scalar_type_extension.zig").ScalarTypeExtension;
-const Directive = @import("../ast/directive.zig").Directive;
-const SelectionSet = @import("../ast/selection_set.zig").SelectionSet;
-const Selection = @import("../ast/selection.zig").Selection;
-const Field = @import("../ast/field.zig").Field;
-const FragmentSpread = @import("../ast/fragment_spread.zig").FragmentSpread;
-const Type = @import("../ast/type.zig").Type;
-const VariableDefinition = @import("../ast/variable_definition.zig").VariableDefinition;
-const OperationTypeDefinition = @import("../ast/operation_type_definition.zig").OperationTypeDefinition;
-const Interface = @import("../ast/interface.zig").Interface;
-const FieldDefinition = @import("../ast/field_definition.zig").FieldDefinition;
 const InputValueDefinition = @import("../ast/input_value_definition.zig").InputValueDefinition;
-const EnumValueDefinition = @import("../ast/enum_value_definition.zig").EnumValueDefinition;
-const Argument = @import("../ast/arguments.zig").Argument;
-const InlineFragment = @import("../ast/inline_fragment.zig").InlineFragment;
-const NamedType = @import("../ast/type.zig").NamedType;
+const Interface = @import("../ast/interface.zig").Interface;
+const InterfaceTypeDefinition = @import("../ast/interface_type_definition.zig").InterfaceTypeDefinition;
+const InterfaceTypeExtension = @import("../ast/interface_type_extension.zig").InterfaceTypeExtension;
 const ListType = @import("../ast/type.zig").ListType;
+const NamedType = @import("../ast/type.zig").NamedType;
 const NonNullType = @import("../ast/type.zig").NonNullType;
+const ObjectTypeDefinition = @import("../ast/object_type_definition.zig").ObjectTypeDefinition;
+const ObjectTypeExtension = @import("../ast/object_type_extension.zig").ObjectTypeExtension;
+const OperationDefinition = @import("../ast/operation_definition.zig").OperationDefinition;
+const OperationType = @import("../ast/operation_definition.zig").OperationType;
+const OperationTypeDefinition = @import("../ast/operation_type_definition.zig").OperationTypeDefinition;
+const ScalarTypeDefinition = @import("../ast/scalar_type_definition.zig").ScalarTypeDefinition;
+const ScalarTypeExtension = @import("../ast/scalar_type_extension.zig").ScalarTypeExtension;
+const SchemaDefinition = @import("../ast/schema_definition.zig").SchemaDefinition;
+const SchemaExtension = @import("../ast/schema_extension.zig").SchemaExtension;
+const Selection = @import("../ast/selection.zig").Selection;
+const SelectionSet = @import("../ast/selection_set.zig").SelectionSet;
+const Type = @import("../ast/type.zig").Type;
+const UnionTypeDefinition = @import("../ast/union_type_definition.zig").UnionTypeDefinition;
+const UnionTypeExtension = @import("../ast/union_type_extension.zig").UnionTypeExtension;
+const VariableDefinition = @import("../ast/variable_definition.zig").VariableDefinition;
 
 const makeIndentation = @import("../utils/utils.zig").makeIndentation;
 const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 
-pub fn getDocumentText(document: Document, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+pub fn getDocumentText(printer: *Printer) !void {
+    const spaces = makeIndentation(0, printer.allocator);
+    defer printer.allocator.free(spaces);
+    const w = printer.buffer.writer();
 
     try w.print("{s}- Document\n", .{spaces});
-    try w.print("{s}  definitions: {d}\n", .{ spaces, document.definitions.items.len });
-    for (document.definitions.items) |item| {
-        const txt = try getExecutableDefinitionText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+    try w.print("{s}  definitions: {d}\n", .{ spaces, printer.document.definitions.items.len });
+    for (printer.document.definitions.items) |item| {
+        const txt = try getExecutableDefinitionText(item, 1, printer.allocator);
+        defer printer.allocator.free(txt);
         try w.print("{s}", .{txt});
     }
-    return text.toOwnedSlice();
 }
 
 fn getExecutableDefinitionText(executableDefinition: ExecutableDefinition, indent: usize, allocator: Allocator) ![]u8 {
