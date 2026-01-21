@@ -39,7 +39,7 @@ pub const Merger = struct {
                     return MergeError.UnexpectedMemoryError;
             },
             else => return std.fmt.allocPrint(self.allocator, "unknownDefinition_{s}", .{@tagName(definition)}) catch
-                return MergeError.UnexpectedMemoryError,
+                MergeError.UnexpectedMemoryError,
         }
     }
 
@@ -48,7 +48,13 @@ pub const Merger = struct {
         defer similarDefinitionsMap.deinit();
 
         var similarDefinitionsNames = ArrayList([]const u8).init(self.allocator);
-        defer similarDefinitionsNames.deinit();
+
+        defer {
+            for (similarDefinitionsNames.items) |definitionName| {
+                self.allocator.free(definitionName);
+            }
+            similarDefinitionsNames.deinit();
+        }
 
         for (documents) |document| {
             for (document.definitions.items) |definition| {
@@ -81,15 +87,15 @@ pub const Merger = struct {
 
             switch (similarDefinitions.items[0]) {
                 .objectTypeDefinition, .objectTypeExtension => {
-                    var unionDefinition = ArrayList(ObjectTypeDefinition).init(self.allocator);
+                    var objectTypeDefinitions = ArrayList(ObjectTypeDefinition).init(self.allocator);
                     for (similarDefinitions.items) |definition| {
-                        unionDefinition.append(switch (definition) {
+                        objectTypeDefinitions.append(switch (definition) {
                             .objectTypeDefinition => |def| def,
                             .objectTypeExtension => |ext| ObjectTypeDefinition.fromExtension(ext),
                             else => unreachable,
                         }) catch return MergeError.UnexpectedMemoryError;
                     }
-                    const mergedDefinition = try mergeObjectTypeDefinitions(self, unionDefinition.toOwnedSlice() catch return MergeError.UnexpectedMemoryError);
+                    const mergedDefinition = try mergeObjectTypeDefinitions(self, objectTypeDefinitions.toOwnedSlice() catch return MergeError.UnexpectedMemoryError);
                     mergedDefinitions.append(ExecutableDefinition{ .objectTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
                 },
                 .operationDefinition => {
@@ -149,7 +155,7 @@ fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: []const Obje
 
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
-    const typeDefsDir = "graphql-definitions";
+    const typeDefsDir = "tests/e2e-merge";
 
     var dir = try std.fs.cwd().openDir(typeDefsDir, .{ .iterate = true });
     defer dir.close();

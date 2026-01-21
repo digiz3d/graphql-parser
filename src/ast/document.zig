@@ -14,4 +14,8 @@ pub const Document = struct {
         }
         self.definitions.deinit();
     }
+
+    pub fn deinitMergedDocument(self: Document) void {
+        self.definitions.deinit();
+    }
 };
