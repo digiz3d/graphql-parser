@@ -44,14 +44,15 @@ pub const Merger = struct {
     }
 
     pub fn mergeIntoSingleDocument(self: *Merger, documents: []const Document) MergeError!Document {
-        var similarDefinitionsNames = ArrayList([]const u8).init(self.allocator);
-        defer {
-            for (similarDefinitionsNames.items) |definitionName| {
-                self.allocator.free(definitionName);
-            }
-            similarDefinitionsNames.deinit();
-        }
         var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
+        defer {
+            var iter = similarDefinitionsMap.iterator();
+
+            while (iter.next()) |entry| {
+                entry.value_ptr.*.deinit();
+            }
+            similarDefinitionsMap.deinit();
+        }
 
         for (documents) |document| {
             for (document.definitions) |definition| {
@@ -61,7 +62,6 @@ pub const Merger = struct {
                     var ar = ArrayList(ExecutableDefinition).init(self.allocator);
                     ar.append(definition) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsMap.put(definitionName, ar) catch return MergeError.UnexpectedMemoryError;
-                    similarDefinitionsNames.append(definitionName) catch return MergeError.UnexpectedMemoryError;
                 } else {
                     var ar = similarDefinitionsMap.get(definitionName).?;
                     ar.append(definition) catch return MergeError.UnexpectedMemoryError;
@@ -74,15 +74,16 @@ pub const Merger = struct {
         //   "objectTypeDefinition_Object": [objectTypeExtension_obj1, objectTypeDefinition_obj2],
         //   "objectTypeDefinition_Query": [objectTypeDefinition_obj3, objectTypeExtension_obj4],
         // }
-        // ["objectTypeDefinition_Object", "objectTypeDefinition_Query"]
 
         var mergedDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
         errdefer mergedDefinitions.deinit();
         var unmergeableDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
         defer unmergeableDefinitions.deinit();
 
-        for (similarDefinitionsNames.items) |definition_name| {
-            const similarDefinitions = similarDefinitionsMap.get(definition_name).?;
+        var iter = similarDefinitionsMap.iterator();
+
+        while (iter.next()) |entry| {
+            const similarDefinitions = entry.value_ptr.*;
 
             switch (similarDefinitions.items[0]) {
                 .objectTypeDefinition, .objectTypeExtension => {
