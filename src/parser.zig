@@ -97,16 +97,12 @@ pub const Parser = struct {
     }
 
     pub fn parse(self: *Parser) ParseError!Document {
-        const token = try self.processTokens();
-        return token;
+        const document = try self.processTokens();
+        return document;
     }
 
     fn processTokens(self: *Parser) ParseError!Document {
-        var documentNode = Document{
-            .allocator = self.allocator,
-            .definitions = ArrayList(ExecutableDefinition).init(self.allocator),
-        };
-        errdefer documentNode.deinit();
+        var docDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
 
         state: switch (Reading.root) {
             Reading.root => {
@@ -177,125 +173,128 @@ pub const Parser = struct {
             },
             Reading.fragment_definition => {
                 const fragmentDefinition = try parseFragmentDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .fragmentDefinition = fragmentDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.operation_definition => {
                 const operationDefinition = try parseOperationDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .operationDefinition = operationDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.schema_definition => {
                 const schemaDefinition = try parseSchemaDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .schemaDefinition = schemaDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.object_type_definition => {
                 const objectTypeDefinition = try parseObjectTypeDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .objectTypeDefinition = objectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.union_type_definition => {
                 const unionTypeDefinition = try parseUnionTypeDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .unionTypeDefinition = unionTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.scalar_type_definition => {
                 const scalarTypeDefinition = try parseScalarTypeDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .scalarTypeDefinition = scalarTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.directive_definition => {
                 const directiveDefinition = try parseDirectiveDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .directiveDefinition = directiveDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.interface_type_definition => {
                 const interfaceTypeDefinition = try parseInterfaceTypeDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .interfaceTypeDefinition = interfaceTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.schema_extension => {
                 const schemaExtension = try parseSchemaExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .schemaExtension = schemaExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.object_type_extension => {
                 const objectTypeExtension = try parseObjectTypeExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .objectTypeExtension = objectTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.enum_type_definition => {
                 const enumTypeDefinition = try parseEnumTypeDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .enumTypeDefinition = enumTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.enum_type_extension => {
                 const enumTypeExtension = try parseEnumTypeExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .enumTypeExtension = enumTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.input_object_type_definition => {
                 const inputObjectTypeDefinition = try parseInputObjectTypeDefinition(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .inputObjectTypeDefinition = inputObjectTypeDefinition,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.input_object_type_extension => {
                 const inputObjectTypeExtension = try parseInputObjectTypeExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .inputObjectTypeExtension = inputObjectTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.interface_type_extension => {
                 const interfaceTypeExtension = try parseInterfaceTypeExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .interfaceTypeExtension = interfaceTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.union_type_extension => {
                 const unionTypeExtension = try parseUnionTypeExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .unionTypeExtension = unionTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
             Reading.scalar_type_extension => {
                 const scalarTypeExtension = try parseScalarTypeExtension(self);
-                documentNode.definitions.append(ExecutableDefinition{
+                docDefinitions.append(ExecutableDefinition{
                     .scalarTypeExtension = scalarTypeExtension,
                 }) catch return ParseError.UnexpectedMemoryError;
                 continue :state Reading.root;
             },
         }
-        return documentNode;
+        return Document{
+            .allocator = self.allocator,
+            .definitions = docDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        };
     }
 
     pub fn peekNextToken(self: *Parser) ?Token {

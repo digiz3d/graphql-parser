@@ -20,6 +20,10 @@ pub const Printer = struct {
         };
     }
 
+    pub fn deinit(self: *Printer) void {
+        self.buffer.deinit();
+    }
+
     pub fn getGql(self: *Printer) ![]u8 {
         self.buffer.clearAndFree();
         try getDocumentGql(self);

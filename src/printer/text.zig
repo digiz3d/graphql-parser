@@ -48,8 +48,8 @@ pub fn getDocumentText(printer: *Printer) !void {
     const w = printer.buffer.writer();
 
     try w.print("{s}- Document\n", .{spaces});
-    try w.print("{s}  definitions: {d}\n", .{ spaces, printer.document.definitions.items.len });
-    for (printer.document.definitions.items) |item| {
+    try w.print("{s}  definitions: {d}\n", .{ spaces, printer.document.definitions.len });
+    for (printer.document.definitions) |item| {
         const txt = try getExecutableDefinitionText(item, 1, printer.allocator);
         defer printer.allocator.free(txt);
         try w.print("{s}", .{txt});

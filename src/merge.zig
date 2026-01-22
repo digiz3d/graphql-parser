@@ -44,31 +44,28 @@ pub const Merger = struct {
     }
 
     pub fn mergeIntoSingleDocument(self: *Merger, documents: []const Document) MergeError!Document {
-        var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
-        defer similarDefinitionsMap.deinit();
-
         var similarDefinitionsNames = ArrayList([]const u8).init(self.allocator);
-
         defer {
             for (similarDefinitionsNames.items) |definitionName| {
                 self.allocator.free(definitionName);
             }
             similarDefinitionsNames.deinit();
         }
+        var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
 
         for (documents) |document| {
-            for (document.definitions.items) |definition| {
+            for (document.definitions) |definition| {
                 const definitionName = try self.makeDefinitionName(definition);
 
                 if (!similarDefinitionsMap.contains(definitionName)) {
-                    var similarDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
-                    similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
-                    similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
+                    var ar = ArrayList(ExecutableDefinition).init(self.allocator);
+                    ar.append(definition) catch return MergeError.UnexpectedMemoryError;
+                    similarDefinitionsMap.put(definitionName, ar) catch return MergeError.UnexpectedMemoryError;
                     similarDefinitionsNames.append(definitionName) catch return MergeError.UnexpectedMemoryError;
                 } else {
-                    var similarDefinitions = similarDefinitionsMap.get(definitionName).?;
-                    similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
-                    similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
+                    var ar = similarDefinitionsMap.get(definitionName).?;
+                    ar.append(definition) catch return MergeError.UnexpectedMemoryError;
+                    similarDefinitionsMap.put(definitionName, ar) catch return MergeError.UnexpectedMemoryError;
                 }
             }
         }
@@ -80,7 +77,9 @@ pub const Merger = struct {
         // ["objectTypeDefinition_Object", "objectTypeDefinition_Query"]
 
         var mergedDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
+        errdefer mergedDefinitions.deinit();
         var unmergeableDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
+        defer unmergeableDefinitions.deinit();
 
         for (similarDefinitionsNames.items) |definition_name| {
             const similarDefinitions = similarDefinitionsMap.get(definition_name).?;
@@ -119,7 +118,7 @@ pub const Merger = struct {
 
         return Document{
             .allocator = self.allocator,
-            .definitions = mergedDefinitions,
+            .definitions = mergedDefinitions.toOwnedSlice() catch return MergeError.UnexpectedMemoryError,
         };
     }
 };
@@ -144,6 +143,7 @@ fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: []const Obje
     }
 
     return ObjectTypeDefinition{
+        ._is_merge_result = true,
         .allocator = self.allocator,
         .name = name.?,
         .interfaces = interfaces.toOwnedSlice() catch return MergeError.UnexpectedMemoryError,

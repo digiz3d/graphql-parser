@@ -28,22 +28,26 @@ pub const ObjectTypeDefinition = struct {
     directives: []Directive,
     fields: []FieldDefinition,
 
+    _is_merge_result: bool = false,
+
     pub fn deinit(self: ObjectTypeDefinition) void {
-        if (self.description != null) {
-            self.allocator.free(self.description.?);
-        }
-        self.allocator.free(self.name);
-        for (self.interfaces) |interface| {
-            interface.deinit();
+        if (!self._is_merge_result) {
+            if (self.description != null) {
+                self.allocator.free(self.description.?);
+            }
+            self.allocator.free(self.name);
+            for (self.interfaces) |interface| {
+                interface.deinit();
+            }
+            for (self.directives) |item| {
+                item.deinit();
+            }
+            for (self.fields) |item| {
+                item.deinit();
+            }
         }
         self.allocator.free(self.interfaces);
-        for (self.directives) |item| {
-            item.deinit();
-        }
         self.allocator.free(self.directives);
-        for (self.fields) |item| {
-            item.deinit();
-        }
         self.allocator.free(self.fields);
     }
 
