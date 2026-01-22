@@ -32,12 +32,6 @@ test "e2e-merge" {
     }
 
     var documents = ArrayList(Document).init(alloc);
-    defer {
-        for (documents.items) |document| {
-            document.deinit();
-        }
-        documents.deinit();
-    }
 
     for (filesToParse.items) |file| {
         const content = getFileContent(file, alloc) catch return;

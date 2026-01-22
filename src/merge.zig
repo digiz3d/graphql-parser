@@ -45,14 +45,7 @@ pub const Merger = struct {
 
     pub fn mergeIntoSingleDocument(self: *Merger, documents: []const Document) MergeError!Document {
         var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
-        defer {
-            var iter = similarDefinitionsMap.iterator();
-
-            while (iter.next()) |entry| {
-                entry.value_ptr.*.deinit();
-            }
-            similarDefinitionsMap.deinit();
-        }
+        defer similarDefinitionsMap.deinit();
 
         for (documents) |document| {
             for (document.definitions) |definition| {
@@ -199,6 +192,7 @@ pub fn main() !void {
         alloc.free(documentsSlice);
     }
     const mergedDocument = try merger.mergeIntoSingleDocument(documentsSlice);
+    defer mergedDocument.deinit();
 
     var printer = try Printer.init(alloc, mergedDocument);
     const gql = try printer.getGql();
