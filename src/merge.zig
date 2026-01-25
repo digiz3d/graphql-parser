@@ -224,7 +224,7 @@ pub fn main() !void {
         for (filesToParse.items) |path| {
             alloc.free(path);
         }
-        filesToParse.deinit();
+        filesToParse.deinit(alloc);
     }
 
     var iterator = dir.iterate();
