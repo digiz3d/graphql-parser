@@ -249,7 +249,7 @@ pub fn main() !void {
     }
 
     var merger = Merger.init(alloc);
-    const documentsSlice = try documents.toOwnedSlice();
+    const documentsSlice = try documents.toOwnedSlice(alloc);
     defer {
         for (documentsSlice) |document| {
             document.deinit();
