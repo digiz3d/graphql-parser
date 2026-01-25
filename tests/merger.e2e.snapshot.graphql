@@ -12,3 +12,5 @@ type Query {
   "this is a new field"
   world: String!
 }
+
+union SomeUnion = Yup | Nope

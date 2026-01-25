@@ -3,7 +3,9 @@ extend type Query {
   world: String!
 }
 
-#some comment
+#ok
 extend type Object {
   material: String!
 }
+
+union SomeUnion = Nope

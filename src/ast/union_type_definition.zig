@@ -23,7 +23,14 @@ pub const UnionTypeDefinition = struct {
     types: []Type,
     directives: []Directive,
 
+    _is_merge_result: bool = false,
+
     pub fn deinit(self: UnionTypeDefinition) void {
+        if (self._is_merge_result) {
+            self.allocator.free(self.types);
+            self.allocator.free(self.directives);
+            return;
+        }
         if (self.description != null) {
             self.allocator.free(self.description.?);
         }
@@ -42,8 +49,10 @@ pub const UnionTypeDefinition = struct {
         return UnionTypeDefinition{
             .allocator = ext.allocator,
             .name = ext.name,
+            .description = null,
             .types = ext.types,
             .directives = ext.directives,
+            ._is_merge_result = true,
         };
     }
 };

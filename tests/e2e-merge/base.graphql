@@ -10,3 +10,5 @@ type Query {
   hello: String!
   giveMeAnObject: Object!
 }
+
+union SomeUnion = Yup

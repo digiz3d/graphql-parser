@@ -31,23 +31,27 @@ pub const ObjectTypeDefinition = struct {
     _is_merge_result: bool = false,
 
     pub fn deinit(self: ObjectTypeDefinition) void {
-        if (!self._is_merge_result) {
-            if (self.description != null) {
-                self.allocator.free(self.description.?);
-            }
-            self.allocator.free(self.name);
-            for (self.interfaces) |interface| {
-                interface.deinit();
-            }
-            for (self.directives) |item| {
-                item.deinit();
-            }
-            for (self.fields) |item| {
-                item.deinit();
-            }
+        if (self._is_merge_result) {
+            self.allocator.free(self.interfaces);
+            self.allocator.free(self.directives);
+            self.allocator.free(self.fields);
+            return;
+        }
+        if (self.description != null) {
+            self.allocator.free(self.description.?);
+        }
+        self.allocator.free(self.name);
+        for (self.interfaces) |interface| {
+            interface.deinit();
         }
         self.allocator.free(self.interfaces);
+        for (self.directives) |item| {
+            item.deinit();
+        }
         self.allocator.free(self.directives);
+        for (self.fields) |item| {
+            item.deinit();
+        }
         self.allocator.free(self.fields);
     }
 
@@ -59,6 +63,7 @@ pub const ObjectTypeDefinition = struct {
             .interfaces = ext.interfaces,
             .directives = ext.directives,
             .fields = ext.fields,
+            ._is_merge_result = true,
         };
     }
 };
