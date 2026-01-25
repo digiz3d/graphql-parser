@@ -64,11 +64,11 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/merge.zig"),
         .target = target,
         .optimize = .ReleaseFast,
+        .strip = true,
     });
     const benchmark_exe = b.addExecutable(.{
         .name = "main",
         .root_module = benchmark_module,
-        .strip = true,
     });
     const benchmark_install = b.addInstallArtifact(benchmark_exe, .{
         .pdb_dir = .disabled,
