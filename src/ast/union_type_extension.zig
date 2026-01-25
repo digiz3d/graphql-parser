@@ -43,12 +43,12 @@ pub fn parseUnionTypeExtension(parser: *Parser) ParseError!UnionTypeExtension {
 
     const directives = try parseDirectives(parser);
 
-    var types = ArrayList(Type).init(parser.allocator);
+    var types: ArrayList(Type) = .empty;
     errdefer {
         for (types.items) |t| {
             t.deinit();
         }
-        types.deinit();
+        types.deinit(parser.allocator);
     }
 
     const equalToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
@@ -56,7 +56,7 @@ pub fn parseUnionTypeExtension(parser: *Parser) ParseError!UnionTypeExtension {
         _ = try parser.consumeToken(Token.Tag.punct_equal);
         while (true) {
             const t = try parseNamedType(parser, false);
-            types.append(t) catch return ParseError.UnexpectedMemoryError;
+            types.append(parser.allocator, t) catch return ParseError.UnexpectedMemoryError;
             const pipeToken = parser.peekNextToken() orelse break;
             if (pipeToken.tag != Token.Tag.punct_pipe) {
                 break;
@@ -70,7 +70,7 @@ pub fn parseUnionTypeExtension(parser: *Parser) ParseError!UnionTypeExtension {
         .allocator = parser.allocator,
         .name = name,
         .directives = directives,
-        .types = types.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .types = types.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
     };
 }
 

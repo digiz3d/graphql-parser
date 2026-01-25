@@ -30,19 +30,19 @@ pub const Argument = struct {
 };
 
 pub fn parseArguments(parser: *Parser) ParseError![]Argument {
-    var arguments = ArrayList(Argument).init(parser.allocator);
+    var arguments: ArrayList(Argument) = .empty;
 
     var currentToken = parser.peekNextToken() orelse
-        return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return arguments.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 
     if (currentToken.tag != Token.Tag.punct_paren_left) {
-        return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return arguments.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
     }
 
     _ = try parser.consumeToken(Token.Tag.punct_paren_left);
 
     while (currentToken.tag != Token.Tag.punct_paren_right) : (currentToken = parser.peekNextToken() orelse
-        return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        return arguments.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError)
     {
         const argumentNameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
         const argumentName = try parser.getTokenValue(argumentNameToken);
@@ -65,14 +65,14 @@ pub fn parseArguments(parser: *Parser) ParseError![]Argument {
             .value = argumentValue,
             .defaultValue = defaultValue,
         };
-        arguments.append(argument) catch return ParseError.UnexpectedMemoryError;
+        arguments.append(parser.allocator, argument) catch return ParseError.UnexpectedMemoryError;
 
         currentToken = parser.peekNextToken() orelse return ParseError.UnexpectedMemoryError;
     }
 
     _ = try parser.consumeToken(Token.Tag.punct_paren_right);
 
-    return arguments.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return arguments.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 }
 
 test "parsing arguments" {

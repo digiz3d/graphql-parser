@@ -16,19 +16,19 @@ pub inline fn strEq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
 }
 
-pub fn newLineToBackslashN(allocator: Allocator, str: []const u8) []const u8 {
-    var newStr = ArrayList(u8).init(allocator);
+pub fn newLineToBackslashN(alloc: Allocator, str: []const u8) []const u8 {
+    var newStr: ArrayList(u8) = .empty;
 
     for (str) |char| {
         switch (char) {
             '\n', '\r' => {
-                newStr.appendSlice("\\n") catch return "";
+                newStr.appendSlice(alloc, "\\n") catch return "";
             },
-            else => newStr.append(char) catch return "",
+            else => newStr.append(alloc, char) catch return "",
         }
     }
 
-    return newStr.toOwnedSlice() catch return "";
+    return newStr.toOwnedSlice(alloc) catch return "";
 }
 
 test "newLineToBackslashN" {
@@ -69,23 +69,23 @@ pub fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]c
 }
 
 pub fn normalizeLineEndings(allocator: Allocator, str: []const u8) []const u8 {
-    var normalized = ArrayList(u8).init(allocator);
+    var normalized: ArrayList(u8) = .empty;
 
     var i: usize = 0;
     while (i < str.len) {
         if (i + 1 < str.len and str[i] == '\r' and str[i + 1] == '\n') {
-            normalized.append('\n') catch return "";
+            normalized.append(allocator, '\n') catch return "";
             i += 2;
         } else if (str[i] == '\r') {
-            normalized.append('\n') catch return "";
+            normalized.append(allocator, '\n') catch return "";
             i += 1;
         } else {
-            normalized.append(str[i]) catch return "";
+            normalized.append(allocator, str[i]) catch return "";
             i += 1;
         }
     }
 
-    return normalized.toOwnedSlice() catch return "";
+    return normalized.toOwnedSlice(allocator) catch return "";
 }
 
 test "normalizeLineEndings" {

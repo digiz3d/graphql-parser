@@ -46,19 +46,19 @@ pub fn parseInputValueDefinitions(parser: *Parser, isInputObjectTypeDefinition: 
     const beginToken = if (isInputObjectTypeDefinition) Token.Tag.punct_brace_left else Token.Tag.punct_paren_left;
     const endToken = if (isInputObjectTypeDefinition) Token.Tag.punct_brace_right else Token.Tag.punct_paren_right;
 
-    var inputValueDefinitions = ArrayList(InputValueDefinition).init(parser.allocator);
+    var inputValueDefinitions: ArrayList(InputValueDefinition) = .empty;
 
     var currentToken = parser.peekNextToken() orelse
-        return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return inputValueDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 
     if (currentToken.tag != beginToken) {
-        return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return inputValueDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
     }
 
     _ = try parser.consumeToken(beginToken);
 
     while (currentToken.tag != endToken) : (currentToken = parser.peekNextToken() orelse
-        return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError)
+        return inputValueDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError)
     {
         const description = try parseOptionalDescription(parser);
         const nameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
@@ -87,14 +87,14 @@ pub fn parseInputValueDefinitions(parser: *Parser, isInputObjectTypeDefinition: 
             .defaultValue = defaultValue,
             .directives = directives,
         };
-        inputValueDefinitions.append(inputValueDefinition) catch return ParseError.UnexpectedMemoryError;
+        inputValueDefinitions.append(parser.allocator, inputValueDefinition) catch return ParseError.UnexpectedMemoryError;
 
         currentToken = parser.peekNextToken() orelse return ParseError.UnexpectedMemoryError;
     }
 
     _ = try parser.consumeToken(endToken);
 
-    return inputValueDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return inputValueDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 }
 
 test "parsing input values definitions" {

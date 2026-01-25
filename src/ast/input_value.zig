@@ -251,7 +251,7 @@ pub fn parseInputValue(parser: *Parser, acceptVariables: bool) ParseError!InputV
 fn parseListValue(parser: *Parser) ParseError!InputValue {
     var token = try parser.consumeToken(Token.Tag.punct_bracket_left);
 
-    var values = ArrayList(InputValue).init(parser.allocator);
+    var values: ArrayList(InputValue) = .empty;
 
     while (true) {
         token = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
@@ -260,12 +260,12 @@ fn parseListValue(parser: *Parser) ParseError!InputValue {
             break;
         }
         const value = try parseInputValue(parser, false);
-        values.append(value) catch return ParseError.UnexpectedMemoryError;
+        values.append(parser.allocator, value) catch return ParseError.UnexpectedMemoryError;
     }
 
     return InputValue{
         .list_value = ListValue{
-            .values = values.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+            .values = values.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
         },
     };
 }
@@ -273,7 +273,7 @@ fn parseListValue(parser: *Parser) ParseError!InputValue {
 fn parseObjectValue(parser: *Parser) ParseError!InputValue {
     var token = try parser.consumeToken(Token.Tag.punct_brace_left);
 
-    var fields = ArrayList(ObjectField).init(parser.allocator);
+    var fields: ArrayList(ObjectField) = .empty;
 
     while (true) {
         token = parser.peekNextToken() orelse return ParseError.ExpectedRightBrace;
@@ -282,12 +282,12 @@ fn parseObjectValue(parser: *Parser) ParseError!InputValue {
             break;
         }
         const field = try parseObjectField(parser);
-        fields.append(field) catch return ParseError.UnexpectedMemoryError;
+        fields.append(parser.allocator, field) catch return ParseError.UnexpectedMemoryError;
     }
 
     return InputValue{
         .object_value = ObjectValue{
-            .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+            .fields = fields.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
         },
     };
 }

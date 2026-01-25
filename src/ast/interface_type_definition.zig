@@ -75,12 +75,12 @@ pub fn parseInterfaceTypeDefinition(parser: *Parser) ParseError!InterfaceTypeDef
 
     _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
-    var fields = ArrayList(FieldDefinition).init(parser.allocator);
+    var fields: ArrayList(FieldDefinition) = .empty;
 
     var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
         const fieldDefinition = try parseFieldDefinition(parser);
-        fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
+        fields.append(parser.allocator, fieldDefinition) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
 
@@ -91,7 +91,7 @@ pub fn parseInterfaceTypeDefinition(parser: *Parser) ParseError!InterfaceTypeDef
         .name = name,
         .description = description,
         .interfaces = interfaces,
-        .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .fields = fields.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
         .directives = directives,
     };
 }

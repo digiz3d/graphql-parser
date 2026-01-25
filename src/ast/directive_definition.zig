@@ -57,7 +57,7 @@ pub fn parseDirectiveDefinition(parser: *Parser) ParseError!DirectiveDefinition 
 
     parser.consumeSpecificIdentifier("on") catch return ParseError.ExpectedOn;
 
-    var locations = ArrayList([]const u8).init(parser.allocator);
+    var locations: ArrayList([]const u8) = .empty;
     while (true) {
         const locationToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
         const location = try parser.getTokenValue(locationToken);
@@ -65,7 +65,7 @@ pub fn parseDirectiveDefinition(parser: *Parser) ParseError!DirectiveDefinition 
         if (!validateLocations(location)) {
             return ParseError.InvalidLocation;
         }
-        locations.append(location) catch return ParseError.UnexpectedMemoryError;
+        locations.append(parser.allocator, location) catch return ParseError.UnexpectedMemoryError;
 
         const nextToken = parser.peekNextToken() orelse break;
         if (nextToken.tag != Token.Tag.punct_pipe) break;
@@ -83,7 +83,7 @@ pub fn parseDirectiveDefinition(parser: *Parser) ParseError!DirectiveDefinition 
         .description = description,
         .name = directiveName,
         .arguments = arguments,
-        .locations = locations.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .locations = locations.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
         .directives = directivesNodes,
     };
 }

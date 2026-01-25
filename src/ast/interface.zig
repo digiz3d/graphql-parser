@@ -24,13 +24,13 @@ pub const Interface = struct {
 };
 
 pub fn parseInterfaces(parser: *Parser) ParseError![]Interface {
-    var interfaces = ArrayList(Interface).init(parser.allocator);
+    var interfaces: ArrayList(Interface) = .empty;
 
     const implementsToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     const implementsStr = try parser.getTokenValue(implementsToken);
     defer parser.allocator.free(implementsStr);
     if (implementsToken.tag != Token.Tag.identifier or !strEq(implementsStr, "implements")) {
-        return interfaces.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+        return interfaces.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
     }
 
     try parser.consumeSpecificIdentifier("implements");
@@ -43,7 +43,7 @@ pub fn parseInterfaces(parser: *Parser) ParseError![]Interface {
             .allocator = parser.allocator,
             .type = namedType,
         };
-        interfaces.append(interface) catch return ParseError.UnexpectedMemoryError;
+        interfaces.append(parser.allocator, interface) catch return ParseError.UnexpectedMemoryError;
 
         nextToken = parser.peekNextToken() orelse break;
         if (nextToken.tag != Token.Tag.punct_ampersand) break;
@@ -52,7 +52,7 @@ pub fn parseInterfaces(parser: *Parser) ParseError![]Interface {
         nextToken = parser.peekNextToken() orelse return ParseError.UnexpectedMemoryError;
     }
 
-    return interfaces.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return interfaces.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 }
 
 test "parseInterfaces" {

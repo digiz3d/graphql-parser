@@ -15,23 +15,23 @@ test "e2e-merge" {
     var dir = try std.fs.cwd().openDir(typeDefsDir, .{ .iterate = true });
     defer dir.close();
 
-    var filesToParse = ArrayList([]const u8).init(alloc);
+    var filesToParse: ArrayList([]const u8) = .empty;
     defer {
         for (filesToParse.items) |path| {
             alloc.free(path);
         }
-        filesToParse.deinit();
+        filesToParse.deinit(alloc);
     }
 
     var iterator = dir.iterate();
     while (try iterator.next()) |entry| {
         if (entry.kind == .file) {
             const path = try std.fmt.allocPrint(alloc, "{s}/{s}", .{ typeDefsDir, entry.name });
-            try filesToParse.append(path);
+            try filesToParse.append(alloc, path);
         }
     }
 
-    var documents = ArrayList(Document).init(alloc);
+    var documents: ArrayList(Document) = .empty;
 
     for (filesToParse.items) |file| {
         const content = getFileContent(file, alloc) catch return;
@@ -41,11 +41,11 @@ test "e2e-merge" {
         defer parser.deinit();
 
         const document = try parser.parse();
-        documents.append(document) catch return;
+        documents.append(alloc, document) catch return;
     }
 
     var merger = Merger.init(alloc);
-    const documentsSlice = try documents.toOwnedSlice();
+    const documentsSlice = try documents.toOwnedSlice(alloc);
     defer {
         for (documentsSlice) |document| {
             document.deinit();

@@ -57,12 +57,12 @@ pub fn parseEnumTypeDefinition(parser: *Parser) ParseError!EnumTypeDefinition {
 
     const directives = try parseDirectives(parser);
 
-    var values = ArrayList(EnumValueDefinition).init(parser.allocator);
+    var values: ArrayList(EnumValueDefinition) = .empty;
     errdefer {
         for (values.items) |value| {
             value.deinit();
         }
-        values.deinit();
+        values.deinit(parser.allocator);
     }
 
     _ = try parser.consumeToken(Token.Tag.punct_brace_left);
@@ -70,7 +70,7 @@ pub fn parseEnumTypeDefinition(parser: *Parser) ParseError!EnumTypeDefinition {
     var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
         const value = try parseEnumValueDefinition(parser);
-        values.append(value) catch return ParseError.UnexpectedMemoryError;
+        values.append(parser.allocator, value) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
 
@@ -81,7 +81,7 @@ pub fn parseEnumTypeDefinition(parser: *Parser) ParseError!EnumTypeDefinition {
         .description = description,
         .directives = directives,
         .name = name,
-        .values = values.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .values = values.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
     };
 }
 
