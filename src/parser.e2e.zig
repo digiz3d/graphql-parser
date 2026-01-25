@@ -17,15 +17,15 @@ test "e2e-parse" {
     const rootNode = try parser.parse();
     defer rootNode.deinit();
 
-    try testing.expectEqual(22, rootNode.definitions.items.len);
-    try testing.expectEqual(2, rootNode.definitions.items[2].unionTypeDefinition.types.len);
-    try testing.expectEqual(OperationType.query, rootNode.definitions.items[11].operationDefinition.operation);
+    try testing.expectEqual(22, rootNode.definitions.len);
+    try testing.expectEqual(2, rootNode.definitions[2].unionTypeDefinition.types.len);
+    try testing.expectEqual(OperationType.query, rootNode.definitions[11].operationDefinition.operation);
 
-    const objectTypeExtension = rootNode.definitions.items[13].objectTypeExtension;
+    const objectTypeExtension = rootNode.definitions[13].objectTypeExtension;
     try testing.expectEqual(1, objectTypeExtension.directives.len);
     try testing.expectEqual(2, objectTypeExtension.fields.len);
 
-    const interfaceTypeExtension = rootNode.definitions.items[19].interfaceTypeExtension;
+    const interfaceTypeExtension = rootNode.definitions[19].interfaceTypeExtension;
     try testing.expectEqual(1, interfaceTypeExtension.interfaces.len);
     try testing.expectEqualStrings("NewInterface", interfaceTypeExtension.interfaces[0].type.namedType.name);
     try testing.expectEqual(1, interfaceTypeExtension.directives.len);
@@ -34,14 +34,14 @@ test "e2e-parse" {
     try testing.expectEqualStrings("newField", interfaceTypeExtension.fields[0].name);
     try testing.expectEqualStrings("anotherField", interfaceTypeExtension.fields[1].name);
 
-    const unionTypeExtension = rootNode.definitions.items[20].unionTypeExtension;
+    const unionTypeExtension = rootNode.definitions[20].unionTypeExtension;
     try testing.expectEqual(1, unionTypeExtension.directives.len);
     try testing.expectEqualStrings("someDirective", unionTypeExtension.directives[0].name);
     try testing.expectEqual(2, unionTypeExtension.types.len);
     try testing.expectEqualStrings("NewType", unionTypeExtension.types[0].namedType.name);
     try testing.expectEqualStrings("AnotherType", unionTypeExtension.types[1].namedType.name);
 
-    const scalarTypeExtension = rootNode.definitions.items[21].scalarTypeExtension;
+    const scalarTypeExtension = rootNode.definitions[21].scalarTypeExtension;
     try testing.expectEqualStrings("DateTime", scalarTypeExtension.name);
     try testing.expectEqual(2, scalarTypeExtension.directives.len);
     try testing.expectEqualStrings("someDirective", scalarTypeExtension.directives[0].name);

@@ -34,9 +34,9 @@ const UnionTypeExtension = @import("../ast/union_type_extension.zig").UnionTypeE
 const VariableDefinition = @import("../ast/variable_definition.zig").VariableDefinition;
 
 pub fn getDocumentGql(printer: *Printer) !void {
-    for (printer.document.definitions.items, 0..) |definition, i| {
+    for (printer.document.definitions, 0..) |definition, i| {
         try getGqlFromExecutableDefinition(printer, definition);
-        if (i < printer.document.definitions.items.len - 1) {
+        if (i < printer.document.definitions.len - 1) {
             try printer.append("\n\n");
         }
     }

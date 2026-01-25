@@ -23,69 +23,69 @@ pub const InputValue = union(enum) {
     list_value: ListValue,
     object_value: ObjectValue,
 
-    pub fn getPrintableString(self: InputValue, allocator: Allocator) []const u8 {
+    pub fn getPrintableString(self: InputValue, gpa: Allocator) []const u8 {
         const typeName = @tagName(self);
         switch (self) {
             InputValue.variable => {
                 const variable = self.variable;
-                return allocPrint(allocator, "${s} ({s})", .{ variable.name, typeName }) catch return "";
+                return allocPrint(gpa, "${s} ({s})", .{ variable.name, typeName }) catch return "";
             },
             InputValue.int_value => {
                 const int_value = self.int_value;
-                return allocPrint(allocator, "{d} ({s})", .{ int_value.value, typeName }) catch return "";
+                return allocPrint(gpa, "{d} ({s})", .{ int_value.value, typeName }) catch return "";
             },
             InputValue.float_value => {
                 const float_value = self.float_value;
-                return allocPrint(allocator, "{d} ({s})", .{ float_value.value, typeName }) catch return "";
+                return allocPrint(gpa, "{d} ({s})", .{ float_value.value, typeName }) catch return "";
             },
             InputValue.string_value => {
                 const string_value = self.string_value;
-                return allocPrint(allocator, "{s} ({s})", .{ string_value.value, typeName }) catch return "";
+                return allocPrint(gpa, "{s} ({s})", .{ string_value.value, typeName }) catch return "";
             },
             InputValue.boolean_value => {
                 const boolean_value = self.boolean_value;
-                return allocPrint(allocator, "{} ({s})", .{ boolean_value.value, typeName }) catch return "";
+                return allocPrint(gpa, "{} ({s})", .{ boolean_value.value, typeName }) catch return "";
             },
             InputValue.null_value => {
-                return allocPrint(allocator, "null ({s})", .{typeName}) catch return "";
+                return allocPrint(gpa, "null ({s})", .{typeName}) catch return "";
             },
             InputValue.enum_value => {
                 const enum_value = self.enum_value;
-                return allocPrint(allocator, "{s} ({s})", .{ enum_value.name, typeName }) catch return "";
+                return allocPrint(gpa, "{s} ({s})", .{ enum_value.name, typeName }) catch return "";
             },
             InputValue.list_value => {
                 const list_value = self.list_value;
-                var result = ArrayList(u8).init(allocator);
-                defer result.deinit();
+                var result: ArrayList(u8) = .empty;
+                defer result.deinit(gpa);
 
-                result.appendSlice("[") catch return "";
+                result.appendSlice(gpa, "[") catch return "";
                 for (list_value.values, 0..) |value, i| {
-                    if (i > 0) result.appendSlice(", ") catch return "";
-                    const printableString = value.getPrintableString(allocator);
-                    defer allocator.free(printableString);
-                    result.appendSlice(printableString) catch return "";
+                    if (i > 0) result.appendSlice(gpa, ", ") catch return "";
+                    const printableString = value.getPrintableString(gpa);
+                    defer gpa.free(printableString);
+                    result.appendSlice(gpa, printableString) catch return "";
                 }
-                result.appendSlice("]") catch return "";
+                result.appendSlice(gpa, "]") catch return "";
 
-                return result.toOwnedSlice() catch return "";
+                return result.toOwnedSlice(gpa) catch return "";
             },
             InputValue.object_value => {
                 const object_value = self.object_value;
-                var result = ArrayList(u8).init(allocator);
-                defer result.deinit();
+                var result: ArrayList(u8) = .empty;
+                defer result.deinit(gpa);
 
-                result.appendSlice("{") catch return "";
+                result.appendSlice(gpa, "{") catch return "";
                 for (object_value.fields, 0..) |field, i| {
-                    if (i > 0) result.appendSlice(", ") catch return "";
-                    result.appendSlice(field.name) catch return "";
-                    result.appendSlice(": ") catch return "";
-                    const printableString = field.value.getPrintableString(allocator);
-                    defer allocator.free(printableString);
-                    result.appendSlice(printableString) catch return "";
+                    if (i > 0) result.appendSlice(gpa, ", ") catch return "";
+                    result.appendSlice(gpa, field.name) catch return "";
+                    result.appendSlice(gpa, ": ") catch return "";
+                    const printableString = field.value.getPrintableString(gpa);
+                    defer gpa.free(printableString);
+                    result.appendSlice(gpa, printableString) catch return "";
                 }
-                result.appendSlice("}") catch return "";
+                result.appendSlice(gpa, "}") catch return "";
 
-                return result.toOwnedSlice() catch return "";
+                return result.toOwnedSlice(gpa) catch return "";
             },
         }
     }
@@ -251,7 +251,7 @@ pub fn parseInputValue(parser: *Parser, acceptVariables: bool) ParseError!InputV
 fn parseListValue(parser: *Parser) ParseError!InputValue {
     var token = try parser.consumeToken(Token.Tag.punct_bracket_left);
 
-    var values = ArrayList(InputValue).init(parser.allocator);
+    var values: ArrayList(InputValue) = .empty;
 
     while (true) {
         token = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
@@ -260,12 +260,12 @@ fn parseListValue(parser: *Parser) ParseError!InputValue {
             break;
         }
         const value = try parseInputValue(parser, false);
-        values.append(value) catch return ParseError.UnexpectedMemoryError;
+        values.append(parser.allocator, value) catch return ParseError.UnexpectedMemoryError;
     }
 
     return InputValue{
         .list_value = ListValue{
-            .values = values.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+            .values = values.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
         },
     };
 }
@@ -273,7 +273,7 @@ fn parseListValue(parser: *Parser) ParseError!InputValue {
 fn parseObjectValue(parser: *Parser) ParseError!InputValue {
     var token = try parser.consumeToken(Token.Tag.punct_brace_left);
 
-    var fields = ArrayList(ObjectField).init(parser.allocator);
+    var fields: ArrayList(ObjectField) = .empty;
 
     while (true) {
         token = parser.peekNextToken() orelse return ParseError.ExpectedRightBrace;
@@ -282,12 +282,12 @@ fn parseObjectValue(parser: *Parser) ParseError!InputValue {
             break;
         }
         const field = try parseObjectField(parser);
-        fields.append(field) catch return ParseError.UnexpectedMemoryError;
+        fields.append(parser.allocator, field) catch return ParseError.UnexpectedMemoryError;
     }
 
     return InputValue{
         .object_value = ObjectValue{
-            .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+            .fields = fields.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
         },
     };
 }

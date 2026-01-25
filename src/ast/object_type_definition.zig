@@ -28,7 +28,15 @@ pub const ObjectTypeDefinition = struct {
     directives: []Directive,
     fields: []FieldDefinition,
 
+    _is_merge_result: bool = false,
+
     pub fn deinit(self: ObjectTypeDefinition) void {
+        if (self._is_merge_result) {
+            self.allocator.free(self.interfaces);
+            self.allocator.free(self.directives);
+            self.allocator.free(self.fields);
+            return;
+        }
         if (self.description != null) {
             self.allocator.free(self.description.?);
         }
@@ -55,6 +63,7 @@ pub const ObjectTypeDefinition = struct {
             .interfaces = ext.interfaces,
             .directives = ext.directives,
             .fields = ext.fields,
+            ._is_merge_result = true,
         };
     }
 };
@@ -72,12 +81,12 @@ pub fn parseObjectTypeDefinition(parser: *Parser) ParseError!ObjectTypeDefinitio
 
     _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
-    var fields = ArrayList(FieldDefinition).init(parser.allocator);
+    var fields: ArrayList(FieldDefinition) = .empty;
 
     var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
         const fieldDefinition = try parseFieldDefinition(parser);
-        fields.append(fieldDefinition) catch return ParseError.UnexpectedMemoryError;
+        fields.append(parser.allocator, fieldDefinition) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
     _ = try parser.consumeToken(Token.Tag.punct_brace_right);
@@ -88,7 +97,7 @@ pub fn parseObjectTypeDefinition(parser: *Parser) ParseError!ObjectTypeDefinitio
         .interfaces = interfaces,
         .directives = directives,
         .name = name,
-        .fields = fields.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .fields = fields.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
     };
     return objectTypeDefinition;
 }

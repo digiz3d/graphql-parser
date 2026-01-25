@@ -6,12 +6,12 @@ const ExecutableDefinition = @import("executable_definition.zig").ExecutableDefi
 
 pub const Document = struct {
     allocator: Allocator,
-    definitions: ArrayList(ExecutableDefinition),
+    definitions: []ExecutableDefinition,
 
     pub fn deinit(self: Document) void {
-        for (self.definitions.items) |item| {
+        for (self.definitions) |item| {
             item.deinit();
         }
-        self.definitions.deinit();
+        self.allocator.free(self.definitions);
     }
 };

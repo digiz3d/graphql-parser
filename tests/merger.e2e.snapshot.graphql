@@ -1,0 +1,16 @@
+"""
+Nice object
+"""
+type Object {
+  name: String!
+  material: String!
+}
+
+type Query {
+  hello: String!
+  giveMeAnObject: Object!
+  "this is a new field"
+  world: String!
+}
+
+union SomeUnion = Yup | Nope

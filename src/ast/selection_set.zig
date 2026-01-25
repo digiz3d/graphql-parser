@@ -36,7 +36,7 @@ pub fn parseSelectionSet(parser: *Parser) ParseError!SelectionSet {
     _ = try parser.consumeToken(Token.Tag.punct_brace_left);
     var currentToken = try parser.consumeToken(Token.Tag.identifier);
 
-    var selections = ArrayList(Selection).init(parser.allocator);
+    var selections: ArrayList(Selection) = .empty;
 
     while (currentToken.tag != Token.Tag.punct_brace_right) : (currentToken = parser.consumeNextToken() orelse return ParseError.MissingExpectedBrace) {
         if (currentToken.tag == Token.Tag.eof) return ParseError.MissingExpectedBrace;
@@ -71,7 +71,7 @@ pub fn parseSelectionSet(parser: *Parser) ParseError!SelectionSet {
                     },
                 };
             }
-            selections.append(selection) catch return ParseError.UnexpectedMemoryError;
+            selections.append(parser.allocator, selection) catch return ParseError.UnexpectedMemoryError;
             continue;
         }
 
@@ -102,12 +102,12 @@ pub fn parseSelectionSet(parser: *Parser) ParseError!SelectionSet {
                 .selectionSet = selectionSet,
             },
         };
-        selections.append(fieldNode) catch return ParseError.UnexpectedMemoryError;
+        selections.append(parser.allocator, fieldNode) catch return ParseError.UnexpectedMemoryError;
     }
 
     const selectionSetNode = SelectionSet{
         .allocator = parser.allocator,
-        .selections = selections.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .selections = selections.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
     };
     return selectionSetNode;
 }

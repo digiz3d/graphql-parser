@@ -38,7 +38,7 @@ fn parseOperationTypeDefinition(
 }
 
 pub fn parseOperationTypeDefinitions(parser: *Parser) ParseError![]OperationTypeDefinition {
-    var definitions = ArrayList(OperationTypeDefinition).init(parser.allocator);
+    var definitions: ArrayList(OperationTypeDefinition) = .empty;
 
     _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
@@ -57,7 +57,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser) ParseError![]OperationType
         defer parser.allocator.free(typeName);
 
         const definition = parseOperationTypeDefinition(parser.allocator, operationType, typeName) catch return ParseError.UnexpectedMemoryError;
-        definitions.append(definition) catch return ParseError.UnexpectedMemoryError;
+        definitions.append(parser.allocator, definition) catch return ParseError.UnexpectedMemoryError;
 
         const nextToken = parser.peekNextToken() orelse break;
         if (nextToken.tag == Token.Tag.punct_brace_right) {
@@ -66,7 +66,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser) ParseError![]OperationType
         }
     }
 
-    return definitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return definitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 }
 
 test "parsing operation types definitions" {

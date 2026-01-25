@@ -45,11 +45,11 @@ const newLineToBackslashN = @import("../utils/utils.zig").newLineToBackslashN;
 pub fn getDocumentText(printer: *Printer) !void {
     const spaces = makeIndentation(0, printer.allocator);
     defer printer.allocator.free(spaces);
-    const w = printer.buffer.writer();
+    const w = printer.buffer.writer(printer.allocator);
 
     try w.print("{s}- Document\n", .{spaces});
-    try w.print("{s}  definitions: {d}\n", .{ spaces, printer.document.definitions.items.len });
-    for (printer.document.definitions.items) |item| {
+    try w.print("{s}  definitions: {d}\n", .{ spaces, printer.document.definitions.len });
+    for (printer.document.definitions) |item| {
         const txt = try getExecutableDefinitionText(item, 1, printer.allocator);
         defer printer.allocator.free(txt);
         try w.print("{s}", .{txt});
@@ -78,39 +78,39 @@ fn getExecutableDefinitionText(executableDefinition: ExecutableDefinition, inden
     };
 }
 
-fn getFragmentDefinitionText(def: FragmentDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getFragmentDefinitionText(def: FragmentDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- FragmentDefinition\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  selectionSet:\n", .{spaces});
-    const selectionSetTxt = try getSelectionSetText(def.selectionSet, indent + 1, allocator);
-    defer allocator.free(selectionSetTxt);
+    const selectionSetTxt = try getSelectionSetText(def.selectionSet, indent + 1, gpa);
+    defer gpa.free(selectionSetTxt);
     try w.print("{s}", .{selectionSetTxt});
     try w.print("{s}  typeCondition:\n", .{spaces});
-    const typeConditionTxt = try getTypeText(def.typeCondition, indent + 1, allocator);
-    defer allocator.free(typeConditionTxt);
+    const typeConditionTxt = try getTypeText(def.typeCondition, indent + 1, gpa);
+    defer gpa.free(typeConditionTxt);
     try w.print("{s}", .{typeConditionTxt});
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getOperationDefinitionText(def: OperationDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getOperationDefinitionText(def: OperationDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- OperationDefinition\n", .{spaces});
     try w.print("{s}  operation = {s}\n", .{ spaces, switch (def.operation) {
@@ -121,66 +121,66 @@ fn getOperationDefinitionText(def: OperationDefinition, indent: usize, allocator
     try w.print("{s}  name = {?s}\n", .{ spaces, def.name });
     try w.print("{s}  variableDefinitions: {d}\n", .{ spaces, def.variableDefinitions.len });
     for (def.variableDefinitions) |item| {
-        const txt = try getVariableDefinitionText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getVariableDefinitionText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  selectionSet:\n", .{spaces});
-    const selectionSetTxt = try getSelectionSetText(def.selectionSet, indent + 1, allocator);
-    defer allocator.free(selectionSetTxt);
+    const selectionSetTxt = try getSelectionSetText(def.selectionSet, indent + 1, gpa);
+    defer gpa.free(selectionSetTxt);
     try w.print("{s}", .{selectionSetTxt});
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getSchemaDefinitionText(def: SchemaDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getSchemaDefinitionText(def: SchemaDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- SchemaDefinition\n", .{spaces});
     if (def.description != null) {
-        const newDescription = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(newDescription);
+        const newDescription = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(newDescription);
         try w.print("{s}  description = \"{s}\"\n", .{ spaces, newDescription });
     } else {
         try w.print("{s}  description = null\n", .{spaces});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  operationTypes: {d}\n", .{ spaces, def.operationTypes.len });
     for (def.operationTypes) |item| {
-        const txt = try getOperationTypeDefinitionText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getOperationTypeDefinitionText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getObjectTypeDefinitionText(def: ObjectTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getObjectTypeDefinitionText(def: ObjectTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- ObjectTypeDefinition\n", .{spaces});
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
@@ -188,37 +188,37 @@ fn getObjectTypeDefinitionText(def: ObjectTypeDefinition, indent: usize, allocat
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        const txt = try getInterfaceText(interface, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInterfaceText(interface, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |item| {
-        const txt = try getFieldDefinitionText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getFieldDefinitionText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getUnionTypeDefinitionText(def: UnionTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getUnionTypeDefinitionText(def: UnionTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- UnionTypeDefinition\n", .{spaces});
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
@@ -226,31 +226,31 @@ fn getUnionTypeDefinitionText(def: UnionTypeDefinition, indent: usize, allocator
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  types:\n", .{spaces});
     for (def.types) |t| {
-        const txt = try getTypeText(t, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getTypeText(t, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives:\n", .{spaces});
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getScalarTypeDefinitionText(def: ScalarTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getScalarTypeDefinitionText(def: ScalarTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- ScalarTypeDefinition\n", .{spaces});
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
@@ -258,25 +258,25 @@ fn getScalarTypeDefinitionText(def: ScalarTypeDefinition, indent: usize, allocat
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives:\n", .{spaces});
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getDirectiveDefinitionText(def: DirectiveDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getDirectiveDefinitionText(def: DirectiveDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- DirectiveDefinition\n", .{spaces});
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
@@ -284,8 +284,8 @@ fn getDirectiveDefinitionText(def: DirectiveDefinition, indent: usize, allocator
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |arg| {
-        const txt = try getInputValueDefinitionText(arg, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInputValueDefinitionText(arg, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  locations: {d}\n", .{ spaces, def.locations.len });
@@ -294,335 +294,335 @@ fn getDirectiveDefinitionText(def: DirectiveDefinition, indent: usize, allocator
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInterfaceTypeDefinitionText(def: InterfaceTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInterfaceTypeDefinitionText(def: InterfaceTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- InterfaceTypeDefinition\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  description = {?s}\n", .{ spaces, def.description });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        const txt = try getInterfaceText(interface, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInterfaceText(interface, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        const txt = try getFieldDefinitionText(field, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getFieldDefinitionText(field, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getSchemaExtensionText(def: SchemaExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getSchemaExtensionText(def: SchemaExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- SchemaExtension\n", .{spaces});
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  operationTypes: {d}\n", .{ spaces, def.operationTypes.len });
     for (def.operationTypes) |operationType| {
-        const txt = try getOperationTypeDefinitionText(operationType, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getOperationTypeDefinitionText(operationType, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getObjectTypeExtensionText(def: ObjectTypeExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getObjectTypeExtensionText(def: ObjectTypeExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- ObjectTypeExtension\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        const txt = try getInterfaceText(interface, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInterfaceText(interface, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getEnumTypeDefinitionText(def: EnumTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getEnumTypeDefinitionText(def: EnumTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- EnumTypeDefinition\n", .{spaces});
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  values: {d}\n", .{ spaces, def.values.len });
     for (def.values) |value| {
-        const txt = try getEnumValueDefinitionText(value, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getEnumValueDefinitionText(value, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getEnumTypeExtensionText(def: EnumTypeExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getEnumTypeExtensionText(def: EnumTypeExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- EnumTypeExtension\n", .{spaces});
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  values: {d}\n", .{ spaces, def.values.len });
     for (def.values) |value| {
-        const txt = try getEnumValueDefinitionText(value, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getEnumValueDefinitionText(value, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInputObjectTypeDefinitionText(def: InputObjectTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInputObjectTypeDefinitionText(def: InputObjectTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- InputObjectTypeDefinition\n", .{spaces});
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        const txt = try getInputValueDefinitionText(field, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInputValueDefinitionText(field, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInputObjectTypeExtensionText(def: InputObjectTypeExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInputObjectTypeExtensionText(def: InputObjectTypeExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- InputObjectTypeExtension\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        const txt = try getInputValueDefinitionText(field, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInputValueDefinitionText(field, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInterfaceTypeExtensionText(def: InterfaceTypeExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInterfaceTypeExtensionText(def: InterfaceTypeExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- InterfaceTypeExtension\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  interfaces: {d}\n", .{ spaces, def.interfaces.len });
     for (def.interfaces) |interface| {
-        const txt = try getInterfaceText(interface, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInterfaceText(interface, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  fields: {d}\n", .{ spaces, def.fields.len });
     for (def.fields) |field| {
-        const txt = try getFieldDefinitionText(field, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getFieldDefinitionText(field, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getUnionTypeExtensionText(def: UnionTypeExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getUnionTypeExtensionText(def: UnionTypeExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- UnionTypeExtension\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  types: {d}\n", .{ spaces, def.types.len });
     for (def.types) |t| {
-        const txt = try getTypeText(t, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getTypeText(t, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getScalarTypeExtensionText(def: ScalarTypeExtension, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getScalarTypeExtensionText(def: ScalarTypeExtension, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- ScalarTypeExtension\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getDirectiveText(def: Directive, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getDirectiveText(def: Directive, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- Directive\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |item| {
-        const txt = try getArgumentText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getArgumentText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getSelectionSetText(def: SelectionSet, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getSelectionSetText(def: SelectionSet, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- SelectionSet\n", .{spaces});
     try w.print("{s}  selections:\n", .{spaces});
     for (def.selections) |item| {
-        const txt = try getSelectionText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getSelectionText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getSelectionText(def: Selection, indent: usize, allocator: Allocator) anyerror![]u8 {
+fn getSelectionText(def: Selection, indent: usize, gpa: Allocator) anyerror![]u8 {
     return switch (def) {
-        .field => |field| getFieldText(field, indent, allocator),
-        .fragmentSpread => |fragmentSpread| getFragmentSpreadText(fragmentSpread, indent, allocator),
-        .inlineFragment => |inlineFragment| getInlineFragmentText(inlineFragment, indent, allocator),
+        .field => |field| getFieldText(field, indent, gpa),
+        .fragmentSpread => |fragmentSpread| getFragmentSpreadText(fragmentSpread, indent, gpa),
+        .inlineFragment => |inlineFragment| getInlineFragmentText(inlineFragment, indent, gpa),
     };
 }
 
-fn getFieldText(def: Field, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getFieldText(def: Field, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- FieldData\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
@@ -633,196 +633,196 @@ fn getFieldText(def: Field, indent: usize, allocator: Allocator) ![]u8 {
     }
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |item| {
-        const txt = try getArgumentText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getArgumentText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     if (def.selectionSet != null) {
         try w.print("{s}  selectionSet:\n", .{spaces});
         if (def.selectionSet) |set| {
-            const txt = try getSelectionSetText(set, indent + 1, allocator);
-            defer allocator.free(txt);
+            const txt = try getSelectionSetText(set, indent + 1, gpa);
+            defer gpa.free(txt);
             try w.print("{s}", .{txt});
         }
     } else {
         try w.print("{s}  selectionSet: null\n", .{spaces});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getFragmentSpreadText(def: FragmentSpread, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getFragmentSpreadText(def: FragmentSpread, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- FragmentSpread\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getTypeText(def: Type, indent: usize, allocator: Allocator) anyerror![]u8 {
+fn getTypeText(def: Type, indent: usize, gpa: Allocator) anyerror![]u8 {
     return switch (def) {
-        .namedType => |n| getNamedTypeText(n, indent, allocator),
-        .listType => |n| getListTypeText(n, indent, allocator),
-        .nonNullType => |n| getNonNullTypeText(n, indent, allocator),
+        .namedType => |n| getNamedTypeText(n, indent, gpa),
+        .listType => |n| getListTypeText(n, indent, gpa),
+        .nonNullType => |n| getNonNullTypeText(n, indent, gpa),
     };
 }
 
-fn getVariableDefinitionText(def: VariableDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getVariableDefinitionText(def: VariableDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- VariableDefinition\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     try w.print("{s}  type\n", .{spaces});
     {
-        const txt = try getTypeText(def.type, indent, allocator);
-        defer allocator.free(txt);
+        const txt = try getTypeText(def.type, indent, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     if (def.defaultValue != null) {
-        const value = def.defaultValue.?.getPrintableString(allocator);
-        defer allocator.free(value);
+        const value = def.defaultValue.?.getPrintableString(gpa);
+        defer gpa.free(value);
         try w.print("{s}  defaultValue = {s}\n", .{ spaces, value });
     } else {
         try w.print("{s}  defaultValue = null\n", .{spaces});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getOperationTypeDefinitionText(def: OperationTypeDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getOperationTypeDefinitionText(def: OperationTypeDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- OperationTypeDefinition\n", .{spaces});
     try w.print("{s}  operation: {s}\n", .{ spaces, def.operation });
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInterfaceText(def: Interface, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInterfaceText(def: Interface, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
-    const printableString = def.type.getPrintableString(allocator);
-    defer allocator.free(printableString);
+    const printableString = def.type.getPrintableString(gpa);
+    defer gpa.free(printableString);
     try w.print("{s}- {s}\n", .{ spaces, printableString });
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getFieldDefinitionText(def: FieldDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getFieldDefinitionText(def: FieldDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- FieldDefinition\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
     }
     try w.print("{s}  arguments: {d}\n", .{ spaces, def.arguments.len });
     for (def.arguments) |item| {
-        const txt = try getInputValueDefinitionText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getInputValueDefinitionText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInputValueDefinitionText(def: InputValueDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInputValueDefinitionText(def: InputValueDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- InputValueDefinition\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
     }
-    const value = def.value.getPrintableString(allocator);
-    defer allocator.free(value);
+    const value = def.value.getPrintableString(gpa);
+    defer gpa.free(value);
     try w.print("{s}  value = {s}\n", .{ spaces, value });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     if (def.defaultValue != null) {
-        const value2 = def.defaultValue.?.getPrintableString(allocator);
-        defer allocator.free(value2);
+        const value2 = def.defaultValue.?.getPrintableString(gpa);
+        defer gpa.free(value2);
         try w.print("{s}  defaultValue: {s}\n", .{ spaces, value2 });
     } else {
         try w.print("{s}  defaultValue: null\n", .{spaces});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getEnumValueDefinitionText(def: EnumValueDefinition, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getEnumValueDefinitionText(def: EnumValueDefinition, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- EnumValueDefinition\n", .{spaces});
     if (def.description != null) {
-        const str = newLineToBackslashN(allocator, def.description.?);
-        defer allocator.free(str);
+        const str = newLineToBackslashN(gpa, def.description.?);
+        defer gpa.free(str);
         try w.print("{s}  description: {s}\n", .{ spaces, str });
     } else {
         try w.print("{s}  description: null\n", .{spaces});
@@ -830,105 +830,105 @@ fn getEnumValueDefinitionText(def: EnumValueDefinition, indent: usize, allocator
     try w.print("{s}  name: {s}\n", .{ spaces, def.name });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |directive| {
-        const txt = try getDirectiveText(directive, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(directive, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getArgumentText(def: Argument, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getArgumentText(def: Argument, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- Argument\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
-    const value = def.value.getPrintableString(allocator);
-    defer allocator.free(value);
+    const value = def.value.getPrintableString(gpa);
+    defer gpa.free(value);
     try w.print("{s}  value = {s}\n", .{ spaces, value });
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getInlineFragmentText(def: InlineFragment, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getInlineFragmentText(def: InlineFragment, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- InlineFragment\n", .{spaces});
     try w.print("{s}  typeCondition = {s}\n", .{ spaces, def.typeCondition });
     try w.print("{s}  directives: {d}\n", .{ spaces, def.directives.len });
     for (def.directives) |item| {
-        const txt = try getDirectiveText(item, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getDirectiveText(item, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
     try w.print("{s}  selectionSet:\n", .{spaces});
-    const txt = try getSelectionSetText(def.selectionSet, indent + 1, allocator);
-    defer allocator.free(txt);
+    const txt = try getSelectionSetText(def.selectionSet, indent + 1, gpa);
+    defer gpa.free(txt);
     try w.print("{s}", .{txt});
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getNamedTypeText(def: NamedType, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getNamedTypeText(def: NamedType, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- NamedType\n", .{spaces});
     try w.print("{s}  name = {s}\n", .{ spaces, def.name });
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getListTypeText(def: ListType, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getListTypeText(def: ListType, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- ListType\n", .{spaces});
     try w.print("{s}  type\n", .{spaces});
     {
-        const txt = try getTypeText(def.elementType.*, indent + 1, allocator);
-        defer allocator.free(txt);
+        const txt = try getTypeText(def.elementType.*, indent + 1, gpa);
+        defer gpa.free(txt);
         try w.print("{s}", .{txt});
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }
 
-fn getNonNullTypeText(def: NonNullType, indent: usize, allocator: Allocator) ![]u8 {
-    const spaces = makeIndentation(indent, allocator);
-    defer allocator.free(spaces);
-    var text = std.ArrayList(u8).init(allocator);
-    defer text.deinit();
-    const w = text.writer();
+fn getNonNullTypeText(def: NonNullType, indent: usize, gpa: Allocator) ![]u8 {
+    const spaces = makeIndentation(indent, gpa);
+    defer gpa.free(spaces);
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(gpa);
+    const w = text.writer(gpa);
 
     try w.print("{s}- NonNullType\n", .{spaces});
     try w.print("{s}  type\n", .{spaces});
     switch (def) {
         .namedType => |n| {
-            const txt = try getNamedTypeText(n, indent + 1, allocator);
-            defer allocator.free(txt);
+            const txt = try getNamedTypeText(n, indent + 1, gpa);
+            defer gpa.free(txt);
             try w.print("{s}", .{txt});
         },
         .listType => |n| {
-            const txt = try getListTypeText(n, indent + 1, allocator);
-            defer allocator.free(txt);
+            const txt = try getListTypeText(n, indent + 1, gpa);
+            defer gpa.free(txt);
             try w.print("{s}", .{txt});
         },
     }
 
-    return text.toOwnedSlice();
+    return text.toOwnedSlice(gpa);
 }

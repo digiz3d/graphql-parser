@@ -9,8 +9,11 @@ const Parser = @import("parser.zig").Parser;
 const Printer = @import("printer.zig").Printer;
 const mergeIntoObjectTypeDefinition = @import("ast/object_type_definition.zig").mergeIntoObjectTypeDefinition;
 const print = std.debug.print;
+const Type = @import("ast/type.zig").Type;
 const ObjectTypeDefinition = @import("ast/object_type_definition.zig").ObjectTypeDefinition;
 const ObjectTypeExtension = @import("ast/object_type_extension.zig").ObjectTypeExtension;
+const UnionTypeDefinition = @import("ast/union_type_definition.zig").UnionTypeDefinition;
+const UnionTypeExtension = @import("ast/union_type_extension.zig").UnionTypeExtension;
 const Interface = @import("ast/interface.zig").Interface;
 const Directive = @import("ast/directive.zig").Directive;
 const FieldDefinition = @import("ast/field_definition.zig").FieldDefinition;
@@ -38,62 +41,95 @@ pub const Merger = struct {
                 return std.fmt.allocPrint(self.allocator, "objectTypeDefinition_{s}", .{objectTypeExtension.name}) catch
                     return MergeError.UnexpectedMemoryError;
             },
+            .unionTypeDefinition => |unionTypeDefinition| {
+                return std.fmt.allocPrint(self.allocator, "unionTypeDefinition_{s}", .{unionTypeDefinition.name}) catch
+                    return MergeError.UnexpectedMemoryError;
+            },
+            .unionTypeExtension => |unionTypeExtension| {
+                return std.fmt.allocPrint(self.allocator, "unionTypeDefinition_{s}", .{unionTypeExtension.name}) catch
+                    return MergeError.UnexpectedMemoryError;
+            },
             else => return std.fmt.allocPrint(self.allocator, "unknownDefinition_{s}", .{@tagName(definition)}) catch
-                return MergeError.UnexpectedMemoryError,
+                MergeError.UnexpectedMemoryError,
         }
     }
 
     pub fn mergeIntoSingleDocument(self: *Merger, documents: []const Document) MergeError!Document {
-        var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
-        defer similarDefinitionsMap.deinit();
-
-        var similarDefinitionsNames = ArrayList([]const u8).init(self.allocator);
-        defer similarDefinitionsNames.deinit();
-
-        for (documents) |document| {
-            for (document.definitions.items) |definition| {
-                const definitionName = try self.makeDefinitionName(definition);
-
-                if (!similarDefinitionsMap.contains(definitionName)) {
-                    var similarDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
-                    similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
-                    similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
-                    similarDefinitionsNames.append(definitionName) catch return MergeError.UnexpectedMemoryError;
-                } else {
-                    var similarDefinitions = similarDefinitionsMap.get(definitionName).?;
-                    similarDefinitions.append(definition) catch return MergeError.UnexpectedMemoryError;
-                    similarDefinitionsMap.put(definitionName, similarDefinitions) catch return MergeError.UnexpectedMemoryError;
-                }
-            }
-        }
-        // data structure is like this:
+        // data structure is like:
         // {
         //   "objectTypeDefinition_Object": [objectTypeExtension_obj1, objectTypeDefinition_obj2],
         //   "objectTypeDefinition_Query": [objectTypeDefinition_obj3, objectTypeExtension_obj4],
         // }
-        // ["objectTypeDefinition_Object", "objectTypeDefinition_Query"]
+        var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
+        defer {
+            var iter = similarDefinitionsMap.iterator();
+            while (iter.next()) |entry| {
+                self.allocator.free(entry.key_ptr.*);
+                entry.value_ptr.deinit(self.allocator);
+            }
+            similarDefinitionsMap.deinit();
+        }
+        // allows iterating in the same order as the definitions were added
+        var similarDefinitionsNames: std.ArrayList([]const u8) = .empty;
+        defer similarDefinitionsNames.deinit(self.allocator);
 
-        var mergedDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
-        var unmergeableDefinitions = ArrayList(ExecutableDefinition).init(self.allocator);
+        for (documents) |document| {
+            for (document.definitions) |definition| {
+                const definitionName = try self.makeDefinitionName(definition);
 
-        for (similarDefinitionsNames.items) |definition_name| {
-            const similarDefinitions = similarDefinitionsMap.get(definition_name).?;
+                if (similarDefinitionsMap.contains(definitionName)) {
+                    var ar = similarDefinitionsMap.get(definitionName).?;
+                    ar.append(self.allocator, definition) catch return MergeError.UnexpectedMemoryError;
+                    similarDefinitionsMap.put(definitionName, ar) catch return MergeError.UnexpectedMemoryError;
+                    self.allocator.free(definitionName);
+                } else {
+                    var ar: ArrayList(ExecutableDefinition) = .empty;
+                    ar.append(self.allocator, definition) catch return MergeError.UnexpectedMemoryError;
+                    similarDefinitionsMap.put(definitionName, ar) catch return MergeError.UnexpectedMemoryError;
+                    similarDefinitionsNames.append(self.allocator, definitionName) catch return MergeError.UnexpectedMemoryError;
+                }
+            }
+        }
+
+        var mergedDefinitions: ArrayList(ExecutableDefinition) = .empty;
+        errdefer mergedDefinitions.deinit(self.allocator);
+        var unmergeableDefinitions: ArrayList(ExecutableDefinition) = .empty;
+        defer unmergeableDefinitions.deinit(self.allocator);
+
+        for (similarDefinitionsNames.items) |definitionName| {
+            const similarDefinitions = similarDefinitionsMap.get(definitionName).?;
 
             switch (similarDefinitions.items[0]) {
                 .objectTypeDefinition, .objectTypeExtension => {
-                    var unionDefinition = ArrayList(ObjectTypeDefinition).init(self.allocator);
+                    var objectTypeDefinitions: ArrayList(ObjectTypeDefinition) = .empty;
+                    defer objectTypeDefinitions.deinit(self.allocator);
+
                     for (similarDefinitions.items) |definition| {
-                        unionDefinition.append(switch (definition) {
+                        objectTypeDefinitions.append(self.allocator, switch (definition) {
                             .objectTypeDefinition => |def| def,
                             .objectTypeExtension => |ext| ObjectTypeDefinition.fromExtension(ext),
                             else => unreachable,
                         }) catch return MergeError.UnexpectedMemoryError;
                     }
-                    const mergedDefinition = try mergeObjectTypeDefinitions(self, unionDefinition.toOwnedSlice() catch return MergeError.UnexpectedMemoryError);
-                    mergedDefinitions.append(ExecutableDefinition{ .objectTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
+                    const mergedDefinition = try mergeObjectTypeDefinitions(self, objectTypeDefinitions);
+                    mergedDefinitions.append(self.allocator, ExecutableDefinition{ .objectTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
                 },
-                .operationDefinition => {
-                    unmergeableDefinitions.append(similarDefinitions.items[0]) catch return MergeError.UnexpectedMemoryError;
+                .unionTypeDefinition, .unionTypeExtension => {
+                    var unionTypeDefinitions: ArrayList(UnionTypeDefinition) = .empty;
+                    defer unionTypeDefinitions.deinit(self.allocator);
+
+                    for (similarDefinitions.items) |definition| {
+                        unionTypeDefinitions.append(self.allocator, switch (definition) {
+                            .unionTypeDefinition => |def| def,
+                            .unionTypeExtension => |ext| UnionTypeDefinition.fromExtension(ext),
+                            else => unreachable,
+                        }) catch return MergeError.UnexpectedMemoryError;
+                    }
+                    const mergedDefinition = try mergeUnionTypeDefinitions(self, unionTypeDefinitions);
+                    mergedDefinitions.append(self.allocator, ExecutableDefinition{ .unionTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
+                },
+                .operationDefinition, .fragmentDefinition => {
+                    unmergeableDefinitions.appendSlice(self.allocator, similarDefinitions.items) catch return MergeError.UnexpectedMemoryError;
                 },
                 else => continue, // TODO: handle other types of definitions
             }
@@ -105,6 +141,7 @@ pub const Merger = struct {
                 print(" - {s} ({s})\n", .{
                     @tagName(definition), switch (definition) {
                         .operationDefinition => |operationDefinition| operationDefinition.name.?,
+                        .fragmentDefinition => |fragmentDefinition| fragmentDefinition.name,
                         else => unreachable, // TODO: handle other types of definitions, like fragment definitions
                     },
                 });
@@ -113,48 +150,76 @@ pub const Merger = struct {
 
         return Document{
             .allocator = self.allocator,
-            .definitions = mergedDefinitions,
+            .definitions = mergedDefinitions.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
         };
     }
 };
 
-fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: []const ObjectTypeDefinition) MergeError!ObjectTypeDefinition {
+fn mergeObjectTypeDefinitions(self: *Merger, objectTypeDefinitions: ArrayList(ObjectTypeDefinition)) MergeError!ObjectTypeDefinition {
     var name: ?[]const u8 = null;
     var description: ?[]const u8 = null;
-    var interfaces = ArrayList(Interface).init(self.allocator);
-    var directives = ArrayList(Directive).init(self.allocator);
-    var fields = ArrayList(FieldDefinition).init(self.allocator);
+    var interfaces: ArrayList(Interface) = .empty;
+    var directives: ArrayList(Directive) = .empty;
+    var fields: ArrayList(FieldDefinition) = .empty;
 
-    for (objectTypeDefinitions) |objectTypeDef| {
+    for (objectTypeDefinitions.items) |objectTypeDef| {
         if (name == null) {
             name = objectTypeDef.name;
         }
         if (description == null) {
             description = objectTypeDef.description;
         }
-        interfaces.appendSlice(objectTypeDef.interfaces) catch return MergeError.UnexpectedMemoryError;
-        directives.appendSlice(objectTypeDef.directives) catch return MergeError.UnexpectedMemoryError;
-        fields.appendSlice(objectTypeDef.fields) catch return MergeError.UnexpectedMemoryError;
+        interfaces.appendSlice(self.allocator, objectTypeDef.interfaces) catch return MergeError.UnexpectedMemoryError;
+        directives.appendSlice(self.allocator, objectTypeDef.directives) catch return MergeError.UnexpectedMemoryError;
+        fields.appendSlice(self.allocator, objectTypeDef.fields) catch return MergeError.UnexpectedMemoryError;
     }
 
     return ObjectTypeDefinition{
         .allocator = self.allocator,
         .name = name.?,
-        .interfaces = interfaces.toOwnedSlice() catch return MergeError.UnexpectedMemoryError,
-        .directives = directives.toOwnedSlice() catch return MergeError.UnexpectedMemoryError,
-        .fields = fields.toOwnedSlice() catch return MergeError.UnexpectedMemoryError,
+        .interfaces = interfaces.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .directives = directives.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .fields = fields.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
         .description = if (description != null) description.? else null,
+        ._is_merge_result = true,
+    };
+}
+
+fn mergeUnionTypeDefinitions(self: *Merger, unionTypeDefinitions: ArrayList(UnionTypeDefinition)) MergeError!UnionTypeDefinition {
+    var name: ?[]const u8 = null;
+    var description: ?[]const u8 = null;
+    var types: ArrayList(Type) = .empty;
+    var directives: ArrayList(Directive) = .empty;
+
+    for (unionTypeDefinitions.items) |unionTypeDef| {
+        if (name == null) {
+            name = unionTypeDef.name;
+        }
+        if (description == null) {
+            description = unionTypeDef.description;
+        }
+        types.appendSlice(self.allocator, unionTypeDef.types) catch return MergeError.UnexpectedMemoryError;
+        directives.appendSlice(self.allocator, unionTypeDef.directives) catch return MergeError.UnexpectedMemoryError;
+    }
+
+    return UnionTypeDefinition{
+        .allocator = self.allocator,
+        .name = name.?,
+        .types = types.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .directives = directives.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .description = if (description != null) description.? else null,
+        ._is_merge_result = true,
     };
 }
 
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
-    const typeDefsDir = "graphql-definitions";
+    const typeDefsDir = "tests/e2e-merge";
 
     var dir = try std.fs.cwd().openDir(typeDefsDir, .{ .iterate = true });
     defer dir.close();
 
-    var filesToParse = ArrayList([]const u8).init(alloc);
+    var filesToParse: ArrayList([]const u8) = .empty;
     defer {
         for (filesToParse.items) |path| {
             alloc.free(path);
@@ -166,11 +231,11 @@ pub fn main() !void {
     while (try iterator.next()) |entry| {
         if (entry.kind == .file) {
             const path = try std.fmt.allocPrint(alloc, "{s}/{s}", .{ typeDefsDir, entry.name });
-            try filesToParse.append(path);
+            try filesToParse.append(alloc, path);
         }
     }
 
-    var documents = ArrayList(Document).init(alloc);
+    var documents: ArrayList(Document) = .empty;
 
     for (filesToParse.items) |file| {
         const content = getFileContent(file, alloc) catch return;
@@ -180,11 +245,11 @@ pub fn main() !void {
         defer parser.deinit();
 
         const document = try parser.parse();
-        documents.append(document) catch return;
+        documents.append(alloc, document) catch return;
     }
 
     var merger = Merger.init(alloc);
-    const documentsSlice = try documents.toOwnedSlice();
+    const documentsSlice = try documents.toOwnedSlice(alloc);
     defer {
         for (documentsSlice) |document| {
             document.deinit();
@@ -192,6 +257,7 @@ pub fn main() !void {
         alloc.free(documentsSlice);
     }
     const mergedDocument = try merger.mergeIntoSingleDocument(documentsSlice);
+    defer mergedDocument.deinit();
 
     var printer = try Printer.init(alloc, mergedDocument);
     const gql = try printer.getGql();

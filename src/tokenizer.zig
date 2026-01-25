@@ -66,9 +66,9 @@ pub const Token = struct {
 
     pub fn getStringValue(self: *const Token, allocator: Allocator) ![]const u8 {
         const loc = self.loc;
-        var value = ArrayList(u8).init(allocator);
-        try value.appendSlice(self.buffer[loc.start..loc.end]);
-        return value.toOwnedSlice();
+        var value: ArrayList(u8) = .empty;
+        try value.appendSlice(allocator, self.buffer[loc.start..loc.end]);
+        return value.toOwnedSlice(allocator);
     }
 };
 
@@ -76,6 +76,7 @@ const TokenizerError = error{UnexpectedRuneError};
 const Utf8Bom = "\xEF\xBB\xBF";
 
 pub const Tokenizer = struct {
+    allocator: Allocator,
     buffer: [:0]const u8,
     index: usize,
     tokensList: ArrayList(Token),
@@ -94,15 +95,16 @@ pub const Tokenizer = struct {
         buffer: [:0]const u8,
     ) Tokenizer {
         return Tokenizer{
+            .allocator = allocator,
             .buffer = buffer,
             // Skip the UTF-8 BOM if present
             .index = if (std.mem.startsWith(u8, buffer, Utf8Bom)) 3 else 0,
-            .tokensList = ArrayList(Token).init(allocator),
+            .tokensList = .empty,
         };
     }
 
     pub fn deinit(self: *Tokenizer) void {
-        self.tokensList.deinit();
+        self.tokensList.deinit(self.allocator);
     }
 
     pub fn getNextToken(self: *Tokenizer) TokenizerError!Token {
@@ -268,10 +270,10 @@ pub const Tokenizer = struct {
         var currentToken = try self.getNextToken();
         while (currentToken.tag != Token.Tag.eof) : (currentToken = try self.getNextToken()) {
             if (currentToken.tag == Token.Tag.comment) continue;
-            try self.tokensList.append(currentToken);
+            try self.tokensList.append(self.allocator, currentToken);
         }
 
-        return self.tokensList.toOwnedSlice();
+        return self.tokensList.toOwnedSlice(self.allocator);
     }
 };
 

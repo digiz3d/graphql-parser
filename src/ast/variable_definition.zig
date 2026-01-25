@@ -43,10 +43,10 @@ pub const VariableDefinition = struct {
 };
 
 pub fn parseVariableDefinition(parser: *Parser) ParseError![]VariableDefinition {
-    var variableDefinitions = ArrayList(VariableDefinition).init(parser.allocator);
+    var variableDefinitions: ArrayList(VariableDefinition) = .empty;
 
-    var currentToken = parser.peekNextToken() orelse return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-    if (currentToken.tag != Token.Tag.punct_paren_left) return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    var currentToken = parser.peekNextToken() orelse return variableDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
+    if (currentToken.tag != Token.Tag.punct_paren_left) return variableDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 
     _ = try parser.consumeToken(Token.Tag.punct_paren_left);
 
@@ -83,14 +83,14 @@ pub fn parseVariableDefinition(parser: *Parser) ParseError![]VariableDefinition 
             .defaultValue = defaultValue,
             .directives = directives,
         };
-        variableDefinitions.append(variableDefinition) catch return ParseError.UnexpectedMemoryError;
+        variableDefinitions.append(parser.allocator, variableDefinition) catch return ParseError.UnexpectedMemoryError;
 
         currentToken = parser.peekNextToken() orelse return ParseError.UnexpectedMemoryError;
     }
 
     _ = try parser.consumeToken(Token.Tag.punct_paren_right);
 
-    return variableDefinitions.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return variableDefinitions.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 }
 
 test "empty" {

@@ -1,0 +1,14 @@
+"""
+Nice object
+"""
+type Object {
+  #some comment
+  name: String!
+}
+
+type Query {
+  hello: String!
+  giveMeAnObject: Object!
+}
+
+union SomeUnion = Yup

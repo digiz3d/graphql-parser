@@ -43,18 +43,18 @@ pub fn parseEnumTypeExtension(parser: *Parser) ParseError!EnumTypeExtension {
 
     _ = try parser.consumeToken(Token.Tag.punct_brace_left);
 
-    var values = ArrayList(EnumValueDefinition).init(parser.allocator);
+    var values: ArrayList(EnumValueDefinition) = .empty;
     errdefer {
         for (values.items) |value| {
             value.deinit();
         }
-        values.deinit();
+        values.deinit(parser.allocator);
     }
 
     var nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     while (nextToken.tag != Token.Tag.punct_brace_right) {
         const value = try parseEnumValueDefinition(parser);
-        values.append(value) catch return ParseError.UnexpectedMemoryError;
+        values.append(parser.allocator, value) catch return ParseError.UnexpectedMemoryError;
         nextToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
     }
 
@@ -64,7 +64,7 @@ pub fn parseEnumTypeExtension(parser: *Parser) ParseError!EnumTypeExtension {
         .allocator = parser.allocator,
         .name = name,
         .directives = directives,
-        .values = values.toOwnedSlice() catch return ParseError.UnexpectedMemoryError,
+        .values = values.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError,
     };
 }
 

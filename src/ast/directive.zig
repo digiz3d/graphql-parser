@@ -27,9 +27,9 @@ pub const Directive = struct {
 };
 
 pub fn parseDirectives(parser: *Parser) ParseError![]Directive {
-    var directives = ArrayList(Directive).init(parser.allocator);
-    var currentToken = parser.peekNextToken() orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
-    while (currentToken.tag == Token.Tag.punct_at) : (currentToken = parser.peekNextToken() orelse return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError) {
+    var directives: ArrayList(Directive) = .empty;
+    var currentToken = parser.peekNextToken() orelse return directives.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
+    while (currentToken.tag == Token.Tag.punct_at) : (currentToken = parser.peekNextToken() orelse return directives.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError) {
         _ = try parser.consumeToken(Token.Tag.punct_at);
 
         const directiveNameToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
@@ -40,9 +40,9 @@ pub fn parseDirectives(parser: *Parser) ParseError![]Directive {
             .arguments = arguments,
             .name = directiveName,
         };
-        directives.append(directiveNode) catch return ParseError.UnexpectedMemoryError;
+        directives.append(parser.allocator, directiveNode) catch return ParseError.UnexpectedMemoryError;
     }
-    return directives.toOwnedSlice() catch return ParseError.UnexpectedMemoryError;
+    return directives.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
 }
 
 test "parsing directives" {

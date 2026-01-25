@@ -1,0 +1,11 @@
+extend type Query {
+  "this is a new field"
+  world: String!
+}
+
+#ok
+extend type Object {
+  material: String!
+}
+
+union SomeUnion = Nope

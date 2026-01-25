@@ -16,28 +16,32 @@ pub const Printer = struct {
             .allocator = allocator,
             .document = document,
             .currentIndent = 0,
-            .buffer = std.ArrayList(u8).init(allocator),
+            .buffer = .empty,
         };
     }
 
+    pub fn deinit(self: *Printer) void {
+        self.buffer.deinit();
+    }
+
     pub fn getGql(self: *Printer) ![]u8 {
-        self.buffer.clearAndFree();
+        self.buffer.clearAndFree(self.allocator);
         try getDocumentGql(self);
-        return self.buffer.toOwnedSlice();
+        return self.buffer.toOwnedSlice(self.allocator);
     }
 
     pub fn getText(self: *Printer) ![]u8 {
-        self.buffer.clearAndFree();
+        self.buffer.clearAndFree(self.allocator);
         try getDocumentText(self);
-        return self.buffer.toOwnedSlice();
+        return self.buffer.toOwnedSlice(self.allocator);
     }
 
     pub fn append(self: *Printer, str: []const u8) !void {
-        try self.buffer.appendSlice(str);
+        try self.buffer.appendSlice(self.allocator, str);
     }
 
     pub fn appendByte(self: *Printer, byte: u8) !void {
-        try self.buffer.append(byte);
+        try self.buffer.append(self.allocator, byte);
     }
 
     pub fn newLine(self: *Printer) !void {

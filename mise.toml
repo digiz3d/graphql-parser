@@ -1,18 +1,21 @@
 [tools]
-zig = "0.14.1"
-zls = "0.14.0"
+zig = "0.15.2"
+zls = "0.15.1"
 
 [tasks.main]
 run = "zig run src/main.zig -- $@"
 
 [tasks.merge]
-run = "zig run src/merge.zig"
+run = "zig run src/merger.zig"
 
 [tasks.unit]
 run = "zig test src/parser.zig"
 
 [tasks.e2e]
-run = "zig test --test-filter e2e src/parser.e2e.zig"
+run = [
+    "zig test --test-filter e2e src/merger.e2e.zig",
+    "zig test --test-filter e2e src/parser.e2e.zig",
+]
 
 [tasks.tests]
 depends = ["unit", "e2e"]
