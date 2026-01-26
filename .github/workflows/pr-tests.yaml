@@ -18,11 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
-      - run: zig test src/parser.zig
+      - run: mise run unit
   e2e:
     runs-on: ubuntu-latest
     name: E2E tests
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
-      - run: zig test --test-filter e2e src/parser.e2e.zig
+      - run: mise run e2e
