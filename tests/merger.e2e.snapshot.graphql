@@ -1,16 +1,38 @@
 """
 Nice object
 """
-type Object {
+type FirstObject {
   name: String!
   material: String!
 }
 
-type Query {
-  hello: String!
-  giveMeAnObject: Object!
+type SecondObject {
   "this is a new field"
-  world: String!
+  firstProperty: String!
+  secondProperty: String!
 }
 
-union SomeUnion = Yup | Nope
+union FirstUnion = Yup | Nope
+
+union SecondUnion = Yup2 | Nope2
+
+interface FirstInterface {
+  field1: String!
+  "with some description"
+  field2(input: ID!): String!
+}
+
+interface SecondInterface {
+  field1: ID!
+  field2: ID!
+}
+
+input FirstInput {
+  field1: ID!
+  field2: ID!
+}
+
+input SecondInput {
+  field1: ID!
+  field2: ID!
+}

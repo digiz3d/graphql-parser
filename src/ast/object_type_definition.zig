@@ -63,7 +63,6 @@ pub const ObjectTypeDefinition = struct {
             .interfaces = ext.interfaces,
             .directives = ext.directives,
             .fields = ext.fields,
-            ._is_merge_result = true,
         };
     }
 };
