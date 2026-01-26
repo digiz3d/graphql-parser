@@ -10,6 +10,9 @@ const Printer = @import("printer.zig").Printer;
 const mergeIntoObjectTypeDefinition = @import("ast/object_type_definition.zig").mergeIntoObjectTypeDefinition;
 const print = std.debug.print;
 const Type = @import("ast/type.zig").Type;
+const InputValueDefinition = @import("ast/input_value_definition.zig").InputValueDefinition;
+const InputObjectTypeDefinition = @import("ast/input_object_type_definition.zig").InputObjectTypeDefinition;
+const InterfaceTypeDefinition = @import("ast/interface_type_definition.zig").InterfaceTypeDefinition;
 const ObjectTypeDefinition = @import("ast/object_type_definition.zig").ObjectTypeDefinition;
 const ObjectTypeExtension = @import("ast/object_type_extension.zig").ObjectTypeExtension;
 const UnionTypeDefinition = @import("ast/union_type_definition.zig").UnionTypeDefinition;
@@ -47,6 +50,22 @@ pub const Merger = struct {
             },
             .unionTypeExtension => |unionTypeExtension| {
                 return std.fmt.allocPrint(self.allocator, "unionTypeDefinition_{s}", .{unionTypeExtension.name}) catch
+                    return MergeError.UnexpectedMemoryError;
+            },
+            .interfaceTypeDefinition => |interfaceTypeDefinition| {
+                return std.fmt.allocPrint(self.allocator, "interfaceTypeDefinition_{s}", .{interfaceTypeDefinition.name}) catch
+                    return MergeError.UnexpectedMemoryError;
+            },
+            .interfaceTypeExtension => |interfaceTypeExtension| {
+                return std.fmt.allocPrint(self.allocator, "interfaceTypeDefinition_{s}", .{interfaceTypeExtension.name}) catch
+                    return MergeError.UnexpectedMemoryError;
+            },
+            .inputObjectTypeDefinition => |inputObjectTypeDefinition| {
+                return std.fmt.allocPrint(self.allocator, "inputObjectTypeDefinition_{s}", .{inputObjectTypeDefinition.name}) catch
+                    return MergeError.UnexpectedMemoryError;
+            },
+            .inputObjectTypeExtension => |inputObjectTypeExtension| {
+                return std.fmt.allocPrint(self.allocator, "inputObjectTypeDefinition_{s}", .{inputObjectTypeExtension.name}) catch
                     return MergeError.UnexpectedMemoryError;
             },
             else => return std.fmt.allocPrint(self.allocator, "unknownDefinition_{s}", .{@tagName(definition)}) catch
@@ -128,6 +147,36 @@ pub const Merger = struct {
                     const mergedDefinition = try mergeUnionTypeDefinitions(self, unionTypeDefinitions);
                     mergedDefinitions.append(self.allocator, ExecutableDefinition{ .unionTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
                 },
+                .interfaceTypeDefinition, .interfaceTypeExtension => {
+                    var interfaceTypeDefinitions: ArrayList(InterfaceTypeDefinition) = .empty;
+                    defer interfaceTypeDefinitions.deinit(self.allocator);
+
+                    for (similarDefinitions.items) |definition| {
+                        interfaceTypeDefinitions.append(self.allocator, switch (definition) {
+                            .interfaceTypeDefinition => |def| def,
+                            .interfaceTypeExtension => |ext| InterfaceTypeDefinition.fromExtension(ext),
+                            else => unreachable,
+                        }) catch return MergeError.UnexpectedMemoryError;
+                    }
+
+                    const mergedDefinition = try mergeInterfaceTypeDefinitions(self, interfaceTypeDefinitions);
+                    mergedDefinitions.append(self.allocator, ExecutableDefinition{ .interfaceTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
+                },
+                .inputObjectTypeDefinition, .inputObjectTypeExtension => {
+                    var inputObjectTypeDefinitions: ArrayList(InputObjectTypeDefinition) = .empty;
+                    defer inputObjectTypeDefinitions.deinit(self.allocator);
+
+                    for (similarDefinitions.items) |definition| {
+                        inputObjectTypeDefinitions.append(self.allocator, switch (definition) {
+                            .inputObjectTypeDefinition => |def| def,
+                            .inputObjectTypeExtension => |ext| InputObjectTypeDefinition.fromExtension(ext),
+                            else => unreachable,
+                        }) catch return MergeError.UnexpectedMemoryError;
+                    }
+
+                    const mergedDefinition = try mergeInputObjectTypeDefinitions(self, inputObjectTypeDefinitions);
+                    mergedDefinitions.append(self.allocator, ExecutableDefinition{ .inputObjectTypeDefinition = mergedDefinition }) catch return MergeError.UnexpectedMemoryError;
+                },
                 .operationDefinition, .fragmentDefinition => {
                     unmergeableDefinitions.appendSlice(self.allocator, similarDefinitions.items) catch return MergeError.UnexpectedMemoryError;
                 },
@@ -208,6 +257,63 @@ fn mergeUnionTypeDefinitions(self: *Merger, unionTypeDefinitions: ArrayList(Unio
         .types = types.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
         .directives = directives.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
         .description = if (description != null) description.? else null,
+        ._is_merge_result = true,
+    };
+}
+
+fn mergeInterfaceTypeDefinitions(self: *Merger, interfaceTypeDefinitions: ArrayList(InterfaceTypeDefinition)) MergeError!InterfaceTypeDefinition {
+    var name: ?[]const u8 = null;
+    var description: ?[]const u8 = null;
+    var interfaces: ArrayList(Interface) = .empty;
+    var directives: ArrayList(Directive) = .empty;
+    var fields: ArrayList(FieldDefinition) = .empty;
+
+    for (interfaceTypeDefinitions.items) |interfaceTypeDef| {
+        if (name == null) {
+            name = interfaceTypeDef.name;
+        }
+        if (description == null) {
+            description = interfaceTypeDef.description;
+        }
+        interfaces.appendSlice(self.allocator, interfaceTypeDef.interfaces) catch return MergeError.UnexpectedMemoryError;
+        directives.appendSlice(self.allocator, interfaceTypeDef.directives) catch return MergeError.UnexpectedMemoryError;
+        fields.appendSlice(self.allocator, interfaceTypeDef.fields) catch return MergeError.UnexpectedMemoryError;
+    }
+
+    return InterfaceTypeDefinition{
+        .allocator = self.allocator,
+        .name = name.?,
+        .description = if (description != null) description.? else null,
+        .interfaces = interfaces.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .directives = directives.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .fields = fields.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        ._is_merge_result = true,
+    };
+}
+
+fn mergeInputObjectTypeDefinitions(self: *Merger, inputObjectTypeDefinitions: ArrayList(InputObjectTypeDefinition)) MergeError!InputObjectTypeDefinition {
+    var name: ?[]const u8 = null;
+    var description: ?[]const u8 = null;
+    var directives: ArrayList(Directive) = .empty;
+    var fields: ArrayList(InputValueDefinition) = .empty;
+
+    for (inputObjectTypeDefinitions.items) |inputObjectTypeDefinition| {
+        if (name == null) {
+            name = inputObjectTypeDefinition.name;
+        }
+        if (description == null) {
+            description = inputObjectTypeDefinition.description;
+        }
+        directives.appendSlice(self.allocator, inputObjectTypeDefinition.directives) catch return MergeError.UnexpectedMemoryError;
+        fields.appendSlice(self.allocator, inputObjectTypeDefinition.fields) catch return MergeError.UnexpectedMemoryError;
+    }
+
+    return InputObjectTypeDefinition{
+        .allocator = self.allocator,
+        .name = name.?,
+        .description = if (description != null) description.? else null,
+        .directives = directives.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
+        .fields = fields.toOwnedSlice(self.allocator) catch return MergeError.UnexpectedMemoryError,
         ._is_merge_result = true,
     };
 }

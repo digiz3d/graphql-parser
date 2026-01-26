@@ -30,7 +30,15 @@ pub const InterfaceTypeDefinition = struct {
     fields: []FieldDefinition,
     directives: []Directive,
 
+    _is_merge_result: bool = false,
+
     pub fn deinit(self: InterfaceTypeDefinition) void {
+        if (self._is_merge_result) {
+            self.allocator.free(self.interfaces);
+            self.allocator.free(self.directives);
+            self.allocator.free(self.fields);
+            return;
+        }
         self.allocator.free(self.name);
         if (self.description != null) {
             self.allocator.free(self.description.?);

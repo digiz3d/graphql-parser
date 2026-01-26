@@ -23,7 +23,14 @@ pub const InputObjectTypeDefinition = struct {
     directives: []Directive,
     fields: []InputValueDefinition,
 
+    _is_merge_result: bool = false,
+
     pub fn deinit(self: InputObjectTypeDefinition) void {
+        if (self._is_merge_result) {
+            self.allocator.free(self.fields);
+            self.allocator.free(self.directives);
+            return;
+        }
         if (self.description != null) {
             self.allocator.free(self.description.?);
         }

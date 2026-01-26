@@ -1,11 +1,29 @@
-extend type Query {
-  "this is a new field"
-  world: String!
-}
-
 #ok
-extend type Object {
+extend type FirstObject {
   material: String!
 }
 
-union SomeUnion = Nope
+type SecondObject {
+  secondProperty: String!
+}
+
+union FirstUnion = Nope
+
+extend union SecondUnion = Nope2
+
+interface FirstInterface {
+  "with some description"
+  field2(input: ID!): String!
+}
+
+extend interface SecondInterface {
+  field2: ID!
+}
+
+input FirstInput {
+  field2: ID!
+}
+
+extend input SecondInput {
+  field2: ID!
+}
