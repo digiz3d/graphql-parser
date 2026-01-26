@@ -52,7 +52,6 @@ pub const UnionTypeDefinition = struct {
             .description = null,
             .types = ext.types,
             .directives = ext.directives,
-            ._is_merge_result = true,
         };
     }
 };
