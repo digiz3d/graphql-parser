@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseFast });
     const lib_mod = b.createModule(.{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
@@ -14,8 +14,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-
-    exe_mod.addImport("GraphQLParser_lib", lib_mod);
 
     const lib = b.addLibrary(.{
         .linkage = .static,
@@ -61,14 +59,16 @@ pub fn build(b: *std.Build) void {
 
     // benchmark step
     const benchmark_module = b.createModule(.{
-        .root_source_file = b.path("src/merge.zig"),
+        .root_source_file = b.path("benchmark/zig/main.zig"),
         .target = target,
-        .optimize = .ReleaseFast,
+        .optimize = optimize,
         .strip = true,
     });
+    benchmark_module.addImport("gql", lib_mod);
     const benchmark_exe = b.addExecutable(.{
         .name = "main",
         .root_module = benchmark_module,
+        .linkage = .static,
     });
     const benchmark_install = b.addInstallArtifact(benchmark_exe, .{
         .pdb_dir = .disabled,

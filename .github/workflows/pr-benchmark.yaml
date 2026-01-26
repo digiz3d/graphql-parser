@@ -1,4 +1,4 @@
-name: Run tests
+name: Run benchmark
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,17 +12,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  bench:
     runs-on: ubuntu-latest
-    name: Unit tests
+    name: Merge
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
-      - run: mise run unit
-  e2e:
-    runs-on: ubuntu-latest
-    name: E2E tests
-    steps:
-      - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
-      - run: mise run e2e
+        with:
+          working_directory: benchmark
+      - run: mise run bench
+        working-directory: benchmark
