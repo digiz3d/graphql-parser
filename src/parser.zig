@@ -325,8 +325,7 @@ pub const Parser = struct {
 
     pub fn consumeSpecificIdentifier(self: *Parser, comptime tokenStr: []const u8) ParseError!void {
         const nextToken = try self.consumeToken(Token.Tag.identifier);
-        const strValue = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-        defer self.allocator.free(strValue);
+        const strValue = nextToken.getStringRef();
         if (!strEq(strValue, tokenStr)) {
             return ParseError.UnexpectedToken;
         }
