@@ -19,3 +19,7 @@ run = [
     "bun run run-others.ts",
 ]
 description = "Build other libs and generate graphql"
+
+[tasks.micro-bench]
+run = ["cd .. && zig build micro-benchmark", "bun run run-micro-bench.ts"]
+description = "Run micro benchmarks"
