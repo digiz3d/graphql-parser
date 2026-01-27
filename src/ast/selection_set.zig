@@ -43,8 +43,7 @@ pub fn parseSelectionSet(parser: *Parser) ParseError!SelectionSet {
 
         if (currentToken.tag == Token.Tag.punct_spread) {
             const onOrSpreadNameToken = parser.consumeNextToken() orelse return ParseError.UnexpectedMemoryError;
-            const onOrSpreadName = onOrSpreadNameToken.getStringValue(parser.allocator) catch "";
-            defer parser.allocator.free(onOrSpreadName);
+            const onOrSpreadName = onOrSpreadNameToken.getStringRef();
 
             var selection: Selection = undefined;
             if (strEq(onOrSpreadName, "on")) {
