@@ -121,11 +121,7 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
-                const tokenStr = token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-                defer self.allocator.free(tokenStr);
-
-                const str = try self.getTokenValue(token);
-                defer self.allocator.free(str);
+                const str = token.getStringRef();
                 if (strEq(str, "query") or strEq(str, "mutation") or strEq(str, "subscription")) {
                     continue :state Reading.operation_definition;
                 } else if (strEq(str, "fragment")) {
@@ -339,8 +335,7 @@ pub const Parser = struct {
     }
 
     pub fn getTokenValue(self: *Parser, token: Token) ParseError![]const u8 {
-        const str = token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-        return str;
+        return token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
     }
 };
 

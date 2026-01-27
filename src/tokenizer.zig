@@ -70,6 +70,10 @@ pub const Token = struct {
         try value.appendSlice(allocator, self.buffer[loc.start..loc.end]);
         return value.toOwnedSlice(allocator);
     }
+
+    pub fn getStringRef(self: *const Token) []const u8 {
+        return self.buffer[self.loc.start..self.loc.end];
+    }
 };
 
 const TokenizerError = error{UnexpectedRuneError};
