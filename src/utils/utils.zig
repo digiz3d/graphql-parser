@@ -59,12 +59,9 @@ pub fn getFileContent(filePath: []const u8, allocator: Allocator) anyerror![:0]c
     defer file.close();
 
     const stat = try file.stat();
-    const rawContent = try file.readToEndAlloc(allocator, stat.size);
-    defer allocator.free(rawContent);
-
-    const content: [:0]u8 = try allocator.allocSentinel(u8, rawContent.len, 0);
-    @memcpy(content, rawContent);
-
+    const content: [:0]u8 = try allocator.allocSentinel(u8, stat.size, 0);
+    const bytes_read = try file.readAll(content);
+    content[bytes_read] = 0;
     return content;
 }
 

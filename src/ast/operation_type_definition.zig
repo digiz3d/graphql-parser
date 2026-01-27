@@ -44,8 +44,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser) ParseError![]OperationType
 
     while (true) {
         const opTypeToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
-        const operationType = try parser.getTokenValue(opTypeToken);
-        defer parser.allocator.free(operationType);
+        const operationType = parser.getTokenValueRef(opTypeToken);
 
         if (!strEq(operationType, "query") and !strEq(operationType, "mutation") and !strEq(operationType, "subscription")) {
             return ParseError.InvalidOperationType;
@@ -53,8 +52,7 @@ pub fn parseOperationTypeDefinitions(parser: *Parser) ParseError![]OperationType
 
         _ = try parser.consumeToken(Token.Tag.punct_colon);
         const typeNameToken = try parser.consumeToken(Token.Tag.identifier);
-        const typeName = try parser.getTokenValue(typeNameToken);
-        defer parser.allocator.free(typeName);
+        const typeName = parser.getTokenValueRef(typeNameToken);
 
         const definition = parseOperationTypeDefinition(parser.allocator, operationType, typeName) catch return ParseError.UnexpectedMemoryError;
         definitions.append(parser.allocator, definition) catch return ParseError.UnexpectedMemoryError;

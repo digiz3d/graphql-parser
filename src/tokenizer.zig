@@ -65,10 +65,11 @@ pub const Token = struct {
     }
 
     pub fn getStringValue(self: *const Token, allocator: Allocator) ![]const u8 {
-        const loc = self.loc;
-        var value: ArrayList(u8) = .empty;
-        try value.appendSlice(allocator, self.buffer[loc.start..loc.end]);
-        return value.toOwnedSlice(allocator);
+        return allocator.dupe(u8, self.buffer[self.loc.start..self.loc.end]);
+    }
+
+    pub fn getStringRef(self: *const Token) []const u8 {
+        return self.buffer[self.loc.start..self.loc.end];
     }
 };
 

@@ -459,19 +459,13 @@ fn getGqlInputValue(printer: *Printer, inputValue: InputValue) !void {
             try printer.append(if (booleanValue.value) "true" else "false");
         },
         .int_value => |intValue| {
-            const intStr = try std.fmt.allocPrint(printer.allocator, "{d}", .{intValue.value});
-            defer printer.allocator.free(intStr);
-            try printer.append(intStr);
+            try std.fmt.format(printer.buffer.writer(printer.allocator), "{d}", .{intValue.value});
         },
         .float_value => |floatValue| {
-            const floatStr = try std.fmt.allocPrint(printer.allocator, "{d}", .{floatValue.value});
-            defer printer.allocator.free(floatStr);
-            try printer.append(floatStr);
+            try std.fmt.format(printer.buffer.writer(printer.allocator), "{d}", .{floatValue.value});
         },
         .string_value => |stringValue| {
-            const stringStr = try std.fmt.allocPrint(printer.allocator, "{s}", .{stringValue.value});
-            defer printer.allocator.free(stringStr);
-            try printer.append(stringStr);
+            try printer.append(stringValue.value);
         },
         .null_value => {
             try printer.append("null");

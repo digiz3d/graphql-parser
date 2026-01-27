@@ -121,11 +121,7 @@ pub const Parser = struct {
                     return ParseError.ExpectedName;
                 }
 
-                const tokenStr = token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-                defer self.allocator.free(tokenStr);
-
-                const str = try self.getTokenValue(token);
-                defer self.allocator.free(str);
+                const str = token.getStringRef();
                 if (strEq(str, "query") or strEq(str, "mutation") or strEq(str, "subscription")) {
                     continue :state Reading.operation_definition;
                 } else if (strEq(str, "fragment")) {
@@ -148,8 +144,7 @@ pub const Parser = struct {
                     continue :state Reading.interface_type_definition;
                 } else if (strEq(str, "extend")) {
                     const nextToken = self.peekNextNextToken() orelse return ParseError.EmptyTokenList;
-                    const nextTokenStr = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-                    defer self.allocator.free(nextTokenStr);
+                    const nextTokenStr = nextToken.getStringRef();
 
                     if (strEq(nextTokenStr, "schema")) {
                         continue :state Reading.schema_extension;
@@ -330,8 +325,7 @@ pub const Parser = struct {
 
     pub fn consumeSpecificIdentifier(self: *Parser, comptime tokenStr: []const u8) ParseError!void {
         const nextToken = try self.consumeToken(Token.Tag.identifier);
-        const strValue = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-        defer self.allocator.free(strValue);
+        const strValue = nextToken.getStringRef();
         if (!strEq(strValue, tokenStr)) {
             return ParseError.UnexpectedToken;
         }
@@ -339,8 +333,11 @@ pub const Parser = struct {
     }
 
     pub fn getTokenValue(self: *Parser, token: Token) ParseError![]const u8 {
-        const str = token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-        return str;
+        return token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
+    }
+
+    pub fn getTokenValueRef(_: *Parser, token: Token) []const u8 {
+        return token.getStringRef();
     }
 };
 

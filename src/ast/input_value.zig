@@ -168,8 +168,7 @@ pub fn parseInputValue(parser: *Parser, acceptVariables: bool) ParseError!InputV
         return ParseError.ExpectedName;
     }
 
-    var str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
-    defer parser.allocator.free(str);
+    var str = token.getStringRef();
 
     switch (token.tag) {
         Token.Tag.punct_brace_left,
@@ -227,8 +226,7 @@ pub fn parseInputValue(parser: *Parser, acceptVariables: bool) ParseError!InputV
         },
         Token.Tag.punct_dollar => {
             token = try parser.consumeToken(Token.Tag.identifier);
-            parser.allocator.free(str);
-            str = token.getStringValue(parser.allocator) catch return ParseError.UnexpectedMemoryError;
+            str = token.getStringRef();
 
             const strCopy = parser.allocator.dupe(u8, str) catch return ParseError.UnexpectedMemoryError;
             return InputValue{
