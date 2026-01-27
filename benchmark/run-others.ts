@@ -11,5 +11,5 @@ const commandArgs = benchmarks
   })
   .join(" ");
 
-const hyperfineCmd = `hyperfine --runs 1 --warmup 0 --show-output ${commandArgs}`;
+const hyperfineCmd = `hyperfine --runs 1 --warmup 0 ${commandArgs}`;
 execSync(hyperfineCmd, { stdio: "inherit" });
