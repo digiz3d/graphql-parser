@@ -57,9 +57,13 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_lib_unit_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
 
-    // benchmark step
+    setupBenchmark(b, "benchmark", "benchmark/zig/main.zig", target, optimize, lib_mod);
+    setupBenchmark(b, "micro-benchmark", "benchmark/zig/micro-main.zig", target, optimize, lib_mod);
+}
+
+fn setupBenchmark(b: *std.Build, cliShortcut: []const u8, entrypoint: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, lib_mod: *std.Build.Module) void {
     const benchmark_module = b.createModule(.{
-        .root_source_file = b.path("benchmark/zig/main.zig"),
+        .root_source_file = b.path(entrypoint),
         .target = target,
         .optimize = optimize,
         .strip = true,
@@ -74,6 +78,6 @@ pub fn build(b: *std.Build) void {
         .pdb_dir = .disabled,
         .dest_dir = .{ .override = .{ .custom = "../benchmark/zig" } },
     });
-    const benchmark_step = b.step("benchmark", "Build benchmark");
+    const benchmark_step = b.step(cliShortcut, "Build benchmark");
     benchmark_step.dependOn(&benchmark_install.step);
 }
