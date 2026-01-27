@@ -144,8 +144,7 @@ pub const Parser = struct {
                     continue :state Reading.interface_type_definition;
                 } else if (strEq(str, "extend")) {
                     const nextToken = self.peekNextNextToken() orelse return ParseError.EmptyTokenList;
-                    const nextTokenStr = nextToken.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
-                    defer self.allocator.free(nextTokenStr);
+                    const nextTokenStr = nextToken.getStringRef();
 
                     if (strEq(nextTokenStr, "schema")) {
                         continue :state Reading.schema_extension;
