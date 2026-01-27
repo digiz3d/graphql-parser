@@ -27,8 +27,7 @@ pub fn parseInterfaces(parser: *Parser) ParseError![]Interface {
     var interfaces: ArrayList(Interface) = .empty;
 
     const implementsToken = parser.peekNextToken() orelse return ParseError.EmptyTokenList;
-    const implementsStr = try parser.getTokenValue(implementsToken);
-    defer parser.allocator.free(implementsStr);
+    const implementsStr = parser.getTokenValueRef(implementsToken);
     if (implementsToken.tag != Token.Tag.identifier or !strEq(implementsStr, "implements")) {
         return interfaces.toOwnedSlice(parser.allocator) catch return ParseError.UnexpectedMemoryError;
     }

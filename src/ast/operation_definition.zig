@@ -48,8 +48,7 @@ pub const OperationDefinition = struct {
 pub fn parseOperationDefinition(parser: *Parser) ParseError!OperationDefinition {
     const operationTypeToken = parser.consumeToken(Token.Tag.identifier) catch return ParseError.ExpectedName;
 
-    const str = try parser.getTokenValue(operationTypeToken);
-    defer parser.allocator.free(str);
+    const str = parser.getTokenValueRef(operationTypeToken);
 
     const operationType = if (strEq(str, "query"))
         OperationType.query

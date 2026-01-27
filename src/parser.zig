@@ -335,6 +335,10 @@ pub const Parser = struct {
     pub fn getTokenValue(self: *Parser, token: Token) ParseError![]const u8 {
         return token.getStringValue(self.allocator) catch return ParseError.UnexpectedMemoryError;
     }
+
+    pub fn getTokenValueRef(_: *Parser, token: Token) []const u8 {
+        return token.getStringRef();
+    }
 };
 
 // error cases
