@@ -61,9 +61,9 @@ pub fn build(b: *std.Build) void {
     setupBenchmark(b, "micro-benchmark", "benchmark/zig/micro-main.zig", target, optimize, lib_mod);
 }
 
-fn setupBenchmark(b: *std.Build, cliShortcut: []const u8, path: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, lib_mod: *std.Build.Module) void {
+fn setupBenchmark(b: *std.Build, cliShortcut: []const u8, entrypoint: []const u8, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, lib_mod: *std.Build.Module) void {
     const benchmark_module = b.createModule(.{
-        .root_source_file = b.path(path),
+        .root_source_file = b.path(entrypoint),
         .target = target,
         .optimize = optimize,
         .strip = true,
