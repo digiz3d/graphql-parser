@@ -17,14 +17,14 @@ pub fn build(b: *std.Build) void {
 
     const lib = b.addLibrary(.{
         .linkage = .static,
-        .name = "GraphQLParser",
+        .name = "gqlt",
         .root_module = lib_mod,
     });
 
     b.installArtifact(lib);
 
     const exe = b.addExecutable(.{
-        .name = "GraphQLParser",
+        .name = "gqlt",
         .root_module = exe_mod,
     });
 

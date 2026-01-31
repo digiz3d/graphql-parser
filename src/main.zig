@@ -79,11 +79,10 @@ pub fn main() !void {
             try outputFile.writeAll(gql);
         },
         .help => {
-            std.log.info("Usage: gql <command> <input_paths> <output_path>\n", .{});
+            std.log.info("Usage: gqlt <command> <input_paths> <output_path>\n", .{});
             std.log.info("Commands:\n", .{});
             std.log.info("  ast: Print the AST of the given files\n", .{});
             std.log.info("  merge: Merge the given files into a single document\n", .{});
-            std.log.info("  print: Print the GQL of the given files\n", .{});
             std.log.info("  help: Print this help message\n", .{});
         },
     }
