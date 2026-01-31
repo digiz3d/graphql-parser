@@ -12,12 +12,6 @@ const PrintASTArgs = struct {
 
 const HelpArgs = struct {};
 
-const CommandEnum = enum {
-    ast,
-    merge,
-    help,
-};
-
 const Command = union(enum) {
     ast: PrintASTArgs,
     merge: MergeArgs,
@@ -43,7 +37,11 @@ pub fn parseArgs(allocator: Allocator) CLIError!Command {
     if (maybeCommand == null) {
         return Command{ .help = HelpArgs{} };
     }
-    const command = std.meta.stringToEnum(CommandEnum, maybeCommand.?) orelse return CLIError.InvalidCommand;
+    const command = std.meta.stringToEnum(enum {
+        ast,
+        merge,
+        help,
+    }, maybeCommand.?) orelse return CLIError.InvalidCommand;
 
     switch (command) {
         .ast, .merge => |cmd| {

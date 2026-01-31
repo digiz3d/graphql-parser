@@ -6,6 +6,7 @@ const getFileContent = @import("utils/utils.zig").getFileContent;
 const Printer = @import("printer.zig").Printer;
 const Merger = @import("merge.zig").Merger;
 const Document = @import("ast/document.zig").Document;
+const strEq = @import("utils/utils.zig").strEq;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -50,7 +51,12 @@ pub fn main() !void {
                 }
                 documents.deinit(allocator);
             }
+            const destinationPath = mergeArgs.paths[mergeArgs.paths.len - 1];
             for (mergeArgs.paths[0 .. mergeArgs.paths.len - 1]) |file| {
+                if (strEq(file, destinationPath)) {
+                    std.debug.print("Warning: Destination file cannot be the same as the source file: {s}\n", .{file});
+                    continue;
+                }
                 const content = getFileContent(file, allocator) catch return;
                 defer allocator.free(content);
 
@@ -68,7 +74,7 @@ pub fn main() !void {
             const gql = try printer.getGql();
             defer allocator.free(gql);
 
-            const outputFile = try std.fs.cwd().createFile(mergeArgs.paths[mergeArgs.paths.len - 1], .{});
+            const outputFile = try std.fs.cwd().createFile(destinationPath, .{});
             defer outputFile.close();
             try outputFile.writeAll(gql);
         },
