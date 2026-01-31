@@ -6,7 +6,6 @@ const Allocator = std.mem.Allocator;
 const tok = @import("tokenizer.zig");
 const Token = tok.Token;
 const Tokenizer = tok.Tokenizer;
-const printTokens = tok.printTokens;
 
 const input = @import("ast/input_value.zig");
 const parseDirectives = @import("ast/directive.zig").parseDirectives;
