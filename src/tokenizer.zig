@@ -424,7 +424,6 @@ test "get all tokens" {
     const tokens = try tokenizer.getAllTokens();
     defer std.testing.allocator.free(tokens);
     try std.testing.expectEqual(21, tokens.len);
-    // printTokens(tokens, content);
 }
 
 fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !void {
@@ -443,13 +442,4 @@ fn testTokenize(source: [:0]const u8, expected_token_tags: []const Token.Tag) !v
     try std.testing.expectEqual(Token.Tag.eof, last_token.tag);
     try std.testing.expectEqual(source.len, last_token.loc.start);
     try std.testing.expectEqual(source.len, last_token.loc.end);
-}
-
-pub fn printTokens(tokens: []Token, content: [:0]const u8) void {
-    for (tokens) |t| {
-        std.debug.print("Token: {s} \t ({s})\n", .{
-            t.toString(),
-            content[t.loc.start..t.loc.end],
-        });
-    }
 }
