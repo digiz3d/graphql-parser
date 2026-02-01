@@ -7,12 +7,14 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
+        .strip = true,
     });
 
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .strip = true,
     });
 
     const lib = b.addLibrary(.{
@@ -100,6 +102,7 @@ fn setupBuildAllPlatforms(b: *std.Build, cliShortcut: []const u8, optimize: std.
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
+            .strip = true,
         });
         const exe = b.addExecutable(.{
             .name = "gqlt",
