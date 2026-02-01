@@ -3,14 +3,17 @@ on:
   push:
     branches:
       - main
+
 permissions:
   contents: write
   pull-requests: write
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release-please.outputs.releases_created }}
+      tag_name: ${{ steps.release-please.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release-please
@@ -32,3 +35,25 @@ jobs:
           git add build.zig.zon
           git commit -m "chore: sync build.zig.zon version with version.txt [skip ci]" || echo "No changes to commit"
           git push
+
+  build-and-upload-assets:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: zig build all-platforms
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          for dir in zig-out/*/; do
+            platform=$(basename "$dir")
+            for file in "$dir"*; do
+              filename=$(basename "$file")
+              cp "$file" "release-assets/${platform}-${filename}"
+            done
+          done
+          gh release upload ${{ needs.release-please.outputs.tag_name }} release-assets/*
