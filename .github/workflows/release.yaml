@@ -21,13 +21,12 @@ jobs:
           release-type: simple
 
       - uses: actions/checkout@v6
-        id: checkout-after-pr
         if: ${{ steps.release-please.outputs.prs_created == 'true' }}
         with:
           ref: release-please--branches--main--components--graphql-parser
 
       - name: Update release PR branch
-        if: ${{ steps.checkout-after-pr.outputs.prs_created == 'true' }}
+        if: ${{ steps.release-please.outputs.prs_created == 'true' }}
         run: |
           VERSION=$(cat version.txt)
           sed -i "s/\\(.version = \\).*\\,/\\1\"$VERSION\",/" build.zig.zon
