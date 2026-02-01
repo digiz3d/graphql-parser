@@ -19,3 +19,6 @@ run = [
 
 [tasks.tests]
 depends = ["unit", "e2e"]
+
+[tasks.build]
+run = "zig build"
