@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v6
         if: ${{ steps.release-please.outputs.prs_created == 'true' }}
         with:
-          ref: release-please--branches--main--components--graphql-parser
+          ref: release-please--branches--main
 
       - name: Update release PR branch
         if: ${{ steps.release-please.outputs.prs_created == 'true' }}
