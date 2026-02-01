@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/digiz3d/graphql-parser/compare/v1.0.0...v1.0.1) (2026-02-01)
+
+
+### Performance Improvements
+
+* remove debug symbols from executables ([#60](https://github.com/digiz3d/graphql-parser/issues/60)) ([f2f0e0d](https://github.com/digiz3d/graphql-parser/commit/f2f0e0da8bc9f21b1353521779c54dce3ef82fd2))
+
 ## 1.0.0 (2026-02-01)
 
 
