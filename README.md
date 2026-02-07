@@ -74,3 +74,4 @@ By doing this project, my goals were to
 
 - [gqlmerge](https://github.com/mununki/gqlmerge). Even if it did not work for my use case, it is a great tool for simpler projects. Learnt a lot from it !
 - [astexplorer](https://github.com/fkling/astexplorer) for visual representation of the JS GraphQL parser output.
+- [GraphQL specification](https://spec.graphql.org/draft/) for the grammar and the syntax.
