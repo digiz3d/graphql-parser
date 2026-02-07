@@ -11,18 +11,22 @@ Merging schema files:
 
 ## Usage
 
-`gqlt merge ./graphql/**/*.graphql ./combined.graphql`  
-or even  
-`gqlt merge ./file1.graphql ./file2.graphql ./combined.graphql`
+`gqlt merge ./file1.graphql ./file2.graphql ./combined.graphql`  
+or even, when your shell (e.g. zsh) supports it:  
+`gqlt merge ./graphql/**/*.graphql ./combined.graphql`
 
 The last path is the output file.
 
-_note:  
-Bash is also supported for recursive globs (path/\*\*/\*.gql) with `shopt -s globstar`_
+_note: bash is also supported for recursive globs (path/\*\*/\*.gql) with `shopt -s globstar`_
 
 ## Install
 
 `brew install digiz3d/tap/gqlt`
+
+## Stack
+
+Made 100% with [Zig](https://ziglang.org).  
+No dependencies.
 
 ## Compile from source
 
@@ -34,23 +38,29 @@ gqlt will be compiled for your current platform here: `./zig-out/bin/gqlt`.
 ### gqlt
 
 - fastest implementation 🚀 (see [benchmarks](./benchmark/README.md))
-- lacking directives concatenation
-- does not preserve comments (but keeps descriptions)
+- does not support directives concatenation
+- consistent indentation
 - does not order definitions
+- preserve descriptions but not comments
+- supports double quotes in strings
 
 ### [@graphql-tools/merge](https://www.npmjs.com/package/@graphql-tools/merge)
 
 - much slower than gqlt
 - complete implementation
-- preseve comments
+- consistent indentation
 - can order definitions alphabetically
+- preserve descriptions but not comments
+- supports double quotes in strings
 
 ### [gqlmerge](https://github.com/mununki/gqlmerge)
 
 - blazing fast, but slower than gqlt
-- lacking features like object type merging or union merging or directives concatenation
-- preserves comments
+- does not support object type merging, input object merging, union merging, interface merging, enum merging, nor directives concatenation
+- inconsistent indentation
 - does not order definitions
+- preserves descriptions and comments
+- does not support double quotes in strings
 
 ## Motivations
 
