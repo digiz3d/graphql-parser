@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/digiz3d/graphql-toolkit/compare/v1.0.2...v1.0.3) (2026-02-07)
+
+
+### Bug Fixes
+
+* display error message on missing file ([#64](https://github.com/digiz3d/graphql-toolkit/issues/64)) ([2b4c7ad](https://github.com/digiz3d/graphql-toolkit/commit/2b4c7ad87fb46a0b43ccec9826d4ad112736754a))
+
 ## [1.0.2](https://github.com/digiz3d/graphql-toolkit/compare/v1.0.1...v1.0.2) (2026-02-07)
 
 
