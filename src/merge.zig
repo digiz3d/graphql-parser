@@ -73,7 +73,7 @@ pub const Merger = struct {
         //   "objectTypeDefinition_Object": [objectTypeExtension_obj1, objectTypeDefinition_obj2],
         //   "objectTypeDefinition_Query": [objectTypeDefinition_obj3, objectTypeExtension_obj4],
         // }
-        var similarDefinitionsMap = std.StringHashMap(ArrayList(ExecutableDefinition)).init(self.allocator);
+        var similarDefinitionsMap: std.StringHashMap(ArrayList(ExecutableDefinition)) = .init(self.allocator);
         defer {
             var iter = similarDefinitionsMap.iterator();
             while (iter.next()) |entry| {
