@@ -16,7 +16,7 @@ pub fn main() !void {
     switch (command) {
         .ast => |astArgs| {
             if (astArgs.paths.len < 1) {
-                std.debug.print("No files provided\n", .{});
+                std.debug.print("No files provided\n\n", .{});
                 std.debug.print("Usage: gqlt ast [input_paths...]\n", .{});
                 return;
             }
@@ -42,7 +42,7 @@ pub fn main() !void {
         },
         .merge => |mergeArgs| {
             if (mergeArgs.paths.len < 2) {
-                std.debug.print("No files provided\n", .{});
+                std.debug.print("No files provided\n\n", .{});
                 std.debug.print("Usage: gqlt merge [input_paths...] [output_path]\n", .{});
                 return;
             }
