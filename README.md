@@ -42,7 +42,7 @@ Tools we compare **gqlt** with:
 |                                    | gqlt                                          | @graphql-tools/merge) | gqlmerge                                                                                           |
 | ---------------------------------- | --------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
 | **Speed**                          | fastest 🚀                                    | slow                  | fast                                                                                               |
-| **Scope**                          | <ul><li>no directives concatenation</li></ul> | ✅                    | <ul><li>no object/input/union/interface/enum merging</li><li>no directives concatenation</li></ul> |
+| **Limitations**                    | <ul><li>no directives concatenation</li></ul> | none                  | <ul><li>no object/input/union/interface/enum merging</li><li>no directives concatenation</li></ul> |
 | **Indentation**                    | ✅                                            | ✅                    | ❌ inconsistent                                                                                    |
 | **Order definitions**              | ❌                                            | ✅                    | ❌                                                                                                 |
 | **Descriptions**                   | ✅                                            | ✅                    | ✅                                                                                                 |
