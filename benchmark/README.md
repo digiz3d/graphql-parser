@@ -19,8 +19,8 @@ On Github Action - ubuntu-latest
 ```
 Summary
   zig ran
-    2.13 ± 7.55 times faster than go
-   24.41 ± 5.09 times faster than bun
+    1.45 ± 0.18 times faster than go
+   25.26 ± 3.87 times faster than bun
 ```
 
 ## Run the benchmark
