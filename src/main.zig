@@ -16,21 +16,14 @@ pub fn main() !void {
     switch (command) {
         .ast => |astArgs| {
             if (astArgs.paths.len < 1) {
-                std.debug.print("Error: No files provided\n", .{});
+                std.debug.print("No files provided\n", .{});
                 std.debug.print("Usage: gqlt ast [input_paths...]\n", .{});
                 return;
             }
-            var documents: std.ArrayList(Document) = .empty;
-            defer {
-                for (documents.items) |document| {
-                    document.deinit();
-                }
-                documents.deinit(allocator);
-            }
             for (astArgs.paths) |file| {
                 const content = getFileContent(file, allocator) catch {
-                    std.debug.print("Error getting file content: {s}\n", .{file});
-                    return;
+                    std.debug.print("Error getting file content: {s}.\n", .{file});
+                    continue;
                 };
                 defer allocator.free(content);
 
@@ -49,7 +42,7 @@ pub fn main() !void {
         },
         .merge => |mergeArgs| {
             if (mergeArgs.paths.len < 2) {
-                std.debug.print("Error: No files provided\n", .{});
+                std.debug.print("No files provided\n", .{});
                 std.debug.print("Usage: gqlt merge [input_paths...] [output_path]\n", .{});
                 return;
             }
@@ -64,10 +57,13 @@ pub fn main() !void {
             const destinationPath = mergeArgs.paths[mergeArgs.paths.len - 1];
             for (mergeArgs.paths[0 .. mergeArgs.paths.len - 1]) |file| {
                 if (strEq(file, destinationPath)) {
-                    std.debug.print("Warning: Destination file cannot be the same as the source file: {s}\n", .{file});
+                    std.debug.print("Skipping destination file: {s}.\n", .{file});
                     continue;
                 }
-                const content = getFileContent(file, allocator) catch return;
+                const content = getFileContent(file, allocator) catch {
+                    std.debug.print("Error getting file content: {s}.\n", .{file});
+                    continue;
+                };
                 defer allocator.free(content);
 
                 var parser = try Parser.initFromBuffer(allocator, content);
@@ -75,6 +71,11 @@ pub fn main() !void {
 
                 const document = try parser.parse();
                 documents.append(allocator, document) catch return;
+            }
+
+            if (documents.items.len == 0) {
+                std.debug.print("No files to merge.\n", .{});
+                return;
             }
 
             var merger = Merger.init(allocator);
@@ -90,14 +91,14 @@ pub fn main() !void {
             try outputFile.writeAll(gql);
             const elapsed_ns = timer.read();
             const elapsed_ms = elapsed_ns / 1_000_000;
-            std.debug.print("Merged {d} files in {d}ms\n", .{ documents.items.len, elapsed_ms });
+            std.debug.print("Merged {d} files in {d}ms ✨\n", .{ documents.items.len, elapsed_ms });
         },
         .help => {
-            std.log.info("Usage: gqlt <command>\n", .{});
-            std.log.info("Commands:\n", .{});
-            std.log.info("  ast: Print the AST of the given files", .{});
-            std.log.info("  merge: Merge the given files into a single document", .{});
-            std.log.info("  help: Print this help message", .{});
+            std.debug.print("Usage: gqlt <command>\n", .{});
+            std.debug.print("Commands:\n\n", .{});
+            std.debug.print("  ast: Print the AST of the given files\n", .{});
+            std.debug.print("  merge: Merge the given files into a single document\n", .{});
+            std.debug.print("  help: Print this help message\n", .{});
         },
     }
 }
