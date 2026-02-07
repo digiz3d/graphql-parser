@@ -1,9 +1,13 @@
 # GraphQL toolkit - gqlt
 
-Extremely fast GraphQL parser, schema stitcher and formatter.
+Extremely fast GraphQL parser and merger.
 
-It can stitch and merge schema files together.  
-Perfect when you use modularized GraphQL files.
+It can stitch and merge schema files together.
+
+## Demo
+
+Merging schema files:
+![Demo showing usage of gqlt](./demo/demo.gif)
 
 ## Usage
 
