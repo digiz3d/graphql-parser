@@ -5,7 +5,7 @@ const Allocator = std.mem.Allocator;
 const t = @import("../tokenizer.zig");
 const Token = t.Token;
 const Tokenizer = t.Tokenizer;
-const p = @import("../parser.zig");
+const p = @import("../parse.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
 

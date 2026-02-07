@@ -3,7 +3,7 @@ const testing = std.testing;
 
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
-const parserImport = @import("../parser.zig");
+const parserImport = @import("../parse.zig");
 const Parser = parserImport.Parser;
 const ParseError = parserImport.ParseError;
 const parseDirectives = @import("directive.zig").parseDirectives;

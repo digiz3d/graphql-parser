@@ -9,10 +9,10 @@ const parseSelectionSet = @import("selection_set.zig").parseSelectionSet;
 const Type = @import("type.zig").Type;
 const parseNamedType = @import("type.zig").parseNamedType;
 
-const Parser = @import("../parser.zig").Parser;
+const Parser = @import("../parse.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
-const ParseError = @import("../parser.zig").ParseError;
+const ParseError = @import("../parse.zig").ParseError;
 const strEq = @import("../utils/utils.zig").strEq;
 
 pub const FragmentDefinition = struct {

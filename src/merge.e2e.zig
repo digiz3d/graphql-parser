@@ -1,11 +1,11 @@
 const std = @import("std");
 const testing = @import("std").testing;
-const Parser = @import("parser.zig").Parser;
+const Parser = @import("parse.zig").Parser;
 const Merger = @import("merge.zig").Merger;
 const getFileContent = @import("utils/utils.zig").getFileContent;
 const ArrayList = std.ArrayList;
 const Document = @import("ast/document.zig").Document;
-const Printer = @import("printer.zig").Printer;
+const Printer = @import("print.zig").Printer;
 const normalizeLineEndings = @import("utils/utils.zig").normalizeLineEndings;
 
 test "e2e-merge" {

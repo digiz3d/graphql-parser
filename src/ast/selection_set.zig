@@ -8,7 +8,7 @@ const strEq = utils.strEq;
 
 const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
-const p = @import("../parser.zig");
+const p = @import("../parse.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
 

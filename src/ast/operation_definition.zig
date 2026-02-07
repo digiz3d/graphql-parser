@@ -6,10 +6,10 @@ const Directive = @import("directive.zig").Directive;
 const VariableDefinition = @import("variable_definition.zig").VariableDefinition;
 const SelectionSet = @import("selection_set.zig").SelectionSet;
 
-const Parser = @import("../parser.zig").Parser;
+const Parser = @import("../parse.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
-const ParseError = @import("../parser.zig").ParseError;
+const ParseError = @import("../parse.zig").ParseError;
 const parseVariableDefinition = @import("variable_definition.zig").parseVariableDefinition;
 const parseDirectives = @import("directive.zig").parseDirectives;
 const parseSelectionSet = @import("selection_set.zig").parseSelectionSet;
