@@ -41,8 +41,8 @@ gqlt will be compiled for your current platform here: `./zig-out/bin/gqlt`.
 - does not support directives concatenation
 - consistent indentation
 - does not order definitions
-- preserve descriptions but not comments
-- supports double quotes in strings
+- preserves descriptions but not comments
+- supports double quotes in block strings
 
 ### [@graphql-tools/merge](https://www.npmjs.com/package/@graphql-tools/merge)
 
@@ -50,8 +50,8 @@ gqlt will be compiled for your current platform here: `./zig-out/bin/gqlt`.
 - complete implementation
 - consistent indentation
 - can order definitions alphabetically
-- preserve descriptions but not comments
-- supports double quotes in strings
+- preserves descriptions but not comments
+- supports double quotes in block strings
 
 ### [gqlmerge](https://github.com/mununki/gqlmerge)
 
@@ -59,8 +59,8 @@ gqlt will be compiled for your current platform here: `./zig-out/bin/gqlt`.
 - does not support object type merging, input object merging, union merging, interface merging, enum merging, nor directives concatenation
 - inconsistent indentation
 - does not order definitions
-- preserves descriptions and comments
-- does not support double quotes in strings
+- preservess descriptions and comments
+- does not support double quotes in block strings
 
 ## Motivations
 
