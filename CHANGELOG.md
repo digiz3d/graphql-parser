@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/digiz3d/graphql-toolkit/compare/v1.0.1...v1.0.2) (2026-02-07)
+
+
+### Bug Fixes
+
+* handle missing input and add documentation ([#62](https://github.com/digiz3d/graphql-toolkit/issues/62)) ([5f3aadb](https://github.com/digiz3d/graphql-toolkit/commit/5f3aadbbffb9b628212a75517ff28239d4675436))
+
 ## [1.0.1](https://github.com/digiz3d/graphql-parser/compare/v1.0.0...v1.0.1) (2026-02-01)
 
 
