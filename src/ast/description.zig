@@ -1,8 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
-const Parser = @import("../parser.zig").Parser;
+const Parser = @import("../parse.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
-const ParseError = @import("../parser.zig").ParseError;
+const ParseError = @import("../parse.zig").ParseError;
 
 pub fn parseOptionalDescription(parser: *Parser) ParseError!?[]const u8 {
     const firstToken = parser.peekNextToken() orelse return null;

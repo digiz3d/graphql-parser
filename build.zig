@@ -75,7 +75,7 @@ fn setupBenchmark(b: *std.Build, cliShortcut: []const u8, entrypoint: []const u8
     const benchmark_exe = b.addExecutable(.{
         .name = "main",
         .root_module = benchmark_module,
-        .linkage = .static,
+        .linkage = .dynamic,
     });
     const benchmark_install = b.addInstallArtifact(benchmark_exe, .{
         .pdb_dir = .disabled,
@@ -88,6 +88,7 @@ fn setupBenchmark(b: *std.Build, cliShortcut: []const u8, entrypoint: []const u8
 fn setupBuildAllPlatforms(b: *std.Build, cliShortcut: []const u8, optimize: std.builtin.OptimizeMode) void {
     const targets: []const std.Target.Query = &.{
         .{ .cpu_arch = .aarch64, .os_tag = .macos },
+        .{ .cpu_arch = .x86_64, .os_tag = .macos },
         .{ .cpu_arch = .aarch64, .os_tag = .linux },
         .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu },
         .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .musl },

@@ -1,11 +1,10 @@
 const testing = @import("std").testing;
-const Parser = @import("parser.zig").Parser;
+const Parser = @import("parse.zig").Parser;
 const OperationType = @import("ast/operation_definition.zig").OperationType;
-const getFileContent = @import("utils/utils.zig").getFileContent;
-const normalizeLineEndings = @import("utils/utils.zig").normalizeLineEndings;
-const trimTrailingNewlines = @import("utils/utils.zig").trimTrailingNewlines;
-const Printer = @import("printer.zig").Printer;
-const std = @import("std");
+const utils = @import("utils/utils.zig");
+const getFileContent = utils.getFileContent;
+const normalizeLineEndings = utils.normalizeLineEndings;
+const Printer = @import("print.zig").Printer;
 
 test "e2e-parse" {
     const content = try getFileContent("tests/parser.e2e.graphql", testing.allocator);

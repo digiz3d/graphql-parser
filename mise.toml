@@ -5,9 +5,6 @@ zls = "0.15.1"
 [tasks.main]
 run = "zig run src/main.zig -- $@"
 
-[tasks.merge]
-run = "zig run src/merger.zig"
-
 [tasks.unit]
 run = "zig test src/parser.zig"
 

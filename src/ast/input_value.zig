@@ -4,7 +4,7 @@ const allocPrint = std.fmt.allocPrint;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const p = @import("../parser.zig");
+const p = @import("../parse.zig");
 const Parser = p.Parser;
 const ParseError = p.ParseError;
 const strEq = @import("../utils/utils.zig").strEq;

@@ -3,10 +3,10 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const Parser = @import("../parser.zig").Parser;
+const Parser = @import("../parse.zig").Parser;
 const Token = @import("../tokenizer.zig").Token;
 const Tokenizer = @import("../tokenizer.zig").Tokenizer;
-const ParseError = @import("../parser.zig").ParseError;
+const ParseError = @import("../parse.zig").ParseError;
 
 const Directive = @import("directive.zig").Directive;
 const Type = @import("type.zig").Type;

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Printer = @import("../printer.zig").Printer;
+const Printer = @import("../print.zig").Printer;
 const Argument = @import("../ast/arguments.zig").Argument;
 const Directive = @import("../ast/directive.zig").Directive;
 const DirectiveDefinition = @import("../ast/directive_definition.zig").DirectiveDefinition;
