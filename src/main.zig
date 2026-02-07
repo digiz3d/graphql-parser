@@ -101,3 +101,7 @@ pub fn main() !void {
         },
     }
 }
+
+test "main" {
+    std.testing.refAllDecls(@This());
+}

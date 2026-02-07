@@ -6,7 +6,7 @@ zls = "0.15.1"
 run = "zig run src/main.zig -- $@"
 
 [tasks.unit]
-run = "zig test src/parse.zig"
+run = "zig test src/main.zig"
 
 [tasks.e2e]
 run = [
