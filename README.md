@@ -59,7 +59,7 @@ gqlt will be compiled for your current platform here: `./zig-out/bin/gqlt`.
 - does not support object type merging, input object merging, union merging, interface merging, enum merging, nor directives concatenation
 - inconsistent indentation
 - does not order definitions
-- preservess descriptions and comments
+- preserves descriptions and comments
 - does not support double quotes in block strings
 
 ## Motivations
