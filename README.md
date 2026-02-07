@@ -35,39 +35,28 @@ gqlt will be compiled for your current platform here: `./zig-out/bin/gqlt`.
 
 ## Comparison with other tools
 
-### gqlt
+Tools we compare **gqlt** with:  
+[@graphql-tools/merge](https://www.npmjs.com/package/@graphql-tools/merge)  
+[gqlmerge](https://github.com/mununki/gqlmerge)
 
-- fastest implementation 🚀 (see [benchmarks](./benchmark/README.md))
-- does not support directives concatenation
-- consistent indentation
-- does not order definitions
-- preserves descriptions but not comments
-- supports double quotes in block strings
+|                                    | gqlt                                          | @graphql-tools/merge) | gqlmerge                                                                                           |
+| ---------------------------------- | --------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| **Speed**                          | fastest 🚀                                    | slow                  | fast                                                                                               |
+| **Limitations**                    | <ul><li>no directives concatenation</li></ul> | none                  | <ul><li>no object/input/union/interface/enum merging</li><li>no directives concatenation</li></ul> |
+| **Indentation**                    | ✅                                            | ✅                    | ❌ inconsistent                                                                                    |
+| **Order definitions**              | ❌                                            | ✅                    | ❌                                                                                                 |
+| **Descriptions**                   | ✅                                            | ✅                    | ✅                                                                                                 |
+| **Comments**                       | ❌                                            | ❌                    | ✅                                                                                                 |
+| **Double quotes in block strings** | ✅                                            | ✅                    | ❌                                                                                                 |
 
-### [@graphql-tools/merge](https://www.npmjs.com/package/@graphql-tools/merge)
-
-- much slower than gqlt
-- complete implementation
-- consistent indentation
-- can order definitions alphabetically
-- preserves descriptions but not comments
-- supports double quotes in block strings
-
-### [gqlmerge](https://github.com/mununki/gqlmerge)
-
-- blazing fast, but slower than gqlt
-- does not support object type merging, input object merging, union merging, interface merging, enum merging, nor directives concatenation
-- inconsistent indentation
-- does not order definitions
-- preserves descriptions and comments
-- does not support double quotes in block strings
+see [benchmarks](./benchmark/README.md)
 
 ## Motivations
 
 By doing this project, my goals were to
 
 1. learn Zig
-2. write my first complete parser
+2. write my first, real parser
 3. implement some benchmark
 
 ## Thanks to
