@@ -6,12 +6,12 @@ zls = "0.15.1"
 run = "zig run src/main.zig -- $@"
 
 [tasks.unit]
-run = "zig test src/parser.zig"
+run = "zig test src/parse.zig"
 
 [tasks.e2e]
 run = [
-    "zig test --test-filter e2e src/merger.e2e.zig",
-    "zig test --test-filter e2e src/parser.e2e.zig",
+    "zig test --test-filter e2e src/merge.e2e.zig",
+    "zig test --test-filter e2e src/parse.e2e.zig",
 ]
 
 [tasks.tests]
